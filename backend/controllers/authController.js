@@ -3,61 +3,51 @@ import studentModel from "../models/studentModel.js";
 import userModel from "../models/userModel.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import validator from "validator";
+import companyModel from "../models/companyModel.js";
+import { validateFields } from "../helpers/validateFields.js";
+import { registerByRole } from "../helpers/roleRegistration.js";
 
 const register = async (req, res) => {
   try {
     const { email, password, role, ...extra } = req.body;
 
-    const existingUser = await userModel.findOne({ email });
+    // Validating Email
+    if(!validator.isEmail(email)) {
+      return res.status(400).json({message: "Invalid email format"})
+    }
 
+    // Checking existing user
+    const existingUser = await userModel.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: "Email already registered" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Role specific field validation
+    const validationError = validateFields(role, extra)
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
+    // Create - user
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new userModel({
       email,
       password: hashedPassword,
       role,
-    });
-
+    }); 
     const savedUser = await newUser.save();
 
-    if (role === "student") {
-      await studentModel.create({
-        userId: savedUser._id,
-        firstname: extra.firstname || "",
-        lastname: extra.lastname || "",
-        education: extra.education || "",
-        skills: extra.skills || [],
-        resumeUrl: extra.resumeUrl || "",
-        appliedInternships: extra.appliedInternships || [],
-        mockInterviewsTaken: extra.mockInterviewsTaken || [],
-        mentorRequests: extra.mentorRequests || [],
-      });
-    } else if (role === "mentor") {
-      await mentorModel.create({
-        userId: newUser._id,
-        expertise: extra.expertise || [],
-        availability: extra.availability || [],
-        sessions: [],
-      });
-    } else if (role === "company") {
-      await companyModel.create({
-        userId: newUser._id,
-        companyName: extra.companyName || "",
-        description: extra.description || "",
-        website: extra.website || "",
-        verified: false,
-        internships: [],
-      });
-    }
+    
+    // Role-based registration
+    await registerByRole(role, savedUser._id, extra)
 
     res.status(201).json({
       message: `User registered successfully as ${role}`,
       userId: savedUser._id,
     });
+
+
   } catch (error) {
     console.error("Registration error:", error);
     res
@@ -66,4 +56,40 @@ const register = async (req, res) => {
   }
 };
 
-export { register };
+const login = async (req,res) => {
+  try {
+    
+    const {email,password} = req.body
+
+    const user = await userModel.findOne({email})
+
+    if(!user) {
+      return res.status(400).json({message: "Invalid email or password"})
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+
+    if(!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password" })
+    }
+
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    )
+
+    res.status(200).json({
+      message: "Login successfull",
+      token,
+      role: user.role,
+      userId: user._id,
+    })
+
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ message: "Server error during login" });
+  }
+}
+
+export { register, login};
