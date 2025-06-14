@@ -2,7 +2,7 @@ import React from 'react'
 
 const MentorDashboard = () => {
   return (
-    <div>MentorDashboard</div>
+    <div>MainBranch</div>
   )
 }
 
