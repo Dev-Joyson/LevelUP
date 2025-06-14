@@ -10,7 +10,7 @@ import { registerByRole } from "../helpers/roleRegistration.js";
 
 const register = async (req, res) => {
   try {
-    const { email, password, role, ...extra } = req.body;
+    const { email, password, role, extra } = req.body;
 
     // Validating Email
     if(!validator.isEmail(email)) {

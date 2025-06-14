@@ -6,3 +6,5 @@ import { companyDashboard } from "../controllers/companyController.js"
 const companyRouter = express.Router()
 
 companyRouter.get('/dashboard', authenticateUser, authorizeRoles("company"), companyDashboard)
+
+export default companyRouter;

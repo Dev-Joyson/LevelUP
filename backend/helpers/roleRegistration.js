@@ -8,6 +8,8 @@ const registerByRole = async (role, userId, extra) => {
       userId,
       firstname: extra.firstname || "",
       lastname: extra.lastname || "",
+      university: extra.university || "",
+      graduationYear: extra.graduationYear || "",
       education: extra.education || "",
       skills: extra.skills || [],
       resumeUrl: extra.resumeUrl || "",

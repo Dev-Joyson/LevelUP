@@ -1,13 +1,21 @@
-import InternshipSidebar from '@/components/InterviewComponents/InternshipSidebar'
-import React from 'react'
+import type React from "react"
+import{ InternshipSidebar} from "@/components/InterviewComponents/InternshipSidebar"
+import { ExploreInternships } from "@/components/InterviewComponents/ExploreInternships"
 
-const internshipLayout = ({ children }: { children: React.ReactNode }) => {
-    return (
-      <div className="flex min-h-screen">
+export default function InternshipLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <div className="container mx-auto">
+      <ExploreInternships />
+    <div className="flex h-screen overflow-hidden">
+      <div className="w-full max-w-md border-r">
         <InternshipSidebar />
-        <main className="flex-1 p-6 bg-white">{children}</main>
       </div>
-    )
-  }
-  
-  export default internshipLayout
+      <div className="flex-1 overflow-auto">{children}</div>
+    </div>
+    </div>
+  )
+}

@@ -7,6 +7,7 @@ import authRouter from './routes/authRoutes.js'
 import studentRouter from './routes/studentRoutes.js'
 import mentorRouter from './routes/mentorRoutes.js'
 import adminRouter from './routes/adminRoutes.js'
+import companyRouter from './routes/companyRoutes.js'
 
 // App config
 const app = express()
@@ -28,6 +29,8 @@ app.use('/api/auth', authRouter)
 app.use('/api/student', studentRouter)
 app.use('/api/mentor', mentorRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/company', companyRouter)
+
 
 
 app.listen(port, () => {

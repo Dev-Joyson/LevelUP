@@ -9,7 +9,9 @@ const studentSchema = new mongoose.Schema({
     resumeUrl: String,
     appliedInternships: [{ type: mongoose.Schema.Types.ObjectId, ref: 'internship'}],
     mockInterviewsTaken: [String],
-    mentorRequests: [{type: mongoose.Schema.Types.ObjectId, ref: 'mentor'}]
+    mentorRequests: [{type: mongoose.Schema.Types.ObjectId, ref: 'mentor'}],
+    university: { type: String, required: true },
+    graduationYear: { type: String, required: true },
 })
 
 const studentModel = mongoose.models.student || mongoose.model('student', studentSchema)
