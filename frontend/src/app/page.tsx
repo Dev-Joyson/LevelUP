@@ -8,10 +8,10 @@ export default function Home() {
     <>
       <div className="container mx-auto">
 
-      <HeroSection />
-      <FeaturesSection />
-      <CTASection />
-      <TestimonialsSection />
+        <HeroSection />
+        <FeaturesSection />
+        <CTASection />
+        <TestimonialsSection />
       </div>
     </>
   );

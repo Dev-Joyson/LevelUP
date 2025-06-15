@@ -97,7 +97,7 @@ export function Navbar() {
           </Link>
 
           {/* Navigation links - show different links based on user role */}
-          <nav className="ml-9 md:flex gap-6 flex justify-center">
+          <nav className="ml-9 md:flex gap-6 flex">
             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
               Home
             </Link>
