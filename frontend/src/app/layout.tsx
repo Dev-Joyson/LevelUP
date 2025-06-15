@@ -5,7 +5,8 @@ import { Outfit, Ovo } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
-import { Navbar } from "@/components/InterviewComponents/Navbar";
+import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/common/Footer";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ export default function RootLayout({
           <div className="container mx-auto">
             {children}
           </div>
+          <Footer />
         </Providers>
       </body>
     </html>

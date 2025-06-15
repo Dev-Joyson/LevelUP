@@ -207,11 +207,11 @@ export function Navbar() {
           ) : (
             /* Guest user - show Login and Sign Up buttons */
             <div className="flex items-center gap-3">
-              <Button variant="ghost" asChild className="text-sm font-medium">
+              <Button asChild className="text-sm font-medium px-8 border border-primary text-primary cursor-pointer bg-white">
                 <Link href="/login">Login</Link>
               </Button>
-              <Button asChild className="text-sm font-medium bg-primary hover:bg-primary/90">
-                <Link href="/join">Sign Up</Link>
+              <Button asChild className="text-sm font-medium bg-primary hover:bg-primary/90 px-9">
+                <Link href="/join">Join</Link>
               </Button>
             </div>
           )}

@@ -19,7 +19,7 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       await login(email, password)
-      toast.success('Login successful!')
+      // toast.success('Login successful!')
     } catch (error) {
       console.error('Error during login:', error)
       toast.error(error instanceof Error ? error.message : "Server error. Please try again later.")

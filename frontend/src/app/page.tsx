@@ -1,7 +1,15 @@
+import { CTASection } from "@/components/LandingPage/CTAsection";
+import { FeaturesSection } from "@/components/LandingPage/FeaturesSection";
+import { HeroSection } from "@/components/LandingPage/HeroSection";
+import { TestimonialsSection } from "@/components/LandingPage/TestimonialsSection";
+
 export default function Home() {
   return (
     <>
-      <h1 className="text-xl">Hi, there!</h1>
+      <HeroSection />
+      <FeaturesSection />
+      <CTASection />
+      <TestimonialsSection />
     </>
   );
 }
