@@ -22,16 +22,16 @@ export function HeroSection() {
   }
 
   return (
-    <section className="py-12 ">
-      <div className="container mx-auto px-4">
+    <section className="py-15">
+      <div className="">
         {/* Hero Banner with Integrated Search */}
-        <div className="bg-white md:p-12 relative overflow-hidden">
+        <div className="bg-white relative overflow-hidden">
           {/* Content Grid */}
           <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
             {/* Left Side - Content + Search */}
             <div>
               <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
-              Unlock Your <span className="text-primary">Future</span>
+              Unlock Your <span className="text-primary">Future</span> With US
               </h1>
               <p className="text-base  text-gray-500 mb-8 leading-relaxed">
                 Connect with top companies and experienced mentors to kickstart your career. Gain real-world experience
@@ -91,7 +91,7 @@ export function HeroSection() {
 
                   <Button
                     onClick={handleSearch}
-                    className="w-full h-11 bg-primary  text-white font-semibold rounded-lg"
+                    className="w-full h-11 bg-primary  text-white font-semibold rounded-lg mt-4"
                   >
                     <Search className="h-4 w-4 mr-2" />
                     {activeTab === "students" ? "Find Opportunities" : "Find Talent"}
@@ -105,7 +105,7 @@ export function HeroSection() {
               <img
                 src="/mentor-support.svg"
                 alt="Mentor helping employee climb up - representing career growth and mentorship"
-                className="w-full h-auto max-w-2xl"
+                className=" w-full h-auto max-w-3xl"
               />
             </div>
           </div>

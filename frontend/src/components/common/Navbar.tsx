@@ -91,13 +91,13 @@ export function Navbar() {
         <div className="flex h-16 items-center px-4 sm:px-6">
           {/* Logo and navigation links */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-            <p className="text-[#535c91] text-2xl">
-              Level<span className="text-primary">UP</span>
+            <p className="text-primary text-2xl">
+              Level<span className="text-[#535c91]">UP</span>
             </p>
           </Link>
 
           {/* Navigation links - show different links based on user role */}
-          <nav className="ml-9 hidden md:flex gap-6">
+          <nav className="ml-9 md:flex gap-6 flex justify-center">
             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
               Home
             </Link>
@@ -207,7 +207,7 @@ export function Navbar() {
           ) : (
             /* Guest user - show Login and Sign Up buttons */
             <div className="flex items-center gap-3">
-              <Button asChild className="text-sm font-medium px-8 border border-primary text-primary cursor-pointer bg-white">
+              <Button variant="outline" asChild className="text-sm font-medium px-8 border border-primary text-primary cursor-pointer bg-white">
                 <Link href="/login">Login</Link>
               </Button>
               <Button asChild className="text-sm font-medium bg-primary hover:bg-primary/90 px-9">

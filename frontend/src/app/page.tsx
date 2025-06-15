@@ -6,10 +6,13 @@ import { TestimonialsSection } from "@/components/LandingPage/TestimonialsSectio
 export default function Home() {
   return (
     <>
+      <div className="container mx-auto">
+
       <HeroSection />
       <FeaturesSection />
       <CTASection />
       <TestimonialsSection />
+      </div>
     </>
   );
 }

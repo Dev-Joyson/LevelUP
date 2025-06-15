@@ -5,7 +5,7 @@ import { Outfit, Ovo } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
-import { Navbar } from "@/components/Navbar";
+import { Navbar } from "@/components/common/Navbar";
 import { Footer } from "@/components/common/Footer";
 
 const outfit = Outfit({

@@ -97,7 +97,7 @@ export default function InternshipDetailPage({ params }: { params: { id: string 
   }
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div className="p-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="text-gray-600">

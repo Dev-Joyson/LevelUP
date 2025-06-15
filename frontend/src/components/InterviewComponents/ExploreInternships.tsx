@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 export function ExploreInternships() {
   return (
-    <section className="container px-4 py-6 sm:py-8 sm:px-6">
+    <section className="container py-6 sm:py-8 ">
       <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Explore Internships</h1>
       <p className="text-muted-foreground mt-2 mb-4 sm:mb-6 text-sm sm:text-base">
         Find the perfect internship to kickstart your career. Use the search and filter options below to narrow down

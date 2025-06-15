@@ -122,7 +122,7 @@ export function InternshipSidebar() {
 
   return (
     <div className="w-full h-full overflow-auto sidebar-scrollbar">
-      <div className="space-y-4 p-4">
+      <div className="space-y-4 pr-4">
         {jobListings.map((job) => {
           const isActive = pathname === `/internship/${job.id}`
           const isSaved = savedJobs[job.id]
