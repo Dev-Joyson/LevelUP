@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/inputAdmin"
@@ -8,127 +8,139 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
 import { CompanyDetailsModal } from "@/components/AdminComponents/company-details-modal"
+import { toast } from "react-toastify"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-const companies = [
-  {
-    id: 1,
-    name: "Tech Innovators Inc.",
-    status: "Active",
-    jobs: 12,
-    appliedStudents: 50,
-    lastActivity: "2 days ago",
-    email: "contact@techinnovators.com",
-    industry: "Technology",
-    location: "San Francisco, CA",
-    description: "Leading technology company specializing in AI and machine learning solutions.",
-    website: "www.techinnovators.com",
-    foundedYear: "2018",
-    employees: "500-1000",
-  },
-  {
-    id: 2,
-    name: "Global Solutions Ltd.",
-    status: "Active",
-    jobs: 8,
-    appliedStudents: 35,
-    lastActivity: "1 week ago",
-    email: "hr@globalsolutions.com",
-    industry: "Consulting",
-    location: "New York, NY",
-    description: "International consulting firm providing business solutions worldwide.",
-    website: "www.globalsolutions.com",
-    foundedYear: "2015",
-    employees: "1000+",
-  },
-  {
-    id: 3,
-    name: "Future Dynamics Corp.",
-    status: "Pending",
-    jobs: 0,
-    appliedStudents: 0,
-    lastActivity: "3 days ago",
-    email: "info@futuredynamics.com",
-    industry: "Fintech",
-    location: "Austin, TX",
-    description: "Emerging fintech company focused on blockchain and cryptocurrency solutions.",
-    website: "www.futuredynamics.com",
-    foundedYear: "2023",
-    employees: "50-100",
-  },
-  {
-    id: 4,
-    name: "Creative Minds Agency",
-    status: "Active",
-    jobs: 5,
-    appliedStudents: 20,
-    lastActivity: "5 days ago",
-    email: "hello@creativeminds.com",
-    industry: "Marketing",
-    location: "Los Angeles, CA",
-    description: "Creative marketing agency specializing in digital campaigns and brand development.",
-    website: "www.creativeminds.com",
-    foundedYear: "2020",
-    employees: "100-500",
-  },
-  {
-    id: 5,
-    name: "Innovative Ventures LLC",
-    status: "Suspended",
-    jobs: 2,
-    appliedStudents: 10,
-    lastActivity: "2 weeks ago",
-    email: "contact@innovativeventures.com",
-    industry: "Startup",
-    location: "Seattle, WA",
-    description: "Venture capital firm investing in early-stage technology startups.",
-    website: "www.innovativeventures.com",
-    foundedYear: "2019",
-    employees: "10-50",
-  },
-]
+interface Company {
+  _id: string;
+  companyName: string;
+  verified: boolean;
+  internships: string[];
+  appliedStudents: number;
+  userId: {
+    _id: string;
+    email: string;
+  };
+  industry?: string;
+  location?: string;
+  description: string;
+  website?: string;
+  foundedYear?: string;
+  employees?: string;
+  createdAt: string;
+  pdfUrl?: string;
+  pdfPublicId?: string;
+}
 
-type StatusFilter = "all" | "active" | "pending" | "suspended"
+type StatusFilter = "all" | "pending"
 
 export default function CompaniesPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [selectedCompany, setSelectedCompany] = useState<(typeof companies)[0] | null>(null)
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [loading, setLoading] = useState(true)
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false)
+  const [companyToApprove, setCompanyToApprove] = useState<Company | null>(null)
 
-  const filteredCompanies = companies.filter((company) => {
-    const matchesSearch = company.name.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || company.status.toLowerCase() === statusFilter.toLowerCase()
+  useEffect(() => {
+    fetchCompanies()
+  }, [statusFilter])
 
-    return matchesSearch && matchesStatus
-  })
+  const fetchCompanies = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      const endpoint = statusFilter === 'all' 
+        ? 'http://localhost:4000/api/admin/companies'
+        : 'http://localhost:4000/api/admin/companies/unverified'
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
-      case "suspended":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Suspended</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+      const response = await fetch(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch companies')
+      }
+
+      const data = await response.json()
+      console.log('Fetched companies data:', data) // Debug log
+      setCompanies(data)
+    } catch (error) {
+      console.error('Error fetching companies:', error)
+      toast.error('Failed to fetch companies')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleViewCompany = (company: (typeof companies)[0]) => {
+  const filteredCompanies = companies.filter((company) => {
+    return company.companyName.toLowerCase().includes(searchTerm.toLowerCase())
+  })
+
+  const getStatusBadge = (verified: boolean) => {
+    return verified 
+      ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
+      : <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
+  }
+
+  const handleViewCompany = (company: Company) => {
     setSelectedCompany(company)
     setIsModalOpen(true)
   }
 
-  const handleSuspendCompany = (companyId: number) => {
-    // In a real app, you would update this in your state management or API
-    console.log(`Suspended company with ID: ${companyId}`)
+  const handleApproveClick = (company: Company) => {
+    setCompanyToApprove(company)
+    setApproveDialogOpen(true)
+  }
+
+  const handleApproveConfirm = async () => {
+    if (!companyToApprove) return
+
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`http://localhost:4000/api/admin/companies/${companyToApprove._id}/verify`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to approve company')
+      }
+
+      toast.success('Company approved successfully')
+      fetchCompanies() // Refresh the list
+    } catch (error) {
+      console.error('Error approving company:', error)
+      toast.error('Failed to approve company')
+    } finally {
+      setApproveDialogOpen(false)
+      setCompanyToApprove(null)
+    }
   }
 
   const getFilterButtonClass = (filter: StatusFilter) => {
     return statusFilter === filter
       ? "bg-blue-50 text-blue-700 border-b-2 border-blue-700"
       : "text-gray-600 hover:text-gray-900"
+  }
+
+  if (loading) {
+    return <div className="p-6">Loading companies...</div>
   }
 
   return (
@@ -163,12 +175,6 @@ export default function CompaniesPage() {
           >
             Pending
           </button>
-          <button
-            onClick={() => setStatusFilter("suspended")}
-            className={`pb-2 px-1 font-medium ${getFilterButtonClass("suspended")}`}
-          >
-            Suspended
-          </button>
         </div>
       </div>
 
@@ -182,27 +188,39 @@ export default function CompaniesPage() {
                 <TableHead className="font-medium text-gray-600 py-4">Status</TableHead>
                 <TableHead className="font-medium text-gray-600 py-4">Jobs</TableHead>
                 <TableHead className="font-medium text-gray-600 py-4">Applied Students</TableHead>
-                <TableHead className="font-medium text-gray-600 py-4">Last Activity</TableHead>
+                <TableHead className="font-medium text-gray-600 py-4">Email</TableHead>
                 <TableHead className="font-medium text-gray-600 py-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredCompanies.map((company) => (
-                <TableRow key={company.id} className="border-b border-gray-100">
-                  <TableCell className="py-4 font-medium">{company.name}</TableCell>
-                  <TableCell className="py-4">{getStatusBadge(company.status)}</TableCell>
-                  <TableCell className="py-4 text-gray-600">{company.jobs}</TableCell>
-                  <TableCell className="py-4 text-gray-600">{company.appliedStudents}</TableCell>
-                  <TableCell className="py-4 text-gray-600">{company.lastActivity}</TableCell>
+                <TableRow key={company._id} className="border-b border-gray-100">
+                  <TableCell className="py-4 font-medium">{company.companyName}</TableCell>
+                  <TableCell className="py-4">{getStatusBadge(company.verified)}</TableCell>
+                  <TableCell className="py-4 text-gray-600">{company.internships?.length || 0}</TableCell>
+                  <TableCell className="py-4 text-gray-600">{company.appliedStudents || 0}</TableCell>
+                  <TableCell className="py-4 text-gray-600">{company.userId?.email || 'N/A'}</TableCell>
                   <TableCell className="py-4">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                      onClick={() => handleViewCompany(company)}
-                    >
-                      View
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                        onClick={() => handleViewCompany(company)}
+                      >
+                        View
+                      </Button>
+                      {!company.verified && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                          onClick={() => handleApproveClick(company)}
+                        >
+                          Approve
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -215,8 +233,29 @@ export default function CompaniesPage() {
         company={selectedCompany}
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onSuspendCompany={handleSuspendCompany}
+        onSuspendCompany={() => {}}
       />
+
+      {/* Approve Confirmation Dialog */}
+      <AlertDialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve Company</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to approve {companyToApprove?.companyName}? This will send a verification email to the company.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveConfirm}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

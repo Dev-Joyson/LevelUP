@@ -6,7 +6,8 @@ import {
   adminLogin, 
   getUnverifiedCompanies, 
   verifyCompany, 
-  rejectCompany 
+  rejectCompany, 
+  getAllCompanies
 } from "../controllers/adminController.js"
 
 
@@ -18,6 +19,7 @@ adminRouter.get('/dashboard', authenticateUser, authorizeRoles("admin"), adminDa
 
 // Company verification routes
 adminRouter.get('/companies/unverified', authenticateUser, authorizeRoles("admin"), getUnverifiedCompanies)
+adminRouter.get('/companies', authenticateUser, authorizeRoles("admin"), getAllCompanies)
 adminRouter.post('/companies/:companyId/verify', authenticateUser, authorizeRoles("admin"), verifyCompany)
 adminRouter.post('/companies/:companyId/reject', authenticateUser, authorizeRoles("admin"), rejectCompany)
 
