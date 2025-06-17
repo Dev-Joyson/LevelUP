@@ -36,7 +36,7 @@ export default function RootLayout({
           <div className="container mx-auto">
             {children}
           </div>
-          <Footer />
+          {/* <Footer /> */}
         </Providers>
       </body>
     </html>
