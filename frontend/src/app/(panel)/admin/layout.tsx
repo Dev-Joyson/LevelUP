@@ -1,29 +1,17 @@
+import type React from "react"
+import { SidebarProvider } from "@/app/(panel)/admin/components/ui/sidebar"
+import { AdminSidebar } from "@/app/(panel)/admin/components/admin-sidebar"
 
-import Image from "next/image";
-import Link from "next/link";
-
-export default function DashboardLayout({
+export default function AdminLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: React.ReactNode
+}) {
   return (
-    <div className="h-screen flex">
-      {/* LEFT */}
-      
-      <div className='w-[14%] md:w-[8%] lg:w-[16%] xl:w-[14%] p-4'>
-      <Link href="/" className="flex items-center justify-center lg:justify-start gap-2">
-      <Image src='/logo.png' alt='logo' width={32} height={32}/>
-      <span className="hidden lg:block" >Levelup- Admin</span>
-      </Link>
-      {/* <Menu/> */}
-     </div>
-      {/* Right */}
-      <div className='w-[86%] md:w-[92%] lg:w-[84%] xl:w-[86%] bg-[#F7F8FA] overflow-scroll'>
-      {/* <Navbar/> */}
-      {children}
-      </div>
-      
-      </div>
-  );
+    <SidebarProvider>
+      <AdminSidebar />
+      <main className="flex-10 ml-20 overflow-auto">{children}</main>
+    </SidebarProvider>
+  )
 }
+
