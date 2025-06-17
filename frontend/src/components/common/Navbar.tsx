@@ -88,7 +88,7 @@ export function Navbar() {
   return (
     <header className="border-b sticky top-0 z-50 bg-background">
       <div className="container mx-auto">
-        <div className="flex h-16 items-center px-4 sm:px-6">
+        <div className="flex h-16 items-center">
           {/* Logo and navigation links */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <p className="text-primary text-2xl">
@@ -220,102 +220,3 @@ export function Navbar() {
     </header>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// "use client"
-
-// import Link from "next/link"
-// import { Bell, Search } from "lucide-react"
-// import { Input } from "@/components/ui/input"
-// import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
-// export function Navbar() {
-//   return (
-//     <header className="border-b sticky top-0 z-50 bg-background">
-//       {/* Added a wrapper div to center the navbar content */}
-//       <div className="container mx-auto">
-//         <div className="flex h-16 items-center px-4 sm:px-6">
-//           {/* Logo and navigation links */}
-//           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-//             {/* <svg
-//               xmlns="http://www.w3.org/2000/svg"
-//               viewBox="0 0 24 24"
-//               fill="none"
-//               stroke="currentColor"
-//               strokeWidth="2"
-//               strokeLinecap="round"
-//               strokeLinejoin="round"
-//               className="h-6 w-6"
-//             >
-//               <path d="M18 6H5a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h13l4-3.5L18 6Z" />
-//               <path d="M12 13v9" />
-//               <path d="M12 2v4" />
-//             </svg> */}
-//             <p className="text-[#535c91] text-2xl">Level<span className="text-primary">UP</span></p>
-            
-//             {/* <Image src={levelUPlogo} width={110} height={50} alt=""/> */}
-//           </Link>
-
-//           <nav className="ml-9 hidden md:flex gap-6">
-//             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
-//               Home
-//             </Link>
-//             <Link href="/internship" className="text-sm font-medium text-primary transition-colors hover:text-primary">
-//               Internships
-//             </Link>
-//             <Link href="/mentorship" className="text-sm font-medium transition-colors hover:text-primary">
-//               Mentorship
-//             </Link>
-//             <Link href="/mock-interviews" className="text-sm font-medium transition-colors hover:text-primary">
-//               Mock Interviews
-//             </Link>
-//           </nav>
-
-//           {/* Spacer to push the search and profile to the right */}
-//           <div className="flex-1"></div>
-
-//           {/* Search and profile section */}
-//           <div className="flex items-center gap-4">
-//             <div className="relative">
-//               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-//               <Input
-//                 type="search"
-//                 placeholder="Search"
-//                 className="w-64 rounded-full bg-muted/30 border-0 pl-10 pr-4 h-10 md:w-80"
-//               />
-//             </div>
-
-//             <div className="relative">
-//               <Bell className="h-5 w-5" />
-//               <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-primary"></span>
-//             </div>
-
-//             <Avatar className="h-8 w-8">
-//               <AvatarImage src="/placeholder.svg?height=32&width=32" alt="User" />
-//               <AvatarFallback>U</AvatarFallback>
-//             </Avatar>
-//           </div>
-//         </div>
-//       </div>
-//     </header>
-//   )
-// }
