@@ -3,11 +3,11 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/(panel)/admin/components/ui/dialog"
-import { Button } from "@/app/(panel)/admin/components/ui/button"
-import { Input } from "@/app/(panel)/admin/components/ui/input"
-import { Label } from "@/app/(panel)/admin/components/ui/label"
-import { Textarea } from "@/app/(panel)/admin/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/inputAdmin"
+import { Label } from "@/components/ui/labelAdmin"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Mail } from "lucide-react"
 

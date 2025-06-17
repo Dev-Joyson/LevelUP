@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent } from "@/app/(panel)/admin/components/ui/card"
-import { Button } from "@/app/(panel)/admin/components/ui/button"
-import { Input } from "@/app/(panel)/admin/components/ui/input"
-import { Badge } from "@/app/(panel)/admin/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/(panel)/admin/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/inputAdmin"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
-import { CompanyDetailsModal } from "@/app/(panel)/admin/components/company-details-modal"
+import { CompanyDetailsModal } from "@/components/AdminComponents/company-details-modal"
 
 const companies = [
   {

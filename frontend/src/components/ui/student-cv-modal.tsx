@@ -1,9 +1,9 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/app/(panel)/admin/components/ui/dialog"
-import { Button } from "@/app/(panel)/admin/components/ui/button"
-import { Badge } from "@/app/(panel)/admin/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/app/(panel)/admin/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Award, Shield } from "lucide-react"
 
 interface Student {

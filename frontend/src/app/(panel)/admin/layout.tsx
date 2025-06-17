@@ -1,6 +1,6 @@
 import type React from "react"
-import { SidebarProvider } from "@/app/(panel)/admin/components/ui/sidebar"
-import { AdminSidebar } from "@/app/(panel)/admin/components/admin-sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
+import { AdminSidebar } from "@/components/AdminComponents/admin-sidebar"
 
 export default function AdminLayout({
   children,

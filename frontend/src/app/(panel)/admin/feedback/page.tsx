@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent } from "@/app/(panel)/admin/components/ui/card"
-import { Input } from "@/app/(panel)/admin/components/ui/input"
-import { Badge } from "@/app/(panel)/admin/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/(panel)/admin/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/(panel)/admin/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/inputAdmin"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/selectAdmin"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Star } from "lucide-react"
-import { FeedbackDetailsModal } from "@/app/(panel)/admin/components/feedback-details-modal"
+import { FeedbackDetailsModal } from "@/components/AdminComponents/feedback-details-modal"
 
 const feedbacks = [
   {

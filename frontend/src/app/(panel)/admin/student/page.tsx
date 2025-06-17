@@ -1,14 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent } from "@/app/(panel)/admin/components/ui/card"
-import { Button } from "@/app/(panel)/admin/components/ui/button"
-import { Input } from "@/app/(panel)/admin/components/ui/input"
-import { Badge } from "@/app/(panel)/admin/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/(panel)/admin/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/(panel)/admin/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/inputAdmin"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/selectAdmin"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
-import { StudentCVModal } from "@/app/(panel)/admin/components/student-cv-modal"
+import { StudentCVModal } from "@/components/ui/student-cv-modal"
 
 const students = [
   {

@@ -1,14 +1,14 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent } from "@/app/(panel)/admin/components/ui/card"
-import { Button } from "@/app/(panel)/admin/components/ui/button"
-import { Input } from "@/app/(panel)/admin/components/ui/input"
-import { Badge } from "@/app/(panel)/admin/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/(panel)/admin/components/ui/table"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/inputAdmin"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, UserPlus } from "lucide-react"
-import { MentorDetailsModal } from "@/app/(panel)/admin/components/mentor-details-modal"
-import { InviteMentorModal } from "@/app/(panel)/admin/components/invite-mentor-modal"
+import { MentorDetailsModal } from "@/components/AdminComponents/mentor-details-modal"
+import { InviteMentorModal } from "@/components/AdminComponents/invite-mentor-modal"
 
 const mentors = [
   {
