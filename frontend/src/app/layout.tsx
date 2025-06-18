@@ -1,12 +1,10 @@
-
-
 import type { Metadata } from "next";
 import { Outfit, Ovo } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
-import { Navbar } from "@/components/common/Navbar";
-import { Footer } from "@/components/common/Footer";
+import { ConditionalNavbar } from "@/components/common/ConditionalNavbar";
+import { ConditionalFooter } from "@/components/common/ConditionalFooter";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -32,11 +30,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${outfit.className} ${ovo.className} antialiased`}>
         <Providers>
-          <Navbar />
-          <div className="container mx-auto">
+          <ConditionalNavbar />
+          <div className="mx-auto">
             {children}
           </div>
-          {/* <Footer /> */}
+          <ConditionalFooter />
         </Providers>
       </body>
     </html>
