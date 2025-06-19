@@ -22,29 +22,28 @@ export function HeroSection() {
   }
 
   return (
-    <section className="py-15">
-      <div className="">
+    <section className="py-10 sm:py-15">
+      <div className="px-4">
         {/* Hero Banner with Integrated Search */}
-        <div className="bg-white relative overflow-hidden">
+        <div className="bg-white relative overflow-hidden rounded-2xl sm:rounded-3xl">
           {/* Content Grid */}
-          <div className="relative z-10 grid md:grid-cols-2 gap-8 items-center">
+          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             {/* Left Side - Content + Search */}
             <div>
-              <h1 className="text-3xl md:text-5xl font-bold text-gray-900 mb-4 leading-tight">
-              Unlock Your <span className="text-primary">Future</span> With US
+              <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 leading-tight">
+                Unlock Your <span className="text-primary">Future</span> With US
               </h1>
-              <p className="text-base  text-gray-500 mb-8 leading-relaxed">
+              <p className="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8 leading-relaxed">
                 Connect with top companies and experienced mentors to kickstart your career. Gain real-world experience
                 through internships and mentorship programs.
               </p>
-
               {/* Compact Search Section */}
-              <div className="bg-[#f7f7fa] backdrop-blur-sm rounded-xl p-4 border border-white/20 ">
+              <div className="bg-[#f7f7fa] backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-white/20 ">
                 {/* Toggle Buttons */}
-                <div className="flex rounded-lg bg-gray-100 p-1 mb-4">
+                <div className="flex rounded-lg bg-gray-100 p-1 mb-3 sm:mb-4">
                   <button
                     onClick={() => setActiveTab("students")}
-                    className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                    className={`flex-1 py-2 px-2 sm:px-3 rounded-md text-xs font-medium transition-all ${
                       activeTab === "students"
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
@@ -54,7 +53,7 @@ export function HeroSection() {
                   </button>
                   <button
                     onClick={() => setActiveTab("companies")}
-                    className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition-all ${
+                    className={`flex-1 py-2 px-2 sm:px-3 rounded-md text-xs font-medium transition-all ${
                       activeTab === "companies"
                         ? "bg-white text-gray-900 shadow-sm"
                         : "text-gray-600 hover:text-gray-900"
@@ -63,8 +62,7 @@ export function HeroSection() {
                     Find Talent
                   </button>
                 </div>
-
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
@@ -74,10 +72,9 @@ export function HeroSection() {
                       }
                       value={jobSearch}
                       onChange={(e) => setJobSearch(e.target.value)}
-                      className="pl-10 h-11 bg-white border-gray-200 focus:border-blue-500 text-gray-900 placeholder:text-gray-500 rounded-lg text-sm"
+                      className="pl-10 h-10 sm:h-11 bg-white border-gray-200 focus:border-blue-500 text-gray-900 placeholder:text-gray-500 rounded-lg text-sm"
                     />
                   </div>
-
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
@@ -85,13 +82,12 @@ export function HeroSection() {
                       placeholder="Enter location..."
                       value={location}
                       onChange={(e) => setLocation(e.target.value)}
-                      className="pl-10 h-11 bg-white border-gray-200 focus:border-blue-500 text-gray-900 placeholder:text-gray-500 rounded-lg text-sm"
+                      className="pl-10 h-10 sm:h-11 bg-white border-gray-200 focus:border-blue-500 text-gray-900 placeholder:text-gray-500 rounded-lg text-sm"
                     />
                   </div>
-
                   <Button
                     onClick={handleSearch}
-                    className="w-full h-11 bg-primary  text-white font-semibold rounded-lg mt-4"
+                    className="w-full h-10 sm:h-11 bg-primary text-white font-semibold rounded-lg mt-3 sm:mt-4"
                   >
                     <Search className="h-4 w-4 mr-2" />
                     {activeTab === "students" ? "Find Opportunities" : "Find Talent"}
@@ -99,13 +95,12 @@ export function HeroSection() {
                 </div>
               </div>
             </div>
-
             {/* Right Side - SVG Illustration */}
             <div className="hidden md:flex justify-center items-center">
               <img
                 src="/mentor-support.svg"
                 alt="Mentor helping employee climb up - representing career growth and mentorship"
-                className=" w-full h-auto max-w-3xl"
+                className="w-full h-auto max-w-3xl"
               />
             </div>
           </div>

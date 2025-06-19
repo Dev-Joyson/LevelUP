@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Bell, Search, LogOut, User, Settings, Loader2 } from "lucide-react"
+import { Bell, Search, LogOut, User, Settings, Loader2, Menu } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
+import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 
 export function Navbar() {
   const { user, isAuthenticated, logout, loading } = useAuth()
@@ -96,8 +97,84 @@ export function Navbar() {
             </p>
           </Link>
 
+          {/* Hamburger menu for mobile */}
+          <div className="flex md:hidden ml-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="p-0"><Menu className="h-6 w-6" /></Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <nav className="flex flex-col gap-2 p-6">
+                  <Link href="/" className="text-base font-medium transition-colors text-gray-600 hover:text-primary">
+                    Home
+                  </Link>
+                  {(!user || user.role === "student" || user.role === "mentor") && (
+                    <Link href="/internship" className="text-base font-medium transition-colors hover:text-primary">
+                      Internships
+                    </Link>
+                  )}
+                  {(!user || user.role === "student") && (
+                    <Link href="/mentorship" className="text-base font-medium transition-colors hover:text-primary">
+                      Mentorship
+                    </Link>
+                  )}
+                  {(!user || user.role === "student") && (
+                    <Link href="/mock-interviews" className="text-base font-medium transition-colors hover:text-primary">
+                      Mock Interviews
+                    </Link>
+                  )}
+                  {user && user.role === "company" && (
+                    <>
+                      <Link href="/company/jobs" className="text-base font-medium transition-colors hover:text-primary">
+                        Post Jobs
+                      </Link>
+                      <Link href="/company/candidates" className="text-base font-medium transition-colors hover:text-primary">
+                        Candidates
+                      </Link>
+                    </>
+                  )}
+                  {user && user.role === "admin" && (
+                    <Link href="/admin" className="text-base font-medium transition-colors hover:text-primary">
+                      Dashboard
+                    </Link>
+                  )}
+                  <div className="mt-4 border-t pt-4 flex flex-col gap-2">
+                    {isAuthenticated && user ? (
+                      <>
+                        <Link href={getDashboardLink()} className="text-base font-medium flex items-center gap-2 hover:text-primary">
+                          <User className="h-4 w-4" />
+                          {user.role === "admin" ? "Admin Panel" : "Dashboard"}
+                        </Link>
+                        <Link href="/student/profile" className="text-base font-medium flex items-center gap-2 hover:text-primary">
+                          <User className="h-4 w-4" />
+                          Profile
+                        </Link>
+                        <Link href="/settings" className="text-base font-medium flex items-center gap-2 hover:text-primary">
+                          <Settings className="h-4 w-4" />
+                          Settings
+                        </Link>
+                        <Button onClick={logout} variant="ghost" className="justify-start text-base font-medium flex items-center gap-2">
+                          <LogOut className="h-4 w-4" /> Log out
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="outline" asChild className="text-base font-medium border border-primary text-primary cursor-pointer bg-white">
+                          <Link href="/login">Login</Link>
+                        </Button>
+                        <Button asChild className="text-base font-medium bg-primary hover:bg-primary/90">
+                          <Link href="/join">Join</Link>
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
+
           {/* Navigation links - show different links based on user role */}
-          <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:flex gap-6 flex">
+          <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:flex gap-6 flex hidden md:flex">
             <Link href="/" className="text-sm font-medium transition-colors text-gray-600 hover:text-primary">
               Home
             </Link>
