@@ -4,6 +4,9 @@ import { HeroSection } from "@/components/LandingPage/HeroSection";
 import { TestimonialsSection } from "@/components/LandingPage/TestimonialsSection";
 
 export default function Home() {
+
+  const foo = 123;
+
   return (
     <>
       <div className="container mx-auto">
