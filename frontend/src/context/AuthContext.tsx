@@ -31,6 +31,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
   // Initialize auth state from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
@@ -48,7 +50,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       
       // Try admin login first
-      const adminResponse = await fetch('http://localhost:4000/api/admin/login', {
+      // const adminResponse = await fetch('http://localhost:4000/api/admin/login', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ email, password }),
+      // });
+      const adminResponse = await fetch(`${API_BASE_URL}/api/admin/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -68,7 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Try regular user login
-      const userResponse = await fetch('http://localhost:4000/api/auth/login', {
+      // const userResponse = await fetch('http://localhost:4000/api/auth/login', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ email, password }),
+      // });
+      const userResponse = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
