@@ -1,10 +1,5 @@
-import React from 'react'
+import { redirect } from "next/navigation"
 
-const MentorDashboard = () => {
-  return (
-    <>
-    </>
-  )
+export default function AdminPage() {
+  redirect("/mentor/dashboard")
 }
-
-export default MentorDashboard
