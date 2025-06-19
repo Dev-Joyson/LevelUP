@@ -88,7 +88,7 @@ export function Navbar() {
   return (
     <header className="border-b sticky top-0 z-50 bg-background">
       <div className="container mx-auto">
-        <div className="flex h-16 items-center">
+        <div className="flex h-16 items-center relative">
           {/* Logo and navigation links */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <p className="text-primary text-2xl">
@@ -97,8 +97,8 @@ export function Navbar() {
           </Link>
 
           {/* Navigation links - show different links based on user role */}
-          <nav className="ml-9 md:flex gap-6 flex">
-            <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
+          <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:flex gap-6 flex">
+            <Link href="/" className="text-sm font-medium transition-colors text-gray-600 hover:text-primary">
               Home
             </Link>
             {/* Show internships link for students and mentors */}
