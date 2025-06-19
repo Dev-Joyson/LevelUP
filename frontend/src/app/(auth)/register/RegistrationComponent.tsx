@@ -17,6 +17,8 @@ import { MultiSelect } from "@/components/multi-select"
 import { toast, ToastContainer } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 export default function RegistrationComponent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -127,7 +129,7 @@ export default function RegistrationComponent() {
         formData.append("registrationDocument", registrationDocument)
 
         try {
-          const response = await fetch("http://localhost:4000/api/auth/register", {
+          const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: "POST",
             body: formData,
           })
@@ -166,7 +168,7 @@ export default function RegistrationComponent() {
       }
 
       try {
-        const response = await fetch("http://localhost:4000/api/auth/register", {
+        const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, role, extra }),

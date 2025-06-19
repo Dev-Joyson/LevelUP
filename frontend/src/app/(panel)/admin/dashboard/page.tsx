@@ -5,6 +5,8 @@ import { DashboardCharts } from "@/components/AdminComponents/dashboard-charts"
 import { StatsCards } from "@/components/AdminComponents/stats-cards"
 import { useEffect, useState } from "react"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 export default function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,7 +15,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('http://localhost:4000/api/admin/dashboard', {
+        const response = await fetch(`${API_BASE_URL}/api/admin/dashboard`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
             'Content-Type': 'application/json'

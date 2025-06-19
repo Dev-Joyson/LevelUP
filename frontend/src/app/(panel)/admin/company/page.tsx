@@ -52,6 +52,7 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true)
   const [approveDialogOpen, setApproveDialogOpen] = useState(false)
   const [companyToApprove, setCompanyToApprove] = useState<Company | null>(null)
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
   useEffect(() => {
     fetchCompanies()
@@ -62,8 +63,8 @@ export default function CompaniesPage() {
       setLoading(true)
       const token = localStorage.getItem('token')
       const endpoint = statusFilter === 'all' 
-        ? 'http://localhost:4000/api/admin/companies'
-        : 'http://localhost:4000/api/admin/companies/unverified'
+        ? `${API_BASE_URL}/api/admin/companies`
+        : `${API_BASE_URL}/api/admin/companies/unverified`
 
       const response = await fetch(endpoint, {
         headers: {
@@ -111,7 +112,7 @@ export default function CompaniesPage() {
 
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:4000/api/admin/companies/${companyToApprove._id}/verify`, {
+      const response = await fetch(`${API_BASE_URL}/api/admin/companies/${companyToApprove._id}/verify`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
