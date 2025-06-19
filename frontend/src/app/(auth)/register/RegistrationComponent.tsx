@@ -190,32 +190,32 @@ export default function RegistrationComponent() {
   const progressPercentage = (step / totalSteps) * 100
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-white">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-white px-2 sm:px-0">
       <ToastContainer />
-      <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-8">
+      <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8">
         <div>
-          <p className="text-[#535c91] text-2xl text-center font-bold">
+          <p className="text-[#535c91] text-xl sm:text-2xl text-center font-bold">
             Level<span className="text-primary">UP</span>
           </p>
-          <p className="text-sm text-gray-500 text-center mb-5">Register</p>
-          <h2 className="text-[20px] font-semibold mb-5 text-primary">
+          <p className="text-xs sm:text-sm text-gray-500 text-center mb-4 sm:mb-5">Register</p>
+          <h2 className="text-base sm:text-[20px] font-semibold mb-4 sm:mb-5 text-primary">
             {step === 1
               ? `${role.charAt(0).toUpperCase() + role.slice(1)} registration`
               : "Complete your profile"}
           </h2>
 
           {step === 2 && (
-            <div className="mb-4">
+            <div className="mb-3 sm:mb-4">
               <button
                 onClick={() => setStep(1)}
-                className="text-sm text-blue-700 underline cursor-pointer"
+                className="text-xs sm:text-sm text-blue-700 underline cursor-pointer"
               >
                 Back
               </button>
             </div>
           )}
 
-          <div className="mb-8">
+          <div className="mb-6 sm:mb-8">
             <div className="w-full bg-gray-200 h-1 rounded-full">
               <div
                 className="bg-green-500 h-1 rounded-full"
@@ -227,8 +227,8 @@ export default function RegistrationComponent() {
           {step === 1 && (
             <div className="space-y-4">
               {role !== "company" && (
-                <div className="flex gap-4">
-                  <div className="w-1/2">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="w-full sm:w-1/2">
                     <Label htmlFor="firstName">First name</Label>
                     <Input
                       id="firstName"
@@ -237,7 +237,7 @@ export default function RegistrationComponent() {
                       className="mt-1"
                     />
                   </div>
-                  <div className="w-1/2">
+                  <div className="w-full sm:w-1/2">
                     <Label htmlFor="lastName">Last name</Label>
                     <Input
                       id="lastName"
@@ -372,10 +372,10 @@ export default function RegistrationComponent() {
                       className="mt-1"
                     />
                     {uploadError && (
-                      <p className="text-red-500 text-sm mt-1">{uploadError}</p>
+                      <p className="text-red-500 text-xs sm:text-sm mt-1">{uploadError}</p>
                     )}
                     {registrationDocument && (
-                      <p className="text-green-500 text-sm mt-1">
+                      <p className="text-green-500 text-xs sm:text-sm mt-1">
                         File selected: {registrationDocument.name}
                       </p>
                     )}
@@ -387,13 +387,13 @@ export default function RegistrationComponent() {
 
           <Button
             onClick={handleContinue}
-            className="w-full mt-6 bg-primary text-white py-2 rounded"
+            className="w-full mt-6 bg-primary text-white py-2 rounded text-sm sm:text-base"
           >
             {step === totalSteps ? "Sign Up" : "Continue"}
           </Button>
 
           <div className="mt-4 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-xs sm:text-sm text-gray-500">
               Already have an account?{" "}
               <Link href="/login" className="text-blue-600 hover:underline">
                 Login
@@ -401,7 +401,7 @@ export default function RegistrationComponent() {
             </p>
           </div>
 
-          <div className="mt-6 text-center text-xs text-gray-500">
+          <div className="mt-6 text-center text-[10px] sm:text-xs text-gray-500">
             <p>
               This site is protected by reCAPTCHA and the Google{" "}
               <Link href="#" className="text-blue-600 hover:underline">
