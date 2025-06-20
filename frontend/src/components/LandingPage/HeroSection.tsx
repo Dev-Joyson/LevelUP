@@ -35,8 +35,8 @@ export function HeroSection() {
               </Badge>
 
               {/* Main Heading */}
-              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-6 leading-tight">
-                <span className="text-[#535c91]">Level</span>
+              <h1 className="text-4xl lg:text-5xl font-bold text-gray-900 mb-3 leading-tight">
+                <span className="text-primary">Level</span>
                 <span className="text-primary">UP</span>
                 <br />
                 <span className="bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
@@ -45,7 +45,7 @@ export function HeroSection() {
               </h1>
 
               {/* Subtitle */}
-              <p className="text-lg text-gray-600 mb-6 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+              <p className=" text-gray-500 mb-6 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
                 Connect with top companies, experienced mentors, and exclusive internship opportunities. Transform your
                 potential into professional success.
               </p>
@@ -53,16 +53,16 @@ export function HeroSection() {
               {/* Features List */}
               <div className="flex flex-col sm:flex-row gap-6 mb-6 justify-center lg:justify-start">
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-gray-700">Verified Companies</span>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-gray-600">Verified Companies</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-gray-700">Expert Mentors</span>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-gray-600">Expert Mentors</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-green-500" />
-                  <span className="text-gray-700">Career Growth</span>
+                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-gray-600">Career Growth</span>
                 </div>
               </div>
 
@@ -70,17 +70,17 @@ export function HeroSection() {
               <div className="flex flex-col sm:flex-row gap-4 mb-8 justify-center lg:justify-start">
                 <Button
                   size="lg"
-                  className="bg-[#535c91] hover:bg-[#535c91]/90 text-white px-6 py-3 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="bg-primary cursor-pointer hover:bg-primary/90 text-white px-6 py-3  rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
                 >
-                  Get Started Free
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  Explore Now
+                  <ArrowRight className=" h-5 w-5" />
                 </Button>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="border-2 border-gray-300 text-gray-700 hover:bg-gray-50 px-6 py-3 text-base font-semibold rounded-xl"
+                  className="border-1 border-primary cursor-pointer text-primary hover:bg-gray-50 px-6 py-3  rounded-xl"
                 >
-                  <Play className="mr-2 h-5 w-5" />
+                  <Play className=" h-5 w-5 text-primary" />
                   Watch Demo
                 </Button>
               </div>
@@ -105,10 +105,10 @@ export function HeroSection() {
             {/* Right Side - Search Card */}
             <div className="relative">
               {/* Main Search Card */}
-              <div className="bg-white rounded-3xl p-8 shadow-2xl border border-gray-100 relative z-10 max-w-[35rem]">
+              <div className="bg-white rounded-xl py-8 px-4 shadow-2xl border border-gray-100 relative z-10 ">
                 <div className="text-center mb-6">
                   <h3 className="text-xl font-bold text-gray-900 mb-2">Find Your Perfect Match</h3>
-                  <p className="text-gray-600">Discover opportunities tailored to your goals</p>
+                  <p className="text-gray-500">Discover opportunities tailored to your goals</p>
                 </div>
 
                 {/* Toggle Buttons */}
@@ -143,8 +143,8 @@ export function HeroSection() {
                       type="text"
                       placeholder={
                         activeTab === "students"
-                          ? "Search jobs, internships, companies..."
-                          : "Search for talent, skills, roles..."
+                          ? "Search jobs, internships..."
+                          : "Search for talent, skills..."
                       }
                       value={jobSearch}
                       onChange={(e) => setJobSearch(e.target.value)}
@@ -165,7 +165,7 @@ export function HeroSection() {
 
                   <Button
                     onClick={handleSearch}
-                    className="w-full h-12 bg-gradient-to-r from-[#535c91] to-[#6366f1] hover:from-[#535c91]/90 hover:to-[#6366f1]/90 text-white font-semibold rounded-xl text-base shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="w-full h-12 bg-primary hover:from-[#535c91]/90 hover:to-[#6366f1]/90 text-white font-semibold rounded-xl cursor-pointer transition-all duration-300"
                   >
                     <Search className="h-5 w-5 mr-2" />
                     {activeTab === "students" ? "Find Opportunities" : "Find Talent"}
@@ -181,7 +181,7 @@ export function HeroSection() {
                         <Badge
                           key={term}
                           variant="outline"
-                          className="text-xs cursor-pointer hover:bg-[#535c91] hover:text-white transition-colors duration-200 border-gray-300"
+                          className="text-xs text-gray-800 cursor-pointer hover:bg-[#535c91] hover:text-white transition-colors duration-200 border-gray-300"
                         >
                           {term}
                         </Badge>
