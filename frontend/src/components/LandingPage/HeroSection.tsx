@@ -16,7 +16,8 @@ export function HeroSection() {
   }
 
   return (
-    <section className="relative py-12 bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-hidden">
+    // <section className="relative py-12 bg-gradient-to-br from-gray-50 via-white to-blue-50 overflow-hidden">
+    <section className=" py-17 ">
       {/* Background Elements */}
       <div className="absolute inset-0">
         <div className="absolute top-20 left-10 w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>

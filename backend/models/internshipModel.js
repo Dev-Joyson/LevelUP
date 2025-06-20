@@ -7,6 +7,11 @@ const internshipSchema = new mongoose.Schema({
     domain: String,
     duration: String,
     location: String,
+    salary: {
+      min: { type: Number, required: true },
+      max: { type: Number, required: true }
+    },
+    workMode: { type: String, enum: ['remote', 'onsite', 'hybrid'], required: true },
     criteria: {
       skills: [String],
       education: String
