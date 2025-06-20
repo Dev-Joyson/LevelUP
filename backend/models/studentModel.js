@@ -7,6 +7,7 @@ const studentSchema = new mongoose.Schema({
     education: String,
     skills: [String],
     resumeUrl: String,
+    resumePublicId: String,
     appliedInternships: [{ type: mongoose.Schema.Types.ObjectId, ref: 'internship'}],
     mockInterviewsTaken: [String],
     mentorRequests: [{type: mongoose.Schema.Types.ObjectId, ref: 'mentor'}],

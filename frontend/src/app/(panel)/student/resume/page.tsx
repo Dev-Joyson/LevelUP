@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, X, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function StudentResumePage() {
+
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  console.log("API_BASE_URL:", API_BASE_URL);
+
   const [skills, setSkills] = useState([
     "Python",
     "Data Analysis",
@@ -19,6 +24,29 @@ export default function StudentResumePage() {
   ])
   const [newSkill, setNewSkill] = useState("")
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState("")
+
+  // Fetch current resume URL on mount (pseudo, adjust endpoint as needed)
+  useEffect(() => {
+    async function fetchResume() {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+        const res = await fetch(`${API_BASE_URL}/api/student/profile`,{
+          method: "GET",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        }) // Adjust endpoint as needed
+        if (res.ok) {
+          const data = await res.json()
+          setResumeUrl(data.resumeUrl || null)
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    fetchResume()
+  }, [])
 
   const handleAddSkill = () => {
     if (newSkill.trim() && !skills.includes(newSkill.trim())) {
@@ -31,10 +59,42 @@ export default function StudentResumePage() {
     setSkills(skills.filter((skill) => skill !== skillToRemove))
   }
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      setUploadedFile(file)
+    if (!file) return
+    if (file.type !== "application/pdf") {
+      setUploadError("Only PDF files are allowed")
+      setUploadedFile(null)
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("File size must be less than 5MB")
+      setUploadedFile(null)
+      return
+    }
+    setUploadError("")
+    setUploadedFile(file)
+    setUploading(true)
+    const formData = new FormData()
+    formData.append("resume", file)
+    try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+      const res = await fetch(`${API_BASE_URL}/api/student/resume`, {
+        method: "POST",
+        body: formData,
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setResumeUrl(data.resumeUrl)
+        setUploadError("")
+      } else {
+        setUploadError(data.message || "Failed to upload resume")
+      }
+    } catch (err) {
+      setUploadError("Server error. Please try again later.")
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -67,7 +127,7 @@ export default function StudentResumePage() {
                     <input
                       type="file"
                       id="resume-upload"
-                      accept=".pdf,.doc,.docx"
+                      accept=".pdf"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -76,22 +136,29 @@ export default function StudentResumePage() {
                         variant="outline"
                         className="cursor-pointer bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
                         asChild
+                        disabled={uploading}
                       >
                         <span>
                           <Upload className="h-4 w-4 mr-2" />
-                          Upload
+                          {uploading ? "Uploading..." : "Upload"}
                         </span>
                       </Button>
                     </Label>
 
                     {uploadedFile && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <span>Uploaded: {uploadedFile.name}</span>
+                        <span>Selected: {uploadedFile.name}</span>
                         <Button variant="ghost" size="sm" onClick={() => setUploadedFile(null)} className="h-6 w-6 p-0">
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
                     )}
+                    {resumeUrl && (
+                      <div className="text-sm mt-2">
+                        <a href={resumeUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View Current Resume</a>
+                      </div>
+                    )}
+                    {uploadError && <div className="text-sm text-red-500 mt-1">{uploadError}</div>}
                   </div>
                 </div>
 
