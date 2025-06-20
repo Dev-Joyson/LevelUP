@@ -87,7 +87,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="border-b sticky top-0 z-50 bg-background">
+    <header className="border-b sticky top-0 z-50 bg-background px-4">
       <div className="container mx-auto">
         <div className="flex h-16 items-center relative">
           {/* Logo and navigation links */}
