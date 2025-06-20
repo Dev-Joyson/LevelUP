@@ -89,21 +89,32 @@ export function Navbar() {
   return (
     <header className="border-b sticky top-0 z-50 bg-background px-4">
       <div className="container mx-auto">
-        <div className="flex h-16 items-center relative">
-          {/* Logo and navigation links */}
+        <div className="flex h-16 items-center relative justify-between">
+          {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl">
             <p className="text-primary text-2xl">
               Level<span className="text-[#535c91]">UP</span>
             </p>
           </Link>
 
-          {/* Hamburger menu for mobile */}
-          <div className="flex md:hidden ml-2">
+          {/* Hamburger menu for mobile: right-aligned */}
+          <div className="flex md:hidden ml-2 absolute right-0 top-1/2 -translate-y-1/2">
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="p-0"><Menu className="h-6 w-6" /></Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0">
+                {/* Profile section at the top of the menu */}
+                {isAuthenticated && user && (
+                  <div className="flex flex-col items-center gap-2 py-6 border-b">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                      <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
+                    </Avatar>
+                    <span className="font-semibold text-base">{user.email}</span>
+                    <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
+                  </div>
+                )}
                 <nav className="flex flex-col gap-2 p-6">
                   <Link href="/" className="text-base font-medium transition-colors text-gray-600 hover:text-primary">
                     Home
@@ -173,26 +184,26 @@ export function Navbar() {
             </Sheet>
           </div>
 
-          {/* Navigation links - show different links based on user role */}
-          <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 md:flex gap-6 flex hidden md:flex">
-            <Link href="/" className="text-sm font-medium transition-colors text-gray-600 hover:text-primary">
+          {/* Desktop navigation and profile */}
+          <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden md:flex gap-6">
+            <Link href="/" className=" transition-colors text-gray-600 hover:text-primary">
               Home
             </Link>
             {/* Show internships link for students and mentors */}
             {(!user || user.role === "student" || user.role === "mentor") && (
-              <Link href="/internship" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link href="/internship" className="  text-gray-600 transition-colors hover:text-primary">
                 Internships
               </Link>
             )}
             {/* Show mentorship link for students */}
             {(!user || user.role === "student") && (
-              <Link href="/mentorship" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link href="/mentorship" className="text-gray-600 transition-colors hover:text-primary">
                 Mentorship
               </Link>
             )}
             {/* Show mock interviews for students */}
             {(!user || user.role === "student") && (
-              <Link href="/mock-interviews" className="text-sm font-medium transition-colors hover:text-primary">
+              <Link href="/mock-interviews" className="text-gray-600 transition-colors hover:text-primary">
                 Mock Interviews
               </Link>
             )}
@@ -219,79 +230,80 @@ export function Navbar() {
           <div className="flex-1"></div>
 
           {/* Conditional rendering based on authentication status */}
-          {isAuthenticated && user ? (
-            /* Authenticated user - show search, notifications, and profile */
-            <div className="flex items-center gap-4">
-              {/* Only show search for non-admin users */}
-              {user.role !== "admin" && (
-                <div className="relative">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search"
-                    className="w-64 rounded-full bg-muted/30 border-0 pl-10 pr-4 h-10 md:w-80"
-                  />
-                </div>
-              )}
-
-              <div className="relative cursor-pointer">
-                <Bell className="h-5 w-5" />
-                <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-primary"></span>
-              </div>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Avatar className="h-8 w-8 cursor-pointer">
-                    <AvatarImage src="/placeholder.svg" alt="User avatar" />
-                    <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
-                  </Avatar>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="flex items-center justify-start gap-2 p-2">
-                    <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.email ? user.email.split("@")[0] : "User"}</p>
-                      {user.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
-                      <p className="text-xs text-muted-foreground">{getRoleDisplayName()}</p>
-                    </div>
+          <div className="hidden md:flex items-center gap-4">
+            {isAuthenticated && user ? (
+              <>
+                {/* Only show search for non-admin users */}
+                {user.role !== "admin" && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="search"
+                      placeholder="Search"
+                      className="w-64 rounded-full bg-muted/30 border-0 pl-10 pr-4 h-10 md:w-80"
+                    />
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link href={getDashboardLink()} className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      {user.role === "admin" ? "Admin Panel" : "Dashboard"}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/student/profile" className="cursor-pointer">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/settings" className="cursor-pointer">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="cursor-pointer">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          ) : (
-            /* Guest user - show Login and Sign Up buttons */
-            <div className="flex items-center gap-3">
-              <Button variant="outline" asChild className="text-sm font-medium px-8 border border-primary text-primary cursor-pointer bg-white">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild className="text-sm font-medium bg-primary hover:bg-primary/90 px-9">
-                <Link href="/join">Join</Link>
-              </Button>
-            </div>
-          )}
+                )}
+
+                <div className="relative cursor-pointer">
+                  <Bell className="h-5 w-5" />
+                  <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-primary"></span>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Avatar className="h-8 w-8 cursor-pointer">
+                      <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                      <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
+                    </Avatar>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <div className="flex items-center justify-start gap-2 p-2">
+                      <div className="flex flex-col space-y-1 leading-none">
+                        <p className="font-medium">{user.email ? user.email.split("@")[0] : "User"}</p>
+                        {user.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
+                        <p className="text-xs text-muted-foreground">{getRoleDisplayName()}</p>
+                      </div>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link href={getDashboardLink()} className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        {user.role === "admin" ? "Admin Panel" : "Dashboard"}
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/student/profile" className="cursor-pointer">
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/settings" className="cursor-pointer">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Settings
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={logout} className="cursor-pointer">
+                      <LogOut className="mr-2 h-4 w-4" />
+                      Log out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              /* Guest user - show Login and Sign Up buttons */
+              <>
+                <Button variant="outline" asChild className="text-sm font-medium px-8 border border-primary text-primary cursor-pointer bg-white">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild className="text-sm font-medium bg-primary hover:bg-primary/90 px-9">
+                  <Link href="/join">Join</Link>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>
