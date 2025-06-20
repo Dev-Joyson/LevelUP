@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button"
 
 export function FeaturesSection() {
   return (
-    <section className="py-10 sm:py-15">
-      <div className="py-4 px-4">
+    <section className="py-10 sm:py-15 container mx-auto">
+      <div className="py-4">
         <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Empowering Students, Companies, and Mentors</h2>
           <p className="text-gray-500 max-w-3xl mx-auto text-sm sm:text-base">

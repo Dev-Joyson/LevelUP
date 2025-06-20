@@ -32,8 +32,8 @@ export function TestimonialsSection() {
   ]
 
   return (
-    <section className="py-10 sm:py-15 bg-white">
-      <div className="px-4">
+    <section className="py-10 sm:py-15 bg-white mx-auto container">
+      <div className="">
         <div className="text-center mb-10 sm:mb-16">
           <h2 className="text-2xl sm:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Testimonials</h2>
           <p className="text-gray-600 text-sm sm:text-base">What our community says about LevelUp</p>
