@@ -10,7 +10,7 @@ export default function AdminLayout({
   return (
     <SidebarProvider>
       <AdminSidebar />
-      <main className="flex-10 ml-20 overflow-auto">{children}</main>
+      <main className="flex-10 ml-40 overflow-auto">{children}</main>
     </SidebarProvider>
   )
 }

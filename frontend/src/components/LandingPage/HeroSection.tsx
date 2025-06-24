@@ -233,12 +233,12 @@ export function HeroSection() {
                 <Users className="h-6 w-6 text-white" />
               </div>
 
-              <div className="absolute -bottom-4 -left-4 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl p-4 shadow-lg">
+              <div className="absolute -bottom-4 -left-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl p-4 shadow-lg">
                 <Building2 className="h-6 w-6 text-white" />
               </div>
 
               {/* Testimonial Card */}
-              <div className="absolute z-20 -bottom-15 right-5 bg-white rounded-2xl p-4 shadow-xl border border-gray-100 max-w-xs">
+              <div className="absolute z-20 -bottom-20 right-5 bg-white rounded-2xl p-4 shadow-xl border border-gray-100 max-w-xs">
                 <div className="flex items-center gap-1 mb-2">
                   {[...Array(5)].map((_, i) => (
                     <Star key={i} className="h-3 w-3 text-yellow-400 fill-current" />
