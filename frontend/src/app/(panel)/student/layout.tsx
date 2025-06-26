@@ -6,7 +6,7 @@ import { PanelNavbar } from "@/components/common/PanelNavbar"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
 import { useState } from "react"
-
+import { StudentProvider } from "@/context/StudentContext"
 export default function StudentLayout({
   children,
 }: {
@@ -16,6 +16,7 @@ export default function StudentLayout({
   const [open, setOpen] = useState(false)
 
   return (
+    <StudentProvider>
     <div className="min-h-screen bg-gray-50">
       <div className="sticky top-0 z-40">
         <div className="flex items-center justify-between md:hidden bg-white border-b px-4 h-[56px]">
@@ -42,5 +43,6 @@ export default function StudentLayout({
         <div className="flex-1 p-2 sm:p-6">{children}</div>
       </div>
     </div>
+    </StudentProvider>
   )
 }

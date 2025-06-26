@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/inputAdmin"
@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
 import { CompanyDetailsModal } from "@/components/AdminComponents/company-details-modal"
-import { toast } from "react-toastify"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useAdminContext } from "@/context/AdminContext"
 
 interface Company {
   _id: string;
@@ -41,107 +41,58 @@ interface Company {
   pdfPublicId?: string;
 }
 
-type StatusFilter = "all" | "pending"
-
 export default function CompaniesPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all")
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false)
-  const [companyToApprove, setCompanyToApprove] = useState<Company | null>(null)
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+  const {
+    companies,
+    loading,
+    error,
+    statusFilter,
+    searchTerm,
+    selectedCompany,
+    approveDialogOpen,
+    companyToApprove,
+    setStatusFilter,
+    setSearchTerm,
+    setSelectedCompany,
+    setApproveDialogOpen,
+    setCompanyToApprove,
+    approveCompany,
+  } = useAdminContext();
 
-  useEffect(() => {
-    fetchCompanies()
-  }, [statusFilter])
+  // Only local state for modal open/close
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const fetchCompanies = async () => {
-    try {
-      setLoading(true)
-      const token = localStorage.getItem('token')
-      const endpoint = statusFilter === 'all' 
-        ? `${API_BASE_URL}/api/admin/companies`
-        : `${API_BASE_URL}/api/admin/companies/unverified`
+  const filteredCompanies = companies.filter((company) =>
+    company.companyName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch companies')
-      }
-
-      const data = await response.json()
-      console.log('Fetched companies data:', data) // Debug log
-      setCompanies(data)
-    } catch (error) {
-      console.error('Error fetching companies:', error)
-      toast.error('Failed to fetch companies')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filteredCompanies = companies.filter((company) => {
-    return company.companyName.toLowerCase().includes(searchTerm.toLowerCase())
-  })
-
-  const getStatusBadge = (verified: boolean) => {
-    return verified 
+  const getStatusBadge = (verified: boolean) =>
+    verified
       ? <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
-      : <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
-  }
+      : <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>;
 
   const handleViewCompany = (company: Company) => {
-    setSelectedCompany(company)
-    setIsModalOpen(true)
-  }
+    setSelectedCompany(company);
+    setIsModalOpen(true);
+  };
 
   const handleApproveClick = (company: Company) => {
-    setCompanyToApprove(company)
-    setApproveDialogOpen(true)
-  }
+    setCompanyToApprove(company);
+    setApproveDialogOpen(true);
+  };
 
   const handleApproveConfirm = async () => {
-    if (!companyToApprove) return
+    if (!companyToApprove) return;
+    await approveCompany(companyToApprove._id);
+  };
 
-    try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${API_BASE_URL}/api/admin/companies/${companyToApprove._id}/verify`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to approve company')
-      }
-
-      toast.success('Company approved successfully')
-      fetchCompanies() // Refresh the list
-    } catch (error) {
-      console.error('Error approving company:', error)
-      toast.error('Failed to approve company')
-    } finally {
-      setApproveDialogOpen(false)
-      setCompanyToApprove(null)
-    }
-  }
-
-  const getFilterButtonClass = (filter: StatusFilter) => {
-    return statusFilter === filter
+  const getFilterButtonClass = (filter: string) =>
+    statusFilter === filter
       ? "bg-blue-50 text-blue-700 border-b-2 border-blue-700"
-      : "text-gray-600 hover:text-gray-900"
-  }
+      : "text-gray-600 hover:text-gray-900";
 
   if (loading) {
-    return <div className="p-6">Loading companies...</div>
+    return <div className="p-6">Loading companies...</div>;
   }
 
   return (

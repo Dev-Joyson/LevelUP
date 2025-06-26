@@ -6,6 +6,6 @@ import { companyDashboard, createInternship } from "../controllers/companyContro
 const companyRouter = express.Router()
 
 companyRouter.get('/dashboard', authenticateUser, authorizeRoles("company"), companyDashboard)
-companyRouter.post('/create-internships', authenticateUser, authorizeRoles("company"), createInternship)
+companyRouter.post('/create-internship', authenticateUser, authorizeRoles("company"), createInternship)
 
 export default companyRouter;

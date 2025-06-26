@@ -19,7 +19,7 @@ const mentors: Mentor[] = [
     experience: "8+ years",
     rating: 4.9,
     reviewCount: 127,
-    pricePerMonth: 240,
+    pricePerMonth: 5000,
     category: ["Artificial Intelligence", "Machine Learning", "Data Science"],
     isQuickResponder: true,
   },
@@ -35,7 +35,7 @@ const mentors: Mentor[] = [
     experience: "10+ years",
     rating: 4.8,
     reviewCount: 89,
-    pricePerMonth: 100,
+    pricePerMonth: 3500,
     category: ["Data Science", "Machine Learning", "Leadership"],
   },
   {
@@ -50,7 +50,7 @@ const mentors: Mentor[] = [
     experience: "10+ years",
     rating: 4.7,
     reviewCount: 156,
-    pricePerMonth: 50,
+    pricePerMonth: 3500,
     category: ["Marketing", "Artificial Intelligence", "Leadership"],
     isQuickResponder: true,
   },
@@ -66,7 +66,7 @@ const mentors: Mentor[] = [
     experience: "7+ years",
     rating: 4.9,
     reviewCount: 203,
-    pricePerMonth: 180,
+    pricePerMonth: 6000,
     category: ["Product Management", "Leadership", "Career Growth"],
   },
   {
@@ -81,7 +81,7 @@ const mentors: Mentor[] = [
     experience: "12+ years",
     rating: 4.8,
     reviewCount: 174,
-    pricePerMonth: 220,
+    pricePerMonth: 5500,
     category: ["Leadership", "Career Growth", "Software Engineering"],
   },
 ]
@@ -110,7 +110,7 @@ export default function MentorshipPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState([0, 500])
+  const [priceRange, setPriceRange] = useState([0, 10000])
   const [showFilters, setShowFilters] = useState(false)
 
   const filteredMentors = mentors.filter((mentor) => {

@@ -29,6 +29,8 @@ export default function RegistrationComponent() {
   useEffect(() => {
     const r = searchParams.get("role")
     if (r) setRole(r)
+    const emailParam = searchParams.get("email")
+    if (emailParam) setEmail(emailParam)
   }, [searchParams])
 
   const [email, setEmail] = useState("")

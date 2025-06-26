@@ -146,13 +146,54 @@ const rejectCompany = async (req, res) => {
     res.status(500).json({ message: 'Error rejecting company' });
   }
 };
-  
+
+// Invite a new mentor
+const inviteMentor = async (req, res) => {
+  try {
+    const { email, name } = req.body;
+
+    if (!email || !name) {
+      return res.status(400).json({ message: 'Email and name are required' });
+    }
+
+    // Send invitation email
+    await sendEmail({
+      to: email,
+      subject: 'Invitation to Join LevelUP as a Mentor',
+      html: `
+        <h1>Welcome to LevelUP!</h1>
+        <p>Dear ${name},</p>
+        <p>You have been invited to join LevelUP as a mentor. We believe your expertise and experience would be invaluable to our platform.</p>
+        <p>As a mentor on LevelUP, you'll have the opportunity to:</p>
+        <ul>
+          <li>Guide and support aspiring students</li>
+          <li>Share your industry expertise</li>
+          <li>Help shape the next generation of professionals</li>
+          <li>Build meaningful connections</li>
+        </ul>
+        <p>To get started, please click the link below to complete your registration:</p>
+        <p><a href="https://level-up-five.vercel.app/register?role=mentor&email=${encodeURIComponent(email)}">Complete Your Mentor Registration</a></p>
+        <p>We're excited to have you on board!</p>
+        <p>Best regards,<br>The LevelUP Team</p>
+      `
+    });
+
+    res.status(200).json({ 
+      message: 'Mentor invitation sent successfully',
+      invitedMentor: { name, email }
+    });
+  } catch (error) {
+    console.error('Error sending mentor invitation:', error);
+    res.status(500).json({ message: 'Error sending mentor invitation' });
+  }
+};
+
 export { 
   adminDashboard, 
   adminLogin, 
   getUnverifiedCompanies, 
   verifyCompany, 
   rejectCompany,
-  getAllCompanies
+  getAllCompanies,
+  inviteMentor
 };
-  

@@ -94,7 +94,7 @@ export function MentorCard({ mentor, onViewProfile }: MentorCardProps) {
               {/* Price and Action */}
               <div className="flex flex-col items-end gap-3">
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">${mentor.pricePerMonth}</div>
+                  <div className="text-2xl font-bold text-gray-900">LKR {mentor.pricePerMonth}</div>
                   <div className="text-sm text-gray-500">/ month</div>
                 </div>
                 <Button onClick={handleViewProfile} className="bg-primary hover:bg-primary/90 px-6">
