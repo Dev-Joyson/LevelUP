@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 
 import { ConditionalNavbar } from "@/components/common/ConditionalNavbar";
 import { ConditionalFooter } from "@/components/common/ConditionalFooter";
+import { SonnerToaster } from "@/components/ui/sonner-toaster";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${outfit.className} ${ovo.className} antialiased`}>
         <Providers>
           <ConditionalNavbar />
+          <SonnerToaster />
           <div className="mx-auto">
             {children}
           </div>

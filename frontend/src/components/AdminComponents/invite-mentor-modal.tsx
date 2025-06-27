@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/inputAdmin"
 import { Label } from "@/components/ui/labelAdmin"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserPlus, Mail } from "lucide-react"
+import { notifySuccess, notifyError } from "@/lib/notify"
 
 interface InviteMentorModalProps {
   isOpen: boolean
@@ -48,13 +49,16 @@ export function InviteMentorModal({ isOpen, onClose }: InviteMentorModalProps) {
       })
       if (!res.ok) {
         const data = await res.json()
+        notifyError(data.message || "Failed to send invitation")
         throw new Error(data.message || "Failed to send invitation")
       }
       setSuccess(true)
+      notifySuccess("Mentor invitation sent!")
       setFormData({ name: "", email: "", expertise: "" })
       onClose()
     } catch (err: any) {
       setError(err.message)
+      notifyError(err.message)
     } finally {
       setLoading(false)
     }

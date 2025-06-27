@@ -26,14 +26,8 @@ export default function RegistrationComponent() {
   // Defer role reading to after mount to avoid SSR issues
   const [role, setRole] = useState("student")
 
-  useEffect(() => {
-    const r = searchParams.get("role")
-    if (r) setRole(r)
-    const emailParam = searchParams.get("email")
-    if (emailParam) setEmail(emailParam)
-  }, [searchParams])
-
   const [email, setEmail] = useState("")
+  const [emailTouched, setEmailTouched] = useState(false)
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [password, setPassword] = useState("")
@@ -80,6 +74,13 @@ export default function RegistrationComponent() {
     "South Eastern University of Sri Lanka",
     "Rajarata University of Sri Lanka",
   ]
+
+  useEffect(() => {
+    const r = searchParams.get("role")
+    if (r) setRole(r)
+    const emailParam = searchParams.get("email")
+    if (emailParam && !emailTouched) setEmail(emailParam)
+  }, [searchParams, emailTouched])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -257,7 +258,7 @@ export default function RegistrationComponent() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); setEmailTouched(true); }}
                   className="mt-1"
                 />
               </div>
