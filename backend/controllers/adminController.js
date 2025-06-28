@@ -52,6 +52,20 @@ const getAllCompanies = async (req, res) => {
     res.status(500).json({ message: 'Error fetching companies' });
   }
 }
+// Get all student users
+const getAllStudents = async (req, res) => {
+  try {
+    const students = await userModel.find({ role: 'student' }).select('-password -__v');
+
+    res.status(200).json({
+      message: 'All student accounts fetched successfully',
+      students,
+    });
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    res.status(500).json({ message: 'Error fetching student data' });
+  }
+};
 
 
 // Verify a company
@@ -195,5 +209,6 @@ export {
   verifyCompany, 
   rejectCompany,
   getAllCompanies,
-  inviteMentor
+  inviteMentor,
+  getAllStudents,
 };
