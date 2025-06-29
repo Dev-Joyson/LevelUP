@@ -8,7 +8,8 @@ import {
   verifyCompany, 
   rejectCompany, 
   getAllCompanies,
-  inviteMentor
+  inviteMentor,
+  getAllStudents
 } from "../controllers/adminController.js"
 
 
@@ -23,7 +24,8 @@ adminRouter.get('/companies/unverified', authenticateUser, authorizeRoles("admin
 adminRouter.get('/companies', authenticateUser, authorizeRoles("admin"), getAllCompanies)
 adminRouter.post('/companies/:companyId/verify', authenticateUser, authorizeRoles("admin"), verifyCompany)
 adminRouter.post('/companies/:companyId/reject', authenticateUser, authorizeRoles("admin"), rejectCompany)
-adminRouter.post('/companies/:companyId/reject', authenticateUser, authorizeRoles("admin"), rejectCompany)
+adminRouter.get('/students', authenticateUser, authorizeRoles("admin"), getAllStudents);
+
 
 // Mentor invitation route
 adminRouter.post('/mentors/invite', authenticateUser, authorizeRoles("admin"), inviteMentor)
