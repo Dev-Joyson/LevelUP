@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken'
 import companyModel from '../models/companyModel.js'
 import userModel from '../models/userModel.js'
+import studentModel from '../models/studentModel.js'
+
 import { sendEmail } from '../utils/emailService.js'
 
 const adminLogin = (req, res) => {
@@ -55,7 +57,7 @@ const getAllCompanies = async (req, res) => {
 // Get all student users
 const getAllStudents = async (req, res) => {
   try {
-    const students = await userModel.find({ role: 'student' }).select('-password -__v');
+   const students = await studentModel.find({});
 
     res.status(200).json({
       message: 'All student accounts fetched successfully',
