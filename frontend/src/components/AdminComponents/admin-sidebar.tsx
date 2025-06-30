@@ -1,6 +1,6 @@
 "use client"
 
-import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard } from "lucide-react"
+import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home } from "lucide-react"
 
 import {
   Sidebar,
@@ -15,6 +15,11 @@ import {
 import Link from "next/link"
 
 const navigationItems = [
+  {
+    title: "Home",
+    url: "/",
+    icon: Home,
+  },
   {
     title: "Dashboard",
     url: "/admin/dashboard",
