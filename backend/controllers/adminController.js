@@ -2,6 +2,8 @@ import jwt from 'jsonwebtoken'
 import companyModel from '../models/companyModel.js'
 import userModel from '../models/userModel.js'
 import mentorModel from '../models/mentorModel.js';
+import studentModel from '../models/studentModel.js'
+
 import { sendEmail } from '../utils/emailService.js'
 
 const adminLogin = (req, res) => {
@@ -53,6 +55,20 @@ const getAllCompanies = async (req, res) => {
     res.status(500).json({ message: 'Error fetching companies' });
   }
 }
+// Get all student users
+const getAllStudents = async (req, res) => {
+  try {
+   const students = await studentModel.find({});
+
+    res.status(200).json({
+      message: 'All student accounts fetched successfully',
+      students,
+    });
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    res.status(500).json({ message: 'Error fetching student data' });
+  }
+};
 
 
 // Verify a company
