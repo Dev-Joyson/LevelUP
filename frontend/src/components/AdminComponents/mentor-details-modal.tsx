@@ -7,33 +7,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { UserCheck, Mail, Building2, MapPin, Calendar, Phone, Award, Users, Shield } from "lucide-react"
 
 interface Mentor {
-  id: number
+  id?: string | number
+  _id?: string
   name: string
   email: string
   company: string
-  status: string
-  lastActive: string
-  mentoringSessions: number
-  expertise: string
-  experience: string
-  bio: string
-  phone: string
-  location: string
-  joinedDate: string
+  status?: string
+  verified?: boolean
+  rejected?: boolean
+  lastActive?: string
+  mentoringSessions?: number
+  expertise?: string
+  experience?: string
+  bio?: string
+  phone?: string
+  location?: string
+  joinedDate?: string
 }
 
 interface MentorDetailsModalProps {
   mentor: Mentor | null
   isOpen: boolean
   onClose: () => void
-  onDeactivateMentor: (mentorId: number) => void
+  onApproveMentor?: (mentorId: string) => void
+  onRejectMentor?: (mentorId: string) => void
+  onDeleteMentor?: (mentorId: string) => void
 }
 
-export function MentorDetailsModal({ mentor, isOpen, onClose, onDeactivateMentor }: MentorDetailsModalProps) {
+export function MentorDetailsModal({ mentor, isOpen, onClose, onDeleteMentor }: MentorDetailsModalProps) {
   if (!mentor) return null
 
-  const handleDeactivateMentor = () => {
-    onDeactivateMentor(mentor.id)
+  const mentorId = mentor._id || mentor.id
+
+  const handleDelete = () => {
+    if (onDeleteMentor && mentorId) onDeleteMentor(mentorId.toString())
     onClose()
   }
 
@@ -56,16 +63,17 @@ export function MentorDetailsModal({ mentor, isOpen, onClose, onDeactivateMentor
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="text-2xl font-bold">{mentor.name} - Mentor Profile</DialogTitle>
           <div className="flex items-center gap-2">
-            {getStatusBadge(mentor.status)}
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleDeactivateMentor}
-              className="flex items-center gap-2"
-              disabled={mentor.status.toLowerCase() === "inactive"}
-            >
-              <Shield className="h-4 w-4" />
-              {mentor.status.toLowerCase() === "inactive" ? "Deactivated" : "Deactivate"}
+            {/* Status badge logic */}
+            {mentor.verified ? (
+              <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
+            ) : mentor.rejected ? (
+              <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
+            ) : (
+              <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
+            )}
+            {/* Only show Delete button for admin */}
+            <Button variant="destructive" size="sm" onClick={handleDelete} className="ml-2">
+              Delete
             </Button>
           </div>
         </DialogHeader>

@@ -9,8 +9,12 @@ import {
   rejectCompany, 
   getAllCompanies,
   inviteMentor,
-  getAllStudents,
-  getAllMentors
+  verifyMentor,
+  getAllMentors,
+  getUnverifiedMentors,
+  rejectMentor,
+  deleteMentor,
+  getAllStudents
 } from "../controllers/adminController.js"
 
 
@@ -30,7 +34,14 @@ adminRouter.get('/mentors', authenticateUser, authorizeRoles("admin"), getAllMen
 
 
 
-// Mentor invitation route
+// Mentor invitation and verification routes
 adminRouter.post('/mentors/invite', authenticateUser, authorizeRoles("admin"), inviteMentor)
+adminRouter.post('/mentors/:mentorId/verify', authenticateUser, authorizeRoles("admin"), verifyMentor)
+adminRouter.post('/mentors/:mentorId/reject', authenticateUser, authorizeRoles("admin"), rejectMentor)
+adminRouter.delete('/mentors/:mentorId', authenticateUser, authorizeRoles("admin"), deleteMentor)
+
+// Mentor management routes
+adminRouter.get('/mentors', authenticateUser, authorizeRoles("admin"), getAllMentors)
+adminRouter.get('/mentors/unverified', authenticateUser, authorizeRoles("admin"), getUnverifiedMentors)
 
 export default adminRouter

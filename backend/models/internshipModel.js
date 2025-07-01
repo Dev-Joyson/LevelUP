@@ -29,14 +29,78 @@ const internshipSchema = new mongoose.Schema({
     education: { type: String }
   },
 
-  qualifications: [
-    {
-      skill: { type: String },
-      match: { type: Boolean }
+  // Enhanced matching criteria with validation
+  matchingCriteria: {
+    skills: { 
+      type: Number, 
+      default: 40,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function(v) {
+          return v >= 0 && v <= 100;
+        },
+        message: 'Skills percentage must be between 0 and 100'
+      }
+    },
+    projects: { 
+      type: Number, 
+      default: 30,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function(v) {
+          return v >= 0 && v <= 100;
+        },
+        message: 'Projects percentage must be between 0 and 100'
+      }
+    },
+    experience: { 
+      type: Number, 
+      default: 20,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function(v) {
+          return v >= 0 && v <= 100;
+        },
+        message: 'Experience percentage must be between 0 and 100'
+      }
+    },
+    gpa: { 
+      type: Number, 
+      default: 5,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function(v) {
+          return v >= 0 && v <= 100;
+        },
+        message: 'GPA percentage must be between 0 and 100'
+      }
+    },
+    certifications: { 
+      type: Number, 
+      default: 5,
+      min: 0,
+      max: 100,
+      validate: {
+        validator: function(v) {
+          return v >= 0 && v <= 100;
+        },
+        message: 'Certifications percentage must be between 0 and 100'
+      }
     }
-  ],
+  },
 
+  // Specific requirements for better matching
   requirements: [String], // List of requirements
+  
+  // Preferred skills for better matching
+  preferredSkills: [String],
+  
+  // Minimum GPA requirement
+  minimumGPA: { type: Number, default: 0 },
 
   // Benefits split into array of strings for easier display
   benefits: [String],
@@ -47,6 +111,12 @@ const internshipSchema = new mongoose.Schema({
   isPublished: { type: Boolean, default: false },
   isVerified: { type: Boolean, default: false },
   isArchived: { type: Boolean, default: false },
+
+  // Application deadline
+  applicationDeadline: { type: Date },
+  
+  // Number of positions available
+  positions: { type: Number, default: 1 },
 
   createdAt: { type: Date, default: Date.now }
 });

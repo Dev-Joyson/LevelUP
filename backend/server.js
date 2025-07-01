@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import 'dotenv/config';
 import connectDB from './config/mongodb.js';
 import connectCloudinary from './config/cloudinary.js'; // Keep for configuration
@@ -8,6 +9,7 @@ import studentRouter from './routes/studentRoutes.js';
 import mentorRouter from './routes/mentorRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import companyRouter from './routes/companyRoutes.js';
+import resumeParserRouter from './routes/resumeParserRoutes.js';
 
 // App config
 const app = express();
@@ -31,6 +33,7 @@ app.use('/api/student', studentRouter);
 app.use('/api/mentor', mentorRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/company', companyRouter);
+app.use('/api/resume', resumeParserRouter);
 
 // Multer error handling middleware
 app.use((err, req, res, next) => {

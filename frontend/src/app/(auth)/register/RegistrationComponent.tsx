@@ -35,6 +35,7 @@ export default function RegistrationComponent() {
   const [university, setUniversity] = useState("")
   const [graduationYear, setGraduationYear] = useState("")
   const [skills, setSkills] = useState<string[]>([])
+  const [expertise, setExpertise] = useState<string[]>([])
   const [companyName, setCompanyName] = useState("")
   const [position, setPosition] = useState("")
   const [description, setDescription] = useState("")
@@ -162,12 +163,12 @@ export default function RegistrationComponent() {
         extra.graduationYear = graduationYear
         extra.skills = skills
       } else if (role === "mentor") {
-        if (!position || skills.length === 0) {
+        if (!position || expertise.length === 0) {
           toast.error("Please fill mentor profile fields.")
           return
         }
         extra.position = position
-        extra.skills = skills
+        extra.expertise = expertise
       }
 
       try {
@@ -338,9 +339,9 @@ export default function RegistrationComponent() {
                     <Label>Expertise / Skills</Label>
                     <MultiSelect
                       options={skillOptions}
-                      selectedValues={skills}
-                      onChange={setSkills}
-                      placeholder="Select skills"
+                      selectedValues={expertise}
+                      onChange={expertise => setExpertise(expertise)}
+                      placeholder="Select Expertise"
                     />
                   </div>
                 </>

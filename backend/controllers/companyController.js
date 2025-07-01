@@ -1,11 +1,12 @@
 import internshipModel from '../models/internshipModel.js';
 import companyModel from '../models/companyModel.js';
+import applicationModel from '../models/applicationModel.js';
 
 const companyDashboard = (req, res) => {
     res.json({ message: "Welcome to the Company Dashboard", user: req.user });
   };
   
-// Create a new internship
+// Create a new internship with enhanced matching criteria
 const createInternship = async (req, res) => {
   try {
     const userId = req.user.userId;
@@ -30,6 +31,11 @@ const createInternship = async (req, res) => {
       qualifications = [],
       requirements = [],
       benefits = [],
+      matchingCriteria = {},
+      preferredSkills = [],
+      minimumGPA = 0,
+      applicationDeadline,
+      positions = 1,
       isPublished = false,
       isVerified = false,
       isArchived = false
@@ -57,6 +63,45 @@ const createInternship = async (req, res) => {
     if (criteria.skills && !Array.isArray(criteria.skills)) {
       return res.status(400).json({ message: 'Criteria.skills must be an array' });
     }
+    if (preferredSkills && !Array.isArray(preferredSkills)) {
+      return res.status(400).json({ message: 'PreferredSkills must be an array' });
+    }
+
+    // Validate matching criteria
+    const defaultMatchingCriteria = {
+      skills: 40,
+      projects: 30,
+      experience: 20,
+      gpa: 5,
+      certifications: 5
+    };
+
+    const finalMatchingCriteria = { ...defaultMatchingCriteria, ...matchingCriteria };
+    
+    // Validate that all percentages are valid numbers
+    Object.keys(finalMatchingCriteria).forEach(key => {
+      const value = finalMatchingCriteria[key];
+      if (typeof value !== 'number' || value < 0 || value > 100) {
+        return res.status(400).json({ 
+          message: `${key} percentage must be a number between 0 and 100` 
+        });
+      }
+    });
+
+    // Validate that percentages sum to 100
+    const total = Object.values(finalMatchingCriteria).reduce((sum, val) => sum + val, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      return res.status(400).json({ 
+        message: `Matching criteria must sum to 100%. Current total: ${total}%` 
+      });
+    }
+
+    // Validate application deadline
+    if (applicationDeadline && new Date(applicationDeadline) <= new Date()) {
+      return res.status(400).json({ 
+        message: 'Application deadline must be in the future' 
+      });
+    }
 
     // Build the internship object
     const internshipData = {
@@ -81,6 +126,11 @@ const createInternship = async (req, res) => {
       qualifications,
       requirements,
       benefits,
+      matchingCriteria: finalMatchingCriteria,
+      preferredSkills,
+      minimumGPA: Number(minimumGPA) || 0,
+      applicationDeadline: applicationDeadline ? new Date(applicationDeadline) : undefined,
+      positions: Number(positions) || 1,
       isPublished,
       isVerified,
       isArchived
@@ -99,5 +149,220 @@ const createInternship = async (req, res) => {
   }
 };
 
-export { companyDashboard, createInternship };
+// Get applications for a company with filtering and sorting
+const getCompanyApplications = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { internshipId, status, sortBy = 'matchScore', page = 1, limit = 20 } = req.query;
+
+    // Get company
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Build query
+    const query = { companyId: company._id };
+    if (internshipId) query.internshipId = internshipId;
+    if (status) query.status = status;
+
+    // Build sort criteria
+    let sortCriteria = {};
+    switch (sortBy) {
+      case 'matchScore':
+        sortCriteria = { 'matchScore.total': -1 };
+        break;
+      case 'appliedAt':
+        sortCriteria = { appliedAt: -1 };
+        break;
+      case 'name':
+        sortCriteria = { 'student.name': 1 };
+        break;
+      default:
+        sortCriteria = { 'matchScore.total': -1 };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const applications = await applicationModel
+      .find(query)
+      .populate('internshipId', 'title domain location')
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await applicationModel.countDocuments(query);
+
+    res.json({
+      applications,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+
+  } catch (error) {
+    console.error('Get applications error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch applications',
+      error: error.message 
+    });
+  }
+};
+
+// Update application status
+const updateApplicationStatus = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { status, notes } = req.body;
+    const userId = req.user.userId;
+
+    // Get company
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Update application
+    const application = await applicationModel.findOneAndUpdate(
+      { _id: applicationId, companyId: company._id },
+      { 
+        status,
+        notes: notes || '',
+        reviewedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    res.json({ 
+      message: 'Application status updated successfully',
+      application 
+    });
+
+  } catch (error) {
+    console.error('Update application status error:', error);
+    res.status(500).json({ 
+      message: 'Failed to update application status',
+      error: error.message 
+    });
+  }
+};
+
+// Get application analytics
+const getApplicationAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Get application statistics
+    const totalApplications = await applicationModel.countDocuments({ companyId: company._id });
+    
+    const statusCounts = await applicationModel.aggregate([
+      { $match: { companyId: company._id } },
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    const averageMatchScore = await applicationModel.aggregate([
+      { $match: { companyId: company._id } },
+      { $group: { _id: null, avgScore: { $avg: '$matchScore.total' } } }
+    ]);
+
+    const topInternships = await applicationModel.aggregate([
+      { $match: { companyId: company._id } },
+      { $group: { _id: '$internshipId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 },
+      { $lookup: { from: 'internships', localField: '_id', foreignField: '_id', as: 'internship' } },
+      { $unwind: '$internship' },
+      { $project: { title: '$internship.title', count: 1 } }
+    ]);
+
+    res.json({
+      totalApplications,
+      statusCounts: statusCounts.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {}),
+      averageMatchScore: averageMatchScore[0]?.avgScore || 0,
+      topInternships
+    });
+
+  } catch (error) {
+    console.error('Get analytics error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch analytics',
+      error: error.message 
+    });
+  }
+};
+
+// Update internship matching criteria
+const updateInternshipCriteria = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { internshipId } = req.params;
+    const { matchingCriteria, preferredSkills, minimumGPA } = req.body;
+
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Validate matching criteria if provided
+    if (matchingCriteria) {
+      const total = Object.values(matchingCriteria).reduce((sum, val) => sum + val, 0);
+      if (Math.abs(total - 100) > 0.01) {
+        return res.status(400).json({ 
+          message: `Matching criteria must sum to 100%. Current total: ${total}%` 
+        });
+      }
+    }
+
+    const updateData = {};
+    if (matchingCriteria) updateData.matchingCriteria = matchingCriteria;
+    if (preferredSkills) updateData.preferredSkills = preferredSkills;
+    if (minimumGPA !== undefined) updateData.minimumGPA = Number(minimumGPA);
+
+    const internship = await internshipModel.findOneAndUpdate(
+      { _id: internshipId, companyId: company._id },
+      updateData,
+      { new: true, runValidators: true }
+    );
+
+    if (!internship) {
+      return res.status(404).json({ message: 'Internship not found' });
+    }
+
+    res.json({ 
+      message: 'Internship criteria updated successfully',
+      internship 
+    });
+
+  } catch (error) {
+    console.error('Update criteria error:', error);
+    res.status(500).json({ 
+      message: 'Failed to update internship criteria',
+      error: error.message 
+    });
+  }
+};
+
+export { 
+  companyDashboard, 
+  createInternship, 
+  getCompanyApplications, 
+  updateApplicationStatus, 
+  getApplicationAnalytics,
+  updateInternshipCriteria
+};
   
