@@ -1,20 +1,16 @@
 "use client"
 
-import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard } from "lucide-react"
-
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
+import React from "react"
+import { usePathname } from "next/navigation"
 import Link from "next/link"
+import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home } from "lucide-react"
 
 const navigationItems = [
+  {
+    title: "Home",
+    url: "/",
+    icon: Home,
+  },
   {
     title: "Dashboard",
     url: "/admin/dashboard",
@@ -48,34 +44,35 @@ const navigationItems = [
 ]
 
 export function AdminSidebar() {
+  const pathname = usePathname()
+
   return (
-    <Sidebar className="border-r">
-      <SidebarHeader className="p-6">
-        <div className="flex items-center gap-2">
+    <div className="w-70 bg-white border-r border-gray-200 h-screen sticky top-0 overflow-y-auto">
+      <div className="p-3">
+        <div className="flex items-center gap-2 mb-6">
           <div className="h-8 w-8 rounded bg-primary flex items-center justify-center">
             <span className="text-primary-foreground font-bold text-sm">L</span>
           </div>
           <span className="font-semibold text-lg">LevelUP</span>
         </div>
-      </SidebarHeader>
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigationItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <Link href={item.url} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
+        <nav className="space-y-2">
+          {navigationItems.map((item, index) => {
+            const isActive = pathname === item.url
+            return (
+              <Link
+                key={index}
+                href={item.url}
+                className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors ${
+                  isActive ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+              >
+                <item.icon className="h-5 w-5" />
+                <span className="text-sm font-medium">{item.title}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
+    </div>
   )
 }
