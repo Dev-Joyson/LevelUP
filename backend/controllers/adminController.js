@@ -349,4 +349,5 @@ export {
   getUnverifiedMentors,
   rejectMentor,
   deleteMentor,
+  getAllStudents
 };
