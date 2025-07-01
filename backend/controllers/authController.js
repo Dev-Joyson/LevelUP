@@ -89,6 +89,14 @@ const login = async (req,res) => {
       { expiresIn: "1d" }
     )
 
+    // Mentor approval check
+    if (user.role === 'mentor') {
+      const mentor = await (await import('../models/mentorModel.js')).default.findOne({ userId: user._id });
+      if (mentor && !mentor.verified) {
+        return res.status(403).json({ message: "Your account is pending admin approval." });
+      }
+    }
+
     res.status(200).json({
       message: "Login successfull",
       token,
