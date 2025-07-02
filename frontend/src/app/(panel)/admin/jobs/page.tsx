@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/inputAdmin"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search } from "lucide-react"
 import { JobDetailsModal } from "@/components/AdminComponents/job-details-modal"
+import { Loader } from "@/components/common/Loader"
 
 const jobs = [
   {
@@ -168,6 +169,12 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedJob, setSelectedJob] = useState<(typeof jobs)[0] | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   const filteredJobs = jobs.filter((job) => {
     const matchesSearch =
@@ -218,6 +225,8 @@ export default function JobsPage() {
     // In a real app, you would update this in your state management or API
     console.log(`Deleted job with ID: ${jobId}`)
   }
+
+  if (loading) return <Loader />
 
   return (
     <div className="p-6 space-y-6">

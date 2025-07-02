@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table"
 import { Search } from "lucide-react"
 import { StudentCVModal } from "@/components/ui/student-cv-modal"
+import { Loader } from "@/components/common/Loader"
 
 export default function StudentsPage() {
   const [students, setStudents] = useState([])
@@ -33,6 +34,7 @@ export default function StudentsPage() {
 
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   // 🔐 Token (can be from localStorage or login context)
   
@@ -42,38 +44,37 @@ export default function StudentsPage() {
     const fetchStudents = async () => {
       try {
         const token = localStorage.getItem("token") || "";
-
         const response = await axios.get("http://localhost:5000/api/admin/students", {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         })
         setStudents(response.data.students || [])
-        console.log("vanakkam data vanthuddu joly")
       } catch (error) {
         console.error("Error fetching students:", error)
+      } finally {
+        setLoading(false)
       }
     }
-
     fetchStudents()
   }, [])
-const filteredStudents = students.filter((student: any) => {
-  // console.log("data intha"+ JSON.stringify(student))
-  const name = student.firstname || ""
-  const status = student.status || "active"
-  const university = student.university || ""
-  const major = student.major || ""
 
-  const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase())
-  const matchesStatus =
-    statusFilter === "all" || status.toLowerCase() === statusFilter.toLowerCase()
-  const matchesUniversity =
-    universityFilter === "all" || university === universityFilter
-  const matchesMajor = majorFilter === "all" || major === majorFilter
+  const filteredStudents = students.filter((student: any) => {
+    // console.log("data intha"+ JSON.stringify(student))
+    const name = student.firstname || ""
+    const status = student.status || "active"
+    const university = student.university || ""
+    const major = student.major || ""
 
-  return matchesSearch && matchesStatus && matchesUniversity && matchesMajor
-})
+    const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus =
+      statusFilter === "all" || status.toLowerCase() === statusFilter.toLowerCase()
+    const matchesUniversity =
+      universityFilter === "all" || university === universityFilter
+    const matchesMajor = majorFilter === "all" || major === majorFilter
 
+    return matchesSearch && matchesStatus && matchesUniversity && matchesMajor
+  })
 
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -100,6 +101,8 @@ const filteredStudents = students.filter((student: any) => {
 
   const universities = [...new Set(students.map((s: any) => s.university))]
   const majors = [...new Set(students.map((s: any) => s.major))]
+
+  if (loading) return <Loader />
 
   return (
     <div className="p-6 space-y-6">

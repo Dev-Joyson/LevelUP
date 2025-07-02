@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/inputAdmin"
 import { Badge } from "@/components/ui/badge"
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Star } from "lucide-react"
 import { FeedbackDetailsModal } from "@/components/AdminComponents/feedback-details-modal"
+import { Loader } from "@/components/common/Loader"
 
 const feedbacks = [
   {
@@ -83,6 +84,12 @@ export default function FeedbackPage() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [selectedFeedback, setSelectedFeedback] = useState<(typeof feedbacks)[0] | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000)
+    return () => clearTimeout(timer)
+  }, [])
 
   const filteredFeedbacks = feedbacks.filter((feedback) => {
     const matchesSearch =
@@ -141,6 +148,8 @@ export default function FeedbackPage() {
     setSelectedFeedback(feedback)
     setIsModalOpen(true)
   }
+
+  if (loading) return <Loader />
 
   return (
     <div className="p-6 space-y-6">

@@ -5,9 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { toast } from 'react-toastify'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
+import { toast } from "sonner"
 import { useAuth } from "@/context/AuthContext"
 
 export default function Login() {
@@ -28,7 +26,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-2 sm:px-0">
-      <ToastContainer />
       <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8">
         {/* Header */}
         <div className="mb-4 sm:mb-6">

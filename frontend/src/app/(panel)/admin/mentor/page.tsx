@@ -11,6 +11,7 @@ import { MentorDetailsModal } from "@/components/AdminComponents/mentor-details-
 import { InviteMentorModal } from "@/components/AdminComponents/invite-mentor-modal"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { notifySuccess, notifyError } from "@/lib/notify"
+import { Loader } from "@/components/common/Loader"
 
 type StatusFilter = "all" | "active" | "pending"
 
@@ -185,6 +186,8 @@ export default function MentorsPage() {
       ? "bg-blue-50 text-blue-700 border-b-2 border-blue-700"
       : "text-gray-600 hover:text-gray-900"
   }
+
+  if (loading) return <Loader />
 
   return (
     <div className="p-6 space-y-6">

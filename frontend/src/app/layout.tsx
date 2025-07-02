@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Outfit, Ovo } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
-
 import { ConditionalNavbar } from "@/components/common/ConditionalNavbar";
 import { ConditionalFooter } from "@/components/common/ConditionalFooter";
 import { SonnerToaster } from "@/components/ui/sonner-toaster";
