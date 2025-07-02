@@ -99,8 +99,12 @@ export default function StudentsPage() {
     // You can send axios.post/put here to update status if needed
   }
 
-  const universities = [...new Set(students.map((s: any) => s.university))]
-  const majors = [...new Set(students.map((s: any) => s.major))]
+  // const universities = [...new Set(students.map((s: any) => s.university))]
+  // const majors = [...new Set(students.map((s: any) => s.major))]
+
+  const universities = [...new Set(students.map((s: any) => s.university).filter(Boolean))]
+  const majors = [...new Set(students.map((s: any) => s.major).filter(Boolean))]
+
 
   if (loading) return <Loader />
 

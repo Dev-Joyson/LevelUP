@@ -20,6 +20,8 @@ const registerByRole = async (role, userId, extra) => {
   } else if (role === 'mentor') {
     return await mentorModel.create({
       userId,
+      firstname: extra.firstname || '',
+      lastname: extra.lastname || '',
       expertise: extra.expertise || [],
       availability: extra.availability || [],
       sessions: [],

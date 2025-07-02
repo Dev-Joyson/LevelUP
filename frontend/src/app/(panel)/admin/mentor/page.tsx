@@ -49,11 +49,13 @@ export default function MentorsPage() {
         const mentorsArray = Array.isArray(data.mentors) ? data.mentors : data;
         const mappedMentors = mentorsArray.map((mentor: any) => ({
           id: mentor._id,
-          name: mentor.userId?.name || mentor.userId?.email || "N/A",
-          email: mentor.userId?.email || "N/A",
+          name: (mentor.firstname && mentor.lastname)
+            ? `${mentor.firstname} ${mentor.lastname}`
+            : mentor.email || mentor.userId?.email || "N/A",
+          email: mentor.email || mentor.userId?.email || "N/A",
           company: mentor.company || "N/A",
-          status: mentor.userId?.isVerified ? "Active" : "Pending",
-          isVerified: mentor.userId?.isVerified,
+          status: (mentor.isVerified !== undefined ? mentor.isVerified : mentor.userId?.isVerified) ? "Active" : "Pending",
+          isVerified: mentor.isVerified !== undefined ? mentor.isVerified : mentor.userId?.isVerified,
           rejected: mentor.rejected,
           lastActive: mentor.lastActive || "",
           mentoringSessions: mentor.sessions?.length || 0,

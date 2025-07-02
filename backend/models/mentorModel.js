@@ -2,6 +2,8 @@ import mongoose from "mongoose";
 
 const mentorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
+  firstname: { type: String, default: '' },
+  lastname: { type: String, default: '' },
   expertise: [String],
   availability: [String],
   sessions: [{

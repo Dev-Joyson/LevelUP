@@ -70,6 +70,18 @@ const getAllStudents = async (req, res) => {
   }
 };
 
+// // Get all students
+// const getAllStudents = async (req, res) => {
+//   try {
+//     const studentModel = (await import('../models/studentModel.js')).default;
+//     const students = await studentModel.find({}).populate('userId', 'email').select('-__v');
+//     res.status(200).json(students);
+//   } catch (error) {
+//     console.error('Error fetching students:', error);
+//     res.status(500).json({ message: 'Error fetching students' });
+//   }
+// };
+
 //get all mentors details
 // const getAllMentors = async (req, res) => {
 //   try {
@@ -77,7 +89,7 @@ const getAllStudents = async (req, res) => {
 
 //     res.status(200).json({
 //       message: 'All mentor accounts fetched successfully',
-//       students,
+//       mentors,
 //     });
 //   } catch (error) {
 //     console.error('Error fetching students:', error);
@@ -196,29 +208,31 @@ const deleteMentor = async (req, res) => {
   }
 };
 
-// Get all mentors
+// // Get all mentors
 const getAllMentors = async (req, res) => {
   try {
     const mentorModel = (await import('../models/mentorModel.js')).default;
-    const mentors = await mentorModel.find({}).populate('userId', 'email').select('-__v');
-    res.status(200).json(mentors);
+    const mentors = await mentorModel.find({})
+      .populate('userId', 'email isVerified')
+      .select('-__v');
+    res.status(200).json(mentors.map(m => ({
+      _id: m._id,
+      firstname: m.firstname,
+      lastname: m.lastname,
+      expertise: m.expertise,
+      availability: m.availability,
+      sessions: m.sessions,
+      userId: m.userId?._id,
+      email: m.userId?.email,
+      isVerified: m.userId?.isVerified
+    })));
   } catch (error) {
     console.error('Error fetching mentors:', error);
     res.status(500).json({ message: 'Error fetching mentors' });
   }
 };
 
-// Get all students
-const getAllStudents = async (req, res) => {
-  try {
-    const studentModel = (await import('../models/studentModel.js')).default;
-    const students = await studentModel.find({}).populate('userId', 'email').select('-__v');
-    res.status(200).json(students);
-  } catch (error) {
-    console.error('Error fetching students:', error);
-    res.status(500).json({ message: 'Error fetching students' });
-  }
-};
+
 
 // Get all unverified mentors
 const getUnverifiedMentors = async (req, res) => {
@@ -253,11 +267,13 @@ const inviteMentor = async (req, res) => {
       to: email,
       subject: 'Invitation to Become a Mentor - LevelUP',
       html: `
-        <h1>Invitation to Join as a Mentor</h1>
+        <h1>Welcome to LevelUP! 🌟</h1>
         <p>Dear Mentor,</p>
-        <p>We are excited to invite you to join LevelUP as a mentor. ${message ? `<br/><br/>${message}` : ''}</p>
-        <p>If you are interested, please register on our platform or reply to this email for more information.</p>
-        <p>Best regards,<br/>The LevelUP Team</p>
+        <p>We hope this message finds you well. We are thrilled to invite you to join the LevelUP community as a mentor. Your experience and passion can make a real difference for our students and aspiring professionals.</p>
+        <p>To get started, simply click the link below to complete your mentor registration. Your email will be pre-filled for your convenience:</p>
+        <p><a href="https://level-up-five.vercel.app/register?role=mentor&email=${encodeURIComponent(email)}" style="color: #2563eb; text-decoration: underline;">Complete Your Mentor Registration</a></p>
+        <p>If you have any questions or need assistance, feel free to reply to this email. We are here to help!</p>
+        <p>Thank you for considering this opportunity to inspire and guide others.<br/>Warm regards,<br/>The LevelUP Team</p>
       `
     });
     res.status(200).json({ message: 'Invitation email sent successfully' });
