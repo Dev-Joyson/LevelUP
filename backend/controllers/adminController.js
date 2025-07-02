@@ -3,7 +3,7 @@ import companyModel from '../models/companyModel.js'
 import userModel from '../models/userModel.js'
 import mentorModel from '../models/mentorModel.js';
 import studentModel from '../models/studentModel.js'
-import mentorModel from '../models/mentorModel.js'
+// import mentorModel from '../models/mentorModel.js'
 
 import { sendEmail } from '../utils/emailService.js'
 
@@ -71,19 +71,19 @@ const getAllStudents = async (req, res) => {
   }
 };
 //get all mentors details
-const getAllMentors = async (req, res) => {
-  try {
-   const mentors = await mentorModel.find({});
+// const getAllMentors = async (req, res) => {
+//   try {
+//    const mentors = await mentorModel.find({});
 
-    res.status(200).json({
-      message: 'All mentor accounts fetched successfully',
-      students,
-    });
-  } catch (error) {
-    console.error('Error fetching students:', error);
-    res.status(500).json({ message: 'Error fetching mentor data' });
-  }
-};
+//     res.status(200).json({
+//       message: 'All mentor accounts fetched successfully',
+//       students,
+//     });
+//   } catch (error) {
+//     console.error('Error fetching students:', error);
+//     res.status(500).json({ message: 'Error fetching mentor data' });
+//   }
+// };
 
 
 

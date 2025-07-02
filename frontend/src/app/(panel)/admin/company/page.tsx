@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useAdminContext } from "@/context/AdminContext"
+import { Loader } from "@/components/common/Loader"
 
 interface Company {
   _id: string;
@@ -92,7 +93,7 @@ export default function CompaniesPage() {
       : "text-gray-600 hover:text-gray-900";
 
   if (loading) {
-    return <div className="p-6">Loading companies...</div>;
+    return <Loader />;
   }
 
   return (
