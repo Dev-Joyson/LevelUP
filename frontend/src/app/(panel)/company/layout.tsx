@@ -15,7 +15,7 @@ export default function AdminLayout({
           {/* Fixed PanelNavbar will show across all admin routes */}
           <PanelNavbar title="Company Dashboard" userRole="company" />
           {/* Content area with proper spacing to account for fixed navbar */}
-          <div className="flex-1 bg-[#fdfdfd] overflow-auto">{children}</div>
+          <div className="flex-1 bg-[#ffffff] overflow-auto">{children}</div>
         </div>
       </div>
    
