@@ -65,9 +65,6 @@ export function Navbar() {
     }
   }
 
-  // Debug log for Navbar state
-  console.log('[Navbar] Render:', { user, isAuthenticated });
-
   if (loading) {
     return (
       <header className="border-b sticky top-0 z-50 bg-background">

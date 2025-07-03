@@ -11,7 +11,7 @@ const {
   AZURE_OPENAI_API_VERSION
 } = process.env;
 
-// Function to parse resume from buffer (for scoring system)
+// Function to parse resume from buffer
 export const parseResumeData = async (resumeBuffer) => {
   try {
     const pdfData = await pdfParse(resumeBuffer);

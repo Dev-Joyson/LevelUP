@@ -26,14 +26,12 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // Create the provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
-  console.log('[AuthProvider] MOUNT');
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
-  console.log("API_BASE_URL:", API_BASE_URL);
 
   // Initialize auth state from localStorage
   useEffect(() => {
@@ -53,16 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
   }, [token]);
-
-  // Force re-render when authentication state changes
-  useEffect(() => {
-    console.log('[AuthProvider] Auth state changed:', { user: !!user, token: !!token, isAuthenticated: !!token });
-  }, [user, token]);
-
-  // Debug log for state
-  useEffect(() => {
-    console.log('[AuthProvider] Render:', { user, token, loading });
-  }, [user, token, loading]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -136,11 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    console.log('[AuthProvider] Logout called');
     localStorage.clear();
     setToken(null);
     setUser(null);
-    console.log('[AuthProvider] State cleared, navigating...');
     router.push('/');
   };
 
