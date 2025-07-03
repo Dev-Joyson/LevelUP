@@ -1,4 +1,3 @@
-// Skill categories mapping for intelligent matching
 const skillCategories = {
   frontend: ['react', 'vue', 'angular', 'svelte', 'html', 'css', 'javascript', 'typescript', 'jquery', 'bootstrap', 'tailwind', 'sass', 'less'],
   backend: ['node.js', 'python', 'java', 'c#', 'php', 'go', 'ruby', 'rust', 'scala', 'kotlin', 'express', 'django', 'spring', 'laravel', 'fastapi'],
