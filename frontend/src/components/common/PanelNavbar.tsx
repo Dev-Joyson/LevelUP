@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 
 interface PanelNavbarProps {
   title?: string
@@ -26,6 +27,9 @@ export function PanelNavbar({
   userName = "Olivia Harper",
   userEmail = "olivia.harper@email.com",
 }: PanelNavbarProps) {
+  const { logout } = useAuth()
+  const router = useRouter()
+
   const getRoleColor = () => {
     switch (userRole) {
       case "student":
@@ -54,12 +58,8 @@ export function PanelNavbar({
   }
 
   const handleLogout = () => {
-    // Remove token and redirect to login
-    localStorage.removeItem("token");
-    router.push("/login");
+    logout()
   }
-
-  const router = useRouter()
 
   return (
     <div className="sticky top-0 z-50 flex items-center justify-between px-6 py-2 bg-white border-b border-gray-200 shadow-sm">

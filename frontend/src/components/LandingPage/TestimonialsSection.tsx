@@ -1,3 +1,4 @@
+"use client"
 import { Star } from "lucide-react"
 
 export function TestimonialsSection() {

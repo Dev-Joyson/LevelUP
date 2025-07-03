@@ -1,3 +1,5 @@
+"use client"
+
 import { GraduationCap, Building2, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
