@@ -357,9 +357,135 @@ const updateInternshipCriteria = async (req, res) => {
   }
 };
 
+// Get all internships posted by a company
+const getCompanyInternships = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { 
+      status, 
+      domain, 
+      workMode, 
+      sortBy = 'createdAt', 
+      sortOrder = 'desc',
+      page = 1, 
+      limit = 10 
+    } = req.query;
+
+    // Get company
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Build query filters
+    const query = { companyId: company._id };
+    
+    // Add optional filters
+    if (status) {
+      if (status === 'published') {
+        query.isPublished = true;
+        query.isArchived = false;
+      } else if (status === 'draft') {
+        query.isPublished = false;
+        query.isArchived = false;
+      } else if (status === 'archived') {
+        query.isArchived = true;
+      }
+    }
+    
+    if (domain) {
+      query.domain = { $regex: domain, $options: 'i' };
+    }
+    
+    if (workMode) {
+      query.workMode = workMode;
+    }
+
+    // Build sort criteria
+    const validSortFields = ['createdAt', 'title', 'applicationDeadline', 'positions'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const sortDirection = sortOrder === 'asc' ? 1 : -1;
+    const sortCriteria = { [sortField]: sortDirection };
+
+    // Calculate pagination
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    // Get internships with pagination
+    const internships = await internshipModel
+      .find(query)
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(limitNum)
+      .select('-__v'); // Exclude version field
+
+    // Get total count for pagination
+    const total = await internshipModel.countDocuments(query);
+
+    // Calculate statistics
+    const stats = {
+      total,
+      published: await internshipModel.countDocuments({ 
+        companyId: company._id, 
+        isPublished: true, 
+        isArchived: false 
+      }),
+      draft: await internshipModel.countDocuments({ 
+        companyId: company._id, 
+        isPublished: false, 
+        isArchived: false 
+      }),
+      archived: await internshipModel.countDocuments({ 
+        companyId: company._id, 
+        isArchived: true 
+      })
+    };
+
+    // Add application count for each internship
+    const internshipsWithStats = await Promise.all(
+      internships.map(async (internship) => {
+        const applicationCount = await applicationModel.countDocuments({
+          internshipId: internship._id
+        });
+        
+        return {
+          ...internship.toObject(),
+          applicationCount,
+          isExpired: internship.applicationDeadline && new Date() > internship.applicationDeadline
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      data: {
+        internships: internshipsWithStats,
+        stats,
+        pagination: {
+          page: parseInt(page),
+          limit: limitNum,
+          total,
+          pages: Math.ceil(total / limitNum),
+          hasNext: skip + limitNum < total,
+          hasPrev: parseInt(page) > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get company internships error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch internships',
+      error: error.message 
+    });
+  }
+};
+
 export { 
   companyDashboard, 
   createInternship, 
+  getCompanyInternships,
   getCompanyApplications, 
   updateApplicationStatus, 
   getApplicationAnalytics,

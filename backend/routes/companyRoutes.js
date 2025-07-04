@@ -4,6 +4,7 @@ import { authorizeRoles } from "../middlewares/roleMiddleware.js"
 import { 
   companyDashboard, 
   createInternship, 
+  getCompanyInternships,
   getCompanyApplications, 
   updateApplicationStatus, 
   getApplicationAnalytics,
@@ -17,6 +18,7 @@ companyRouter.get('/dashboard', authenticateUser, authorizeRoles("company"), com
 
 // Internship management
 companyRouter.post('/create-internship', authenticateUser, authorizeRoles("company"), createInternship)
+companyRouter.get('/internships', authenticateUser, authorizeRoles("company"), getCompanyInternships)
 companyRouter.put('/internships/:internshipId/criteria', authenticateUser, authorizeRoles("company"), updateInternshipCriteria)
 
 // Application management

@@ -1,456 +1,436 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
-import { Badge } from '../ui/badge';
+import { useState, useEffect } from "react"
+import {
+  Eye,
+  Download,
+  Search,
+  Calendar,
+  MapPin,
+  User,
+  GraduationCap,
+  Star,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "react-toastify"
 
 interface Application {
-  _id: string;
-  studentInfo: {
-    name: string;
-    email: string;
-    phone: string;
-  };
-  internshipInfo: {
-    title: string;
-    _id: string;
-  };
-  matchScore: {
-    totalScore: number;
-    breakdown: {
-      skills: number;
-      projects: number;
-      experience: number;
-      gpa: number;
-      certifications: number;
-    };
-  };
-  status: 'pending' | 'reviewed' | 'shortlisted' | 'rejected' | 'accepted';
-  appliedAt: string;
-  resumeData: {
-    skills: {
-      technical: string[];
-      soft: string[];
-      tools: string[];
-    };
-    projects: Array<{
-      name: string;
-      technologies: string[];
-      description: string;
-    }>;
-    experience: Array<{
-      company: string;
-      position: string;
-      duration: string;
-      description: string;
-    }>;
-    gpa: number;
-    certifications: string[];
-  };
+  _id: string
+  student: {
+    _id: string
+    name: string
+    email: string
+    profilePicture?: string
+    gpa: number
+    university: string
+    course: string
+    year: number
+  }
+  internship: {
+    _id: string
+    title: string
+    domain: string
+    location: string
+  }
+  status: "pending" | "reviewed" | "shortlisted" | "rejected" | "accepted"
+  matchScore: number
+  appliedAt: string
+  resumeUrl?: string
+  coverLetter?: string
 }
 
 interface ApplicationsTableProps {
-  companyId: string;
+  companyId?: string
 }
 
-const ApplicationsTable: React.FC<ApplicationsTableProps> = ({ companyId }) => {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'matchScore' | 'appliedAt' | 'status'>('matchScore');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+export default function ApplicationsTable({ companyId }: ApplicationsTableProps) {
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [sortBy, setSortBy] = useState<string>("appliedAt")
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
 
   useEffect(() => {
-    fetchApplications();
-  }, [companyId, sortBy, sortOrder, statusFilter]);
+    fetchApplications()
+  }, [])
 
   const fetchApplications = async () => {
     try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const params = new URLSearchParams({
-        sortBy,
-        sortOrder,
-        ...(statusFilter !== 'all' && { status: statusFilter })
-      });
+      const token = localStorage.getItem("token")
+      const response = await fetch(`${API_BASE_URL}/api/applications/company`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-      const response = await fetch(
-        `http://localhost:5000/api/applications/company/${companyId}?${params}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch applications');
+      if (response.ok) {
+        const data = await response.json()
+        setApplications(data.applications || [])
+      } else {
+        toast.error("Failed to fetch applications")
       }
-
-      const data = await response.json();
-      setApplications(data.applications || []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+    } catch (error) {
+      console.error("Error fetching applications:", error)
+      toast.error("Error fetching applications")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
+  const handleStatusChange = async (applicationId: string, newStatus: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `http://localhost:5000/api/applications/${applicationId}/status`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ status: newStatus }),
-        }
-      );
+      const token = localStorage.getItem("token")
+      const response = await fetch(`${API_BASE_URL}/api/applications/${applicationId}/status`, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
 
-      if (!response.ok) {
-        throw new Error('Failed to update application status');
+      if (response.ok) {
+        setApplications((prev) =>
+          prev.map((app) => (app._id === applicationId ? { ...app, status: newStatus as any } : app)),
+        )
+        toast.success("Application status updated successfully")
+      } else {
+        toast.error("Failed to update application status")
       }
-
-      // Refresh applications
-      fetchApplications();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update status');
+    } catch (error) {
+      console.error("Error updating application status:", error)
+      toast.error("Error updating application status")
     }
-  };
+  }
 
-  const getStatusBadgeColor = (status: string) => {
+  const handleDownloadResume = async (resumeUrl: string, studentName: string) => {
+    try {
+      const token = localStorage.getItem("token")
+      const response = await fetch(resumeUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${studentName}_Resume.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        toast.error("Failed to download resume")
+      }
+    } catch (error) {
+      console.error("Error downloading resume:", error)
+      toast.error("Error downloading resume")
+    }
+  }
+
+  const filteredApplications = applications
+    .filter((app) => {
+      const matchesSearch =
+        app.student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        app.student.email.toLowerCase().includes(searchTerm.toLowerCase())
+
+      const matchesStatus = statusFilter === "all" || app.status === statusFilter
+
+      return matchesSearch && matchesStatus
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "matchScore":
+          return b.matchScore - a.matchScore
+        case "gpa":
+          return b.student.gpa - a.student.gpa
+        case "appliedAt":
+        default:
+          return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+      }
+    })
+
+  const getStatusBadge = (status: string) => {
+    const variants: { [key: string]: string } = {
+      pending: "bg-yellow-100 text-yellow-800",
+      reviewed: "bg-blue-100 text-blue-800",
+      shortlisted: "bg-green-100 text-green-800",
+      rejected: "bg-red-100 text-red-800",
+      accepted: "bg-purple-100 text-purple-800",
+    }
+    return variants[status] || "bg-gray-100 text-gray-800"
+  }
+
+  const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'reviewed': return 'bg-blue-100 text-blue-800';
-      case 'shortlisted': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'accepted': return 'bg-purple-100 text-purple-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "pending":
+        return <Clock className="h-4 w-4" />
+      case "reviewed":
+        return <Eye className="h-4 w-4" />
+      case "shortlisted":
+        return <CheckCircle className="h-4 w-4" />
+      case "rejected":
+        return <XCircle className="h-4 w-4" />
+      case "accepted":
+        return <Star className="h-4 w-4" />
+      default:
+        return <AlertCircle className="h-4 w-4" />
     }
-  };
+  }
 
   const getMatchScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 font-semibold';
-    if (score >= 60) return 'text-blue-600 font-semibold';
-    if (score >= 40) return 'text-yellow-600 font-semibold';
-    return 'text-red-600 font-semibold';
-  };
+    if (score >= 80) return "text-green-600 font-semibold"
+    if (score >= 60) return "text-blue-600 font-semibold"
+    if (score >= 40) return "text-yellow-600 font-semibold"
+    return "text-red-600 font-semibold"
+  }
+
+  const statusCounts = applications.reduce(
+    (acc, app) => {
+      acc[app.status] = (acc[app.status] || 0) + 1
+      return acc
+    },
+    {} as Record<string, number>,
+  )
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-lg">Loading applications...</div>
       </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p className="text-red-800">Error: {error}</p>
-        <button
-          onClick={fetchApplications}
-          className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Retry
-        </button>
-      </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-4">
-      {/* Filters and Controls */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="reviewed">Reviewed</option>
-            <option value="shortlisted">Shortlisted</option>
-            <option value="rejected">Rejected</option>
-            <option value="accepted">Accepted</option>
-          </select>
-        </div>
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{applications.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-yellow-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{statusCounts.pending || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Shortlisted</CardTitle>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{statusCounts.shortlisted || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Accepted</CardTitle>
+            <Star className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{statusCounts.accepted || 0}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Match Score</CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {applications.length > 0
+                ? Math.round(applications.reduce((sum, app) => sum + app.matchScore, 0) / applications.length)
+                : 0}
+              %
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="flex gap-2">
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="matchScore">Match Score</option>
-            <option value="appliedAt">Applied Date</option>
-            <option value="status">Status</option>
-          </select>
-          <button
-            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            {sortOrder === 'asc' ? '↑' : '↓'}
-          </button>
+      {/* Filters and Search */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Input
+            type="search"
+            placeholder="Search applications..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-10 bg-white border-gray-200"
+          />
         </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="reviewed">Reviewed</SelectItem>
+            <SelectItem value="shortlisted">Shortlisted</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={setSortBy}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Sort by" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="appliedAt">Date Applied</SelectItem>
+            <SelectItem value="matchScore">Match Score</SelectItem>
+            <SelectItem value="gpa">GPA</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Applications Table */}
-      {applications.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          No applications found for the selected criteria.
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Student
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Internship
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Match Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Applied
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {applications.map((application) => (
-                  <tr key={application._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {application.studentInfo.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {application.studentInfo.email}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {application.internshipInfo.title}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className={`text-lg ${getMatchScoreColor(application.matchScore.totalScore)}`}>
-                        {application.matchScore.totalScore.toFixed(1)}%
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        S:{application.matchScore.breakdown.skills.toFixed(0)} 
-                        P:{application.matchScore.breakdown.projects.toFixed(0)} 
-                        E:{application.matchScore.breakdown.experience.toFixed(0)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Badge className={getStatusBadgeColor(application.status)}>
-                        {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(application.appliedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      <button
-                        onClick={() => setSelectedApplication(application)}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        View
-                      </button>
-                      <select
-                        value={application.status}
-                        onChange={(e) => updateApplicationStatus(application._id, e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="reviewed">Reviewed</option>
-                        <option value="shortlisted">Shortlisted</option>
-                        <option value="rejected">Rejected</option>
-                        <option value="accepted">Accepted</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Application Detail Modal */}
-      {selectedApplication && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold">Application Details</h3>
-                <button
-                  onClick={() => setSelectedApplication(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Student Info */}
-                <div>
-                  <h4 className="font-medium mb-2">Student Information</h4>
-                  <div className="space-y-1 text-sm">
-                    <p><strong>Name:</strong> {selectedApplication.studentInfo.name}</p>
-                    <p><strong>Email:</strong> {selectedApplication.studentInfo.email}</p>
-                    <p><strong>Phone:</strong> {selectedApplication.studentInfo.phone}</p>
-                    <p><strong>GPA:</strong> {selectedApplication.resumeData.gpa}</p>
-                  </div>
-                </div>
-
-                {/* Match Score Breakdown */}
-                <div>
-                  <h4 className="font-medium mb-2">Match Score Breakdown</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Skills:</span>
-                      <span className="font-medium">{selectedApplication.matchScore.breakdown.skills.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Projects:</span>
-                      <span className="font-medium">{selectedApplication.matchScore.breakdown.projects.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Experience:</span>
-                      <span className="font-medium">{selectedApplication.matchScore.breakdown.experience.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>GPA:</span>
-                      <span className="font-medium">{selectedApplication.matchScore.breakdown.gpa.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Certifications:</span>
-                      <span className="font-medium">{selectedApplication.matchScore.breakdown.certifications.toFixed(1)}%</span>
-                    </div>
-                    <div className="border-t pt-2 flex justify-between font-semibold">
-                      <span>Total:</span>
-                      <span className={getMatchScoreColor(selectedApplication.matchScore.totalScore)}>
-                        {selectedApplication.matchScore.totalScore.toFixed(1)}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Skills */}
-                <div>
-                  <h4 className="font-medium mb-2">Skills</h4>
-                  <div className="space-y-2">
-                    <div>
-                      <p className="text-sm font-medium">Technical:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedApplication.resumeData.skills.technical.map((skill, index) => (
-                          <Badge key={index} className="bg-blue-100 text-blue-800 text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-50">
+              <TableHead className="font-semibold text-gray-900">Student</TableHead>
+              <TableHead className="font-semibold text-gray-900">Internship</TableHead>
+              <TableHead className="font-semibold text-gray-900">Academic Info</TableHead>
+              <TableHead className="font-semibold text-gray-900">Match Score</TableHead>
+              <TableHead className="font-semibold text-gray-900">Status</TableHead>
+              <TableHead className="font-semibold text-gray-900">Applied Date</TableHead>
+              <TableHead className="font-semibold text-gray-900">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredApplications.map((application) => (
+              <TableRow key={application._id} className="hover:bg-gray-50">
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
+                      {application.student.profilePicture ? (
+                        <img
+                          src={application.student.profilePicture || "/placeholder.svg"}
+                          alt={application.student.name}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <User className="h-5 w-5 text-gray-500" />
+                      )}
                     </div>
                     <div>
-                      <p className="text-sm font-medium">Tools:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {selectedApplication.resumeData.skills.tools.map((tool, index) => (
-                          <Badge key={index} className="bg-green-100 text-green-800 text-xs">
-                            {tool}
-                          </Badge>
-                        ))}
-                      </div>
+                      <div className="font-medium text-gray-900">{application.student.name}</div>
+                      <div className="text-sm text-gray-500">{application.student.email}</div>
                     </div>
                   </div>
-                </div>
-
-                {/* Projects */}
-                <div>
-                  <h4 className="font-medium mb-2">Projects ({selectedApplication.resumeData.projects.length})</h4>
-                  <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {selectedApplication.resumeData.projects.map((project, index) => (
-                      <div key={index} className="border rounded p-2">
-                        <p className="font-medium text-sm">{project.name}</p>
-                        <p className="text-xs text-gray-600 mb-1">{project.description}</p>
-                        <div className="flex flex-wrap gap-1">
-                          {project.technologies.map((tech, techIndex) => (
-                            <Badge key={techIndex} className="bg-purple-100 text-purple-800 text-xs">
-                              {tech}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Experience */}
-                <div className="md:col-span-2">
-                  <h4 className="font-medium mb-2">Experience ({selectedApplication.resumeData.experience.length})</h4>
-                  <div className="space-y-2 max-h-32 overflow-y-auto">
-                    {selectedApplication.resumeData.experience.map((exp, index) => (
-                      <div key={index} className="border rounded p-2">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-medium text-sm">{exp.position}</p>
-                            <p className="text-sm text-gray-600">{exp.company}</p>
-                          </div>
-                          <p className="text-xs text-gray-500">{exp.duration}</p>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">{exp.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Certifications */}
-                {selectedApplication.resumeData.certifications.length > 0 && (
-                  <div className="md:col-span-2">
-                    <h4 className="font-medium mb-2">Certifications</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedApplication.resumeData.certifications.map((cert, index) => (
-                        <Badge key={index} className="bg-yellow-100 text-yellow-800">
-                          {cert}
-                        </Badge>
-                      ))}
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <div className="font-medium text-gray-900">{application.internship.title}</div>
+                    <div className="text-sm text-gray-500 flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {application.internship.location}
                     </div>
                   </div>
-                )}
-              </div>
+                </TableCell>
+                <TableCell>
+                  <div>
+                    <div className="flex items-center gap-1 text-sm">
+                      <GraduationCap className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium">GPA: {application.student.gpa}</span>
+                    </div>
+                    <div className="text-sm text-gray-500">{application.student.university}</div>
+                    <div className="text-sm text-gray-500">
+                      {application.student.course} - Year {application.student.year}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="text-center">
+                    <span className={`text-lg font-bold ${getMatchScoreColor(application.matchScore)}`}>
+                      {application.matchScore}%
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Select
+                    value={application.status}
+                    onValueChange={(value) => handleStatusChange(application._id, value)}
+                  >
+                    <SelectTrigger className="w-32">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(application.status)}
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="reviewed">Reviewed</SelectItem>
+                      <SelectItem value="shortlisted">Shortlisted</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="accepted">Accepted</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-1 text-gray-700">
+                    <Calendar className="h-4 w-4 text-gray-400" />
+                    {new Date(application.appliedAt).toLocaleDateString()}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    {application.resumeUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadResume(application.resumeUrl!, application.student.name)}
+                        className="h-8 w-8 p-0 hover:bg-blue-50"
+                        title="Download Resume"
+                      >
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-green-50" title="View Details">
+                      <Eye className="h-4 w-4 text-green-600" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
-              <div className="mt-6 flex justify-end space-x-2">
-                <button
-                  onClick={() => setSelectedApplication(null)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
+        {filteredApplications.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500">
+              {searchTerm || statusFilter !== "all"
+                ? "No applications found matching your criteria."
+                : "No applications received yet."}
+            </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
-  );
-};
-
-export default ApplicationsTable; 
+  )
+}
