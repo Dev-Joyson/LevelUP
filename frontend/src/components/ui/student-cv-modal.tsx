@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Award, Shield } from "lucide-react"
+import { Mail, Phone, MapPin, Calendar, GraduationCap, Briefcase, Award, Shield, Download } from "lucide-react"
 
 interface Student {
   id: number
@@ -31,6 +31,7 @@ interface Student {
     gpa: string
   }>
   achievements?: string[]
+  resumeUrl?: string
 }
 
 interface StudentCVModalProps {
@@ -46,6 +47,32 @@ export function StudentCVModal({ student, isOpen, onClose, onBlockProfile }: Stu
   const handleBlockProfile = () => {
     onBlockProfile(student.id)
     onClose()
+  }
+
+  const handleDownloadResume = async () => {
+    if (!student.resumeUrl) return
+    try {
+      const response = await fetch(student.resumeUrl, {
+        headers: {
+          // Add auth header if needed
+        },
+      })
+      if (response.ok) {
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${student.name}_Resume.pdf`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+      } else {
+        alert("Failed to download resume")
+      }
+    } catch (error) {
+      alert("Error downloading resume")
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -68,6 +95,18 @@ export function StudentCVModal({ student, isOpen, onClose, onBlockProfile }: Stu
           <DialogTitle className="text-2xl font-bold">{student.name} - CV Profile</DialogTitle>
           <div className="flex items-center gap-2">
             {getStatusBadge(student.status)}
+            {student.resumeUrl && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadResume}
+                className="flex items-center gap-2"
+                title="Download CV"
+              >
+                <Download className="h-4 w-4" />
+                Download CV
+              </Button>
+            )}
             <Button
               variant="destructive"
               size="sm"

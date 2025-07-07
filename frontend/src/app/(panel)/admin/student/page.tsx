@@ -90,7 +90,7 @@ export default function StudentsPage() {
   }
 
   const handleViewStudent = (student: any) => {
-    setSelectedStudent(student)
+    setSelectedStudent(mapStudentForModal(student))
     setIsModalOpen(true)
   }
 
@@ -105,6 +105,25 @@ export default function StudentsPage() {
   const universities = [...new Set(students.map((s: any) => s.university).filter(Boolean))]
   const majors = [...new Set(students.map((s: any) => s.major).filter(Boolean))]
 
+  function mapStudentForModal(student: any) {
+    return {
+      id: student._id,
+      name: student.firstname,
+      university: student.university,
+      major: student.major,
+      status: student.status || "active",
+      email: student.email,
+      phone: student.phone,
+      location: student.location,
+      gpa: student.gpa,
+      graduationYear: student.graduationYear,
+      skills: student.skills,
+      experience: student.experience,
+      education: student.education,
+      achievements: student.achievements,
+      resumeUrl: student.resumeUrl,
+    }
+  }
 
   if (loading) return <Loader />
 
