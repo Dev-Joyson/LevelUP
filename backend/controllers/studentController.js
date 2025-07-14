@@ -7,6 +7,7 @@ import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
 import { calculateMatchScore } from './scoringController.js';
 import { parseResumeData } from './resumeParserController.js';
+import fs from 'fs'; // Added for fs.promises.readFile
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -40,8 +41,40 @@ const uploadResume = async (req, res) => {
     );
     student.resumeUrl = url;
     student.resumePublicId = publicId;
+
+    // Parse the resume and update student details
+    try {
+      const fileBuffer = req.file.buffer || (await fs.promises.readFile(req.file.path));
+      const parsed = await parseResumeData(fileBuffer);
+      // Map parsed fields to student model
+      if (parsed.Name) {
+        const [first, ...rest] = parsed.Name.split(' ');
+        student.firstname = first;
+        student.lastname = rest.join(' ');
+      }
+      if (parsed.Skills) {
+        // Flatten all skill categories into a single array
+        const allSkills = Object.values(parsed.Skills).flat();
+        student.skills = allSkills;
+      }
+      if (parsed.Phone) student.phoneNumber = parsed.Phone;
+      if (parsed.University) student.university = parsed.University;
+      if (parsed.Degree) student.education = parsed.Degree;
+      // Optionally: update other fields if present
+      if (parsed.Experience && Array.isArray(parsed.Experience)) {
+        student.experience = parsed.Experience.map(exp => ({
+          company: exp.Company || exp.company || '',
+          role: exp.Role || exp.role || '',
+          duration: exp.Duration || exp.duration || ''
+        }));
+      }
+    } catch (parseErr) {
+      console.error('Resume parsing for student update failed:', parseErr);
+      // Continue, but don't block resume upload
+    }
+
     await student.save();
-    res.status(200).json({ message: 'Resume uploaded successfully', resumeUrl: url });
+    res.status(200).json({ message: 'Resume uploaded and student details updated', resumeUrl: url });
   } catch (error) {
     console.error('Resume upload error:', error);
     res.status(500).json({ message: 'Failed to upload resume' });
