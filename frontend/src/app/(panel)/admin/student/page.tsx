@@ -62,9 +62,15 @@ export default function StudentsPage() {
   const filteredStudents = students.filter((student: any) => {
     // console.log("data intha"+ JSON.stringify(student))
     const name = student.firstname || ""
-    const status = student.status || "active"
     const university = student.university || ""
-    const major = student.major || ""
+    // Use education as major
+    const major = student.education || student.major || ""
+    // Status: Studying if graduationYear >= current year, else Completed
+    const currentYear = new Date().getFullYear();
+    let status = "Studying";
+    if (student.graduationYear && Number(student.graduationYear) < currentYear) {
+      status = "Completed";
+    }
 
     const matchesSearch = name.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus =
@@ -78,12 +84,10 @@ export default function StudentsPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
-      case "active":
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-      case "suspended":
-        return <Badge className="bg-red-100 text-red-800">Suspended</Badge>
+      case "studying":
+        return <Badge className="bg-blue-100 text-blue-800">Studying</Badge>
+      case "completed":
+        return <Badge className="bg-green-100 text-green-800">Completed</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -110,10 +114,11 @@ export default function StudentsPage() {
       id: student._id,
       name: student.firstname,
       university: student.university,
-      major: student.major,
-      status: student.status || "active",
+      major: student.education || student.major,
+      // Status: Studying if graduationYear >= current year, else Completed
+      status: (student.graduationYear && Number(student.graduationYear) < new Date().getFullYear()) ? "Completed" : "Studying",
       email: student.email,
-      phone: student.phone,
+      phone: student.phoneNumber,
       location: student.location,
       gpa: student.gpa,
       graduationYear: student.graduationYear,
@@ -153,9 +158,8 @@ export default function StudentsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="suspended">Suspended</SelectItem>
+              <SelectItem value="studying">Studying</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
 
@@ -203,19 +207,24 @@ export default function StudentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStudents.map((student: any) => (
-                <TableRow key={student._id}>
-                  <TableCell>{student.firstname}</TableCell>
-                  <TableCell>{student.university}</TableCell>
-                  <TableCell>{student.major}</TableCell>
-                  <TableCell>{getStatusBadge(student.status)}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm" onClick={() => handleViewStudent(student)}>
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredStudents.map((student: any) => {
+                const major = student.education || student.major;
+                const currentYear = new Date().getFullYear();
+                const status = (student.graduationYear && Number(student.graduationYear) < currentYear) ? "Completed" : "Studying";
+                return (
+                  <TableRow key={student._id}>
+                    <TableCell>{student.firstname}</TableCell>
+                    <TableCell>{student.university}</TableCell>
+                    <TableCell>{major}</TableCell>
+                    <TableCell>{getStatusBadge(status)}</TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" onClick={() => handleViewStudent(student)}>
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
