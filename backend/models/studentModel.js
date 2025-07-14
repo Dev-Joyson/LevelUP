@@ -14,6 +14,13 @@ const studentSchema = new mongoose.Schema({
     mentorRequests: [{type: mongoose.Schema.Types.ObjectId, ref: 'mentor'}],
     university: { type: String, required: true },
     graduationYear: { type: String, required: true },
+    experience: [
+        {
+            company: String,
+            role: String,
+            duration: String
+        }
+    ],
 })
 
 const studentModel = mongoose.models.student || mongoose.model('student', studentSchema)

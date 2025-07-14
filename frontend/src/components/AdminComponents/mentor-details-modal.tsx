@@ -13,6 +13,7 @@ interface Mentor {
   email: string
   company: string
   status?: string
+  isVerified?: boolean // <-- add this for consistency
   verified?: boolean
   rejected?: boolean
   lastActive?: string
@@ -44,18 +45,8 @@ export function MentorDetailsModal({ mentor, isOpen, onClose, onDeleteMentor }: 
     onClose()
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "active":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
-      case "inactive":
-        return <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-100">Inactive</Badge>
-      case "pending":
-        return <Badge className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100">Pending</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
+  // Use isVerified if present, otherwise fallback to verified
+  const isVerified = mentor.isVerified !== undefined ? mentor.isVerified : mentor.verified
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -63,8 +54,8 @@ export function MentorDetailsModal({ mentor, isOpen, onClose, onDeleteMentor }: 
         <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle className="text-2xl font-bold">{mentor.name} - Mentor Profile</DialogTitle>
           <div className="flex items-center gap-2">
-            {/* Status badge logic */}
-            {mentor.verified ? (
+            {/* Status badge logic - match admin page */}
+            {isVerified ? (
               <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Active</Badge>
             ) : mentor.rejected ? (
               <Badge className="bg-red-100 text-red-800 hover:bg-red-100">Rejected</Badge>
