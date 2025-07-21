@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
+import Image from "next/image"
 
 export function Navbar() {
   const { user, isAuthenticated, logout, loading } = useAuth()
@@ -71,9 +72,8 @@ export function Navbar() {
         <div className="container mx-auto">
           <div className="flex h-16 items-center px-4 sm:px-6">
             <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-              <p className="text-[#535c91] text-2xl">
-                Level<span className="text-primary">UP</span>
-              </p>
+              <Image src="/LogoLevelUP.png" height={60} width={130} alt="" className="h-auto w-[130px]"/>
+              
             </Link>
             <div className="flex-1"></div>
             <div className="flex items-center gap-3">
