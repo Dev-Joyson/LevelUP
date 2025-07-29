@@ -7,6 +7,7 @@ import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
 import { calculateMatchScore } from './scoringController.js';
 import { parseResumeData } from './resumeParserController.js';
+import resumeModel from '../models/resumeModel.js';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -36,12 +37,31 @@ const uploadResume = async (req, res) => {
       req.file,
       req.user.userId,
       student.firstname + '_' + student.lastname,
-      'student_resumes'
+     
     );
     student.resumeUrl = url;
     student.resumePublicId = publicId;
     await student.save();
-    res.status(200).json({ message: 'Resume uploaded successfully', resumeUrl: url });
+
+    // Parse resume and save to resumeModel
+    let parsedData = {};
+    try {
+      parsedData = await parseResumeData(req.file.buffer);
+    } catch (err) {
+      console.error('Resume parsing failed during upload:', err);
+      return res.status(500).json({ message: 'Failed to parse resume during upload.' });
+    }
+    // Remove old resumeModel if exists for this student
+    await resumeModel.deleteMany({ studentId: student._id });
+    // Save new resumeModel
+    await resumeModel.create({
+      studentId: student._id,
+      resumeUrl: url,
+      parsedData,
+      uploadedAt: new Date(),
+    });
+
+    res.status(200).json({ message: 'Resume uploaded and parsed successfully', resumeUrl: url, parsedData });
   } catch (error) {
     console.error('Resume upload error:', error);
     res.status(500).json({ message: 'Failed to upload resume' });
