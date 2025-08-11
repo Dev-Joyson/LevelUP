@@ -16,13 +16,18 @@ const jobListings: Record<
   }
 > = {
   "virtusa-mlops": {
-    id: "virtusa-mlops",
+    _id: "virtusa-mlops",
     company: {
       name: "virtusa",
     },
     title: "MLOps Engineer",
     location: "Colombo, Srilanka",
-    salary: "30,000 LKR - 50,0000 LKR",
+    salary: {
+      min: 30000,
+      max: 50000,
+      currency: "LKR"
+    },
+    createdAt: "2024-01-01",
     description:
       "Built for consumers and companies, alike. In a world driven by data, we believe consumers and businesses can coexist. Our founders had a vision to empower consumers to leverage their greatest asset—their data—in exchange for modern financial services. Built with this vision in mind, our platform allows consumers to access savings tools, earned wages and rewards without cost or hidden fees. In exchange, they give permission to use their real-time data for research, insights and targeted advertising.",
     qualifications: [
@@ -33,22 +38,27 @@ const jobListings: Record<
     aboutRole:
       "Built for consumers and companies, alike. In a world driven by data, we believe consumers and businesses can coexist. Our founders had a vision to empower consumers to leverage their greatest asset—their data—in exchange for modern financial services. Built with this vision in mind, our platform allows consumers to access savings tools, earned wages and rewards without cost or hidden fees. In exchange, they give permission to use their real-time data for research, insights and targeted advertising.\n\nAt Attain, your contribution will help us build a more equitable and efficient data sharing ecosystem—whether helping consumers access modern financial services directly or helping businesses leverage data to make better decisions directly with hands-on leaders and mission-driven individuals.\n\nAbout the role\nWe are looking for a machine learning (ML) and data science-based MLOps Engineer to join our team. To meet the growing needs of our business, we are searching for an experienced Machine Learning Operations Engineer to support the development of a machine learning platform that will enable our data scientists across the company to easily build and deploy machine learning solutions and data science applications components. The person will be responsible for building and maintaining machine learning models and algorithms into AI products for our consumers.",
     requirements: [
-      "2+ years of hands-on experience building and deploying machine learning models",
-      "Experience in building and deploying offline and online machine learning services in production",
-      "Good understanding of machine learning software and infrastructure development",
-      "Proficiency in Python",
+      "Bachelor's degree in Computer Science, Machine Learning, or related field.",
+      "3+ years of experience in ML operations and model deployment.",
+      "Proficiency in Python, Docker, and cloud platforms (AWS/GCP/Azure).",
+      "Experience with ML frameworks like TensorFlow, PyTorch, or scikit-learn.",
     ],
-    benefits:
-      "At Attain, we are passionate about finding people to continuously help us grow our organization. We encourage you to apply even if you don't meet all the requirements. If you're excited about this role but don't see something that immediately fits, we will keep you in mind for future opportunities.",
+    benefits: "Competitive salary, health insurance, flexible working hours, professional development opportunities.",
+    jobType: "Full-time",
   },
   "softsora-it": {
-    id: "softsora-it",
+    _id: "softsora-it",
     company: {
       name: "Softsora",
     },
     title: "IT Engineer",
     location: "Colombo, Srilanka",
-    salary: "30,000 LKR - 50,0000 LKR",
+    salary: {
+      min: 30000,
+      max: 50000,
+      currency: "LKR"
+    },
+    createdAt: "2024-01-02",
     description: "Job description for IT Engineer position at Softsora.",
     qualifications: [
       { skill: "Networking", match: true },
@@ -57,13 +67,18 @@ const jobListings: Record<
     ],
   },
   "coginitix-python": {
-    id: "coginitix-python",
+    _id: "coginitix-python",
     company: {
       name: "Coginitix",
     },
     title: "Python Developer",
     location: "Colombo, Srilanka",
-    salary: "30,000 LKR - 50,0000 LKR",
+    salary: {
+      min: 30000,
+      max: 50000,
+      currency: "LKR"
+    },
+    createdAt: "2024-01-03",
     description: "Job description for Python Developer position at Coginitix.",
     qualifications: [
       { skill: "Python", match: true },
@@ -72,13 +87,18 @@ const jobListings: Record<
     ],
   },
   "rootcode-ai": {
-    id: "rootcode-ai",
+    _id: "rootcode-ai",
     company: {
       name: "rootCode",
     },
     title: "AI/ML Engineer",
     location: "Colombo, Srilanka",
-    salary: "30,000 LKR - 50,0000 LKR",
+    salary: {
+      min: 30000,
+      max: 50000,
+      currency: "LKR"
+    },
+    createdAt: "2024-01-04",
     description: "Job description for AI/ML Engineer position at rootCode.",
     qualifications: [
       { skill: "Machine Learning", match: true },
@@ -127,7 +147,7 @@ export default async function InternshipDetailPage({
       <div className="flex items-center gap-2 mt-1 text-gray-500">
         <span className="text-sm">{job.location}</span>
         <span className="h-1.5 w-1.5 rounded-full bg-gray-500"></span>
-        <span className="text-sm">{job.salary}</span>
+        <span className="text-sm">{job.salary.currency} {job.salary.min} - {job.salary.max}</span>
       </div>
 
       <div className="mt-4 border-t pt-6">
