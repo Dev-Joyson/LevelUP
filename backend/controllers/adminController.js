@@ -3,6 +3,7 @@ import companyModel from '../models/companyModel.js'
 import userModel from '../models/userModel.js'
 import mentorModel from '../models/mentorModel.js';
 import studentModel from '../models/studentModel.js'
+import resumeModel from '../models/resumeModel.js'
 import { sendEmail } from '../utils/emailService.js'
 
 const adminLogin = (req, res) => {
@@ -58,11 +59,75 @@ const getAllCompanies = async (req, res) => {
 // Get all student users
 const getAllStudents = async (req, res) => {
   try {
-   const students = await studentModel.find({});
+    const students = await studentModel.find({}).populate('userId', 'email isVerified');
+    
+    // Get resume data for all students and extract degree information
+    const studentsWithMajor = await Promise.all(
+      students.map(async (student) => {
+        try {
+          const resume = await resumeModel.findOne({ studentId: student._id });
+          let major = null;
+          let status = 'active'; // Default status
+          
+          if (resume && resume.parsedData && resume.parsedData.Degree) {
+            major = resume.parsedData.Degree;
+          }
+          
+          // Determine status based on user verification
+          if (student.userId && student.userId.isVerified !== undefined) {
+            status = student.userId.isVerified ? 'active' : 'pending';
+          }
+          
+          return {
+            _id: student._id,
+            firstname: student.firstname,
+            lastname: student.lastname,
+            education: student.education,
+            skills: student.skills,
+            phoneNumber: student.phoneNumber,
+            resumeUrl: student.resumeUrl,
+            resumePublicId: student.resumePublicId,
+            appliedInternships: student.appliedInternships,
+            mockInterviewsTaken: student.mockInterviewsTaken,
+            mentorRequests: student.mentorRequests,
+            university: student.university,
+            graduationYear: student.graduationYear,
+            major: major, // Add the degree as major
+            status: status, // Add status
+            userId: student.userId?._id,
+            email: student.userId?.email,
+            isVerified: student.userId?.isVerified
+          };
+        } catch (error) {
+          console.error(`Error processing student ${student._id}:`, error);
+          // Return student data without major if resume parsing fails
+          return {
+            _id: student._id,
+            firstname: student.firstname,
+            lastname: student.lastname,
+            education: student.education,
+            skills: student.skills,
+            phoneNumber: student.phoneNumber,
+            resumeUrl: student.resumeUrl,
+            resumePublicId: student.resumePublicId,
+            appliedInternships: student.appliedInternships,
+            mockInterviewsTaken: student.mockInterviewsTaken,
+            mentorRequests: student.mentorRequests,
+            university: student.university,
+            graduationYear: student.graduationYear,
+            major: null,
+            status: student.userId?.isVerified ? 'active' : 'pending',
+            userId: student.userId?._id,
+            email: student.userId?.email,
+            isVerified: student.userId?.isVerified
+          };
+        }
+      })
+    );
 
     res.status(200).json({
       message: 'All student accounts fetched successfully',
-      students,
+      students: studentsWithMajor,
     });
   } catch (error) {
     console.error('Error fetching students:', error);

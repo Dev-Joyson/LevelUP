@@ -9,3 +9,4 @@ const resumeSchema = new mongoose.Schema({
 
 const resumeModel = mongoose.models.resume || mongoose.model('resume', resumeSchema);
 export default resumeModel; 
+
