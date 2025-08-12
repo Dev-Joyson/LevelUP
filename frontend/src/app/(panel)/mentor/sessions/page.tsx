@@ -1,300 +1,278 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Home, Users, Calendar, User, HelpCircle, MessageSquare, Video, Phone } from "lucide-react"
-import type { JSX } from "react/jsx-runtime" // Import JSX to fix the undeclared variable error
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Loader } from "@/components/common/Loader"
+import { 
+  Search, 
+  Filter, 
+  User, 
+  Calendar, 
+  Clock, 
+  Plus,
+  Eye,
+  Edit,
+  Video,
+  CheckCircle
+} from "lucide-react"
 
-// TypeScript interfaces
-interface MentorshipSession {
-  id: number
-  date: string
-  time: string
-  mentorName: string
+interface Session {
+  id: string
+  studentName: string
+  studentEmail: string
+  studentAvatar?: string
+  sessionDate: string
+  sessionTime: string
+  duration: number
+  status: "upcoming" | "completed" | "cancelled" | "in-progress"
   topic: string
-  avatar: string
-  avatarBg: string
-  status: "upcoming" | "completed" | "cancelled"
+  type: "one-on-one" | "group" | "workshop"
+  meetingLink?: string
+  notes?: string
+  createdAt: string
 }
 
-interface SidebarItem {
-  icon: JSX.Element // Change type to JSX.Element
-  label: string
-  href: string
-  active?: boolean
+// Mock data - Replace with actual API calls
+const mockSessions: Session[] = [
+  {
+    id: "1",
+    studentName: "Ethan Harper",
+    studentEmail: "ethan.harper@email.com",
+    sessionDate: "2024-08-15",
+    sessionTime: "10:00 AM",
+    duration: 60,
+    status: "upcoming",
+    topic: "React Component Architecture",
+    type: "one-on-one",
+    meetingLink: "https://meet.google.com/abc-defg-hij",
+    createdAt: "2024-08-10",
+  },
+  {
+    id: "2",
+    studentName: "Olivia Bennett",
+    studentEmail: "olivia.bennett@email.com",
+    sessionDate: "2024-08-14",
+    sessionTime: "2:00 PM",
+    duration: 45,
+    status: "completed",
+    topic: "Career Development Planning",
+    type: "one-on-one",
+    notes: "Discussed career goals and next steps for PM role",
+    createdAt: "2024-08-12",
+  },
+]
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case "upcoming":
+      return "bg-blue-100 text-blue-800 hover:bg-blue-100"
+    case "completed":
+      return "bg-green-100 text-green-800 hover:bg-green-100"
+    case "cancelled":
+      return "bg-red-100 text-red-800 hover:bg-red-100"
+    case "in-progress":
+      return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+    default:
+      return "bg-gray-100 text-gray-800 hover:bg-gray-100"
+  }
 }
 
-// Mock data for upcoming sessions - exactly matching the design
-const upcomingSessions: MentorshipSession[] = [
-  {
-    id: 1,
-    date: "Today",
-    time: "10:00 AM",
-    mentorName: "Alex Johnson",
-    topic: "Career Path Guidance",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-amber-200",
-    status: "upcoming",
-  },
-  {
-    id: 2,
-    date: "Tomorrow",
-    time: "2:00 PM",
-    mentorName: "Emily Davis",
-    topic: "Resume Review",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-pink-200",
-    status: "upcoming",
-  },
-  {
-    id: 3,
-    date: "Today",
-    time: "10:00 AM",
-    mentorName: "Alex Johnson",
-    topic: "Career Path Guidance",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-amber-200",
-    status: "upcoming",
-  },
-  {
-    id: 4,
-    date: "Tomorrow",
-    time: "2:00 PM",
-    mentorName: "Emily Davis",
-    topic: "Resume Review",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-pink-200",
-    status: "upcoming",
-  },
-  {
-    id: 5,
-    date: "Today",
-    time: "10:00 AM",
-    mentorName: "Alex Johnson",
-    topic: "Career Path Guidance",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-amber-200",
-    status: "upcoming",
-  },
-  {
-    id: 6,
-    date: "Tomorrow",
-    time: "2:00 PM",
-    mentorName: "Emily Davis",
-    topic: "Resume Review",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-pink-200",
-    status: "upcoming",
-  },
-  {
-    id: 7,
-    date: "Tomorrow",
-    time: "2:00 PM",
-    mentorName: "Emily Davis",
-    topic: "Resume Review",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-pink-200",
-    status: "upcoming",
-  },
-  {
-    id: 8,
-    date: "Today",
-    time: "10:00 AM",
-    mentorName: "Alex Johnson",
-    topic: "Career Path Guidance",
-    avatar: "/placeholder.svg?height=120&width=120",
-    avatarBg: "bg-amber-200",
-    status: "upcoming",
-  },
-]
-
-const sidebarItems: SidebarItem[] = [
-  {
-    icon: <Home className="h-5 w-5" />,
-    label: "Dashboard",
-    href: "/mentor/dashboard"
-  },
-  {
-    icon: <Users className="h-5 w-5" />,
-    label: "Mentorship",
-    href: "/mentor/mentorship"
-  },
-  {
-    icon: <Calendar className="h-5 w-5" />,
-    label: "Sessions",
-    href: "/mentor/sessions",
-    active: true
-  },
-  {
-    icon: <User className="h-5 w-5" />,
-    label: "Profile",
-    href: "/mentor/profile"
-  },
-]
-
-const bottomSidebarItems: SidebarItem[] = [
-  {
-    icon: <HelpCircle className="h-5 w-5" />,
-    label: "Help",
-    href: "/help",
-  },
-  {
-    icon: <MessageSquare className="h-5 w-5" />,
-    label: "Feedback",
-    href: "/feedback",
-  },
-]
-
-export default function SessionsPage(): JSX.Element {
-  const [hoveredSession, setHoveredSession] = useState<number | null>(null)
-
-  const handleSessionClick = (sessionId: number): void => {
-    console.log("Session clicked:", sessionId)
+const getTypeColor = (type: string) => {
+  switch (type) {
+    case "one-on-one":
+      return "bg-purple-100 text-purple-800 hover:bg-purple-100"
+    case "group":
+      return "bg-orange-100 text-orange-800 hover:bg-orange-100"
+    case "workshop":
+      return "bg-indigo-100 text-indigo-800 hover:bg-indigo-100"
+    default:
+      return "bg-gray-100 text-gray-800 hover:bg-gray-100"
   }
+}
 
-  const handleJoinSession = (sessionId: number): void => {
-    console.log("Joining session:", sessionId)
-  }
+export default function SessionsPage() {
+  const [loading, setLoading] = useState(true)
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [searchTerm, setSearchTerm] = useState("")
+
+  useEffect(() => {
+    // Simulate loading and data fetching
+    const timer = setTimeout(() => {
+      setSessions(mockSessions)
+      setLoading(false)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (loading) return <Loader />
 
   return (
-    <div className="flex h-screen bg-white">
-      {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-100">
-        {/* Logo */}
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">L</span>
-            </div>
-            <span className="font-bold text-xl text-gray-900">LevelUP</span>
-          </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
+          <p className="text-gray-600 text-sm mt-1">Manage your mentoring sessions</p>
         </div>
-
-        {/* Navigation */}
-        <nav className="px-4 py-6 space-y-1">
-          {sidebarItems.map((item) => (
-            <a
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
-                item.active ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </a>
-          ))}
-        </nav>
-
-        {/* Bottom Navigation */}
-        <div className="absolute bottom-0 w-64 p-4 border-t border-gray-100">
-          <div className="space-y-1">
-            {bottomSidebarItems.map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-              >
-                {item.icon}
-                {item.label}
-              </a>
-            ))}
-          </div>
-        </div>
+        <Button className="bg-[#535c91] hover:bg-[#464f7a] gap-2">
+          <Plus className="h-4 w-4" />
+          Schedule New Session
+        </Button>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto bg-white">
-        <div className="p-8">
-          <div className="max-w-4xl">
-            {/* Header */}
-            <h1 className="text-3xl font-bold text-gray-900 mb-8">Mentorship Sessions</h1>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-white border border-gray-200 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-blue-50">
+                    <Calendar className="h-4 w-4 text-blue-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Total Sessions</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">{sessions.length}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Upcoming Sessions */}
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-6">Upcoming Sessions</h2>
+        <Card className="bg-white border border-gray-200 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-orange-50">
+                    <Clock className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Upcoming</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {sessions.filter(s => s.status === "upcoming").length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              <div className="space-y-4">
-                {upcomingSessions.map((session) => (
-                  <Card
+        <Card className="bg-white border border-gray-200 shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-50">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">Completed</span>
+                </div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {sessions.filter(s => s.status === "completed").length}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Sessions Table */}
+      <Card className="bg-white border border-gray-200 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl font-semibold text-gray-900">
+            Recent Sessions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b border-gray-200">
+                  <TableHead className="text-left py-4 px-6 text-sm font-medium text-gray-600">Student</TableHead>
+                  <TableHead className="text-left py-4 px-6 text-sm font-medium text-gray-600">Session Details</TableHead>
+                  <TableHead className="text-left py-4 px-6 text-sm font-medium text-gray-600">Type</TableHead>
+                  <TableHead className="text-left py-4 px-6 text-sm font-medium text-gray-600">Status</TableHead>
+                  <TableHead className="text-left py-4 px-6 text-sm font-medium text-gray-600">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sessions.map((session, index) => (
+                  <TableRow
                     key={session.id}
-                    className="border border-gray-100 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer bg-white"
-                    onMouseEnter={() => setHoveredSession(session.id)}
-                    onMouseLeave={() => setHoveredSession(null)}
-                    onClick={() => handleSessionClick(session.id)}
+                    className={index !== sessions.length - 1 ? "border-b border-gray-100" : ""}
                   >
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          {/* Date and Time */}
-                          <div className="text-sm text-gray-500 font-medium mb-2">
-                            {session.date}, {session.time}
-                          </div>
-
-                          {/* Session Title */}
-                          <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                            Mentorship Session with {session.mentorName}
-                          </h3>
-
-                          {/* Topic */}
-                          <p className="text-sm text-gray-600">Topic: {session.topic}</p>
-
-                          {/* Action Buttons - Show on Hover */}
-                          {hoveredSession === session.id && (
-                            <div className="flex gap-2 mt-4">
-                              <Button
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleJoinSession(session.id)
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white"
-                              >
-                                <Video className="h-4 w-4 mr-2" />
-                                Join Session
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                }}
-                                className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                              >
-                                <Phone className="h-4 w-4 mr-2" />
-                                Call
-                              </Button>
-                            </div>
-                          )}
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={session.studentAvatar} alt={session.studentName} />
+                          <AvatarFallback>
+                            <User className="h-5 w-5 text-gray-600" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{session.studentName}</div>
+                          <div className="text-xs text-gray-500">{session.studentEmail}</div>
                         </div>
-
-                        {/* Avatar */}
-                        <div className="ml-6">
-                          <div
-                            className={`w-24 h-20 rounded-xl ${session.avatarBg} flex items-center justify-center overflow-hidden`}
-                          >
-                            <Avatar className="w-20 h-16">
-                              <AvatarImage src="/placeholder.svg" alt={session.mentorName} />
-                              <AvatarFallback className="bg-transparent text-gray-700 font-semibold text-lg">
-                                {session.mentorName
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")}
-                              </AvatarFallback>
-                            </Avatar>
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <div className="space-y-1">
+                        <div className="text-sm font-medium text-gray-900">{session.topic}</div>
+                        <div className="flex items-center gap-4 text-xs text-gray-500">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            {session.sessionDate}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {session.sessionTime}
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <Badge variant="secondary" className={getTypeColor(session.type)}>
+                        {session.type.charAt(0).toUpperCase() + session.type.slice(1).replace('-', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <Badge variant="secondary" className={getStatusColor(session.status)}>
+                        {session.status.charAt(0).toUpperCase() + session.status.slice(1).replace('-', ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" className="gap-1">
+                          <Eye className="h-3 w-3" />
+                          View
+                        </Button>
+                        {session.status === "upcoming" && (
+                          <>
+                            <Button variant="outline" size="sm" className="gap-1">
+                              <Edit className="h-3 w-3" />
+                              Edit
+                            </Button>
+                            {session.meetingLink && (
+                              <Button variant="outline" size="sm" className="gap-1">
+                                <Video className="h-3 w-3" />
+                                Join
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            </div>
+              </TableBody>
+            </Table>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
