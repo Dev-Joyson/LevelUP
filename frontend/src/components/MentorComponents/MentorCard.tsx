@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { Star } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +21,9 @@ export interface Mentor {
   pricePerMonth: number
   category: string[]
   isQuickResponder?: boolean
+  location?: string
+  languages?: string[]
+  about?: string
 }
 
 interface MentorCardProps {
@@ -29,7 +33,9 @@ interface MentorCardProps {
 
 export function MentorCard({ mentor, onViewProfile }: MentorCardProps) {
   const handleViewProfile = () => {
-    onViewProfile?.(mentor.id)
+    if (onViewProfile) {
+      onViewProfile(mentor.id)
+    }
   }
 
   return (
@@ -97,8 +103,8 @@ export function MentorCard({ mentor, onViewProfile }: MentorCardProps) {
                   <div className="text-2xl font-bold text-gray-900">LKR {mentor.pricePerMonth}</div>
                   <div className="text-sm text-gray-500">/ month</div>
                 </div>
-                <Button onClick={handleViewProfile} className="bg-primary hover:bg-primary/90 px-6">
-                  View Profile
+                <Button asChild className="bg-primary hover:bg-primary/90 px-6">
+                  <Link href={`/mentorship/${mentor.id}`}>View Profile</Link>
                 </Button>
               </div>
             </div>

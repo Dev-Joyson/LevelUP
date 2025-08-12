@@ -142,7 +142,7 @@ export default function MentorshipPage() {
 
   const handleViewProfile = (mentorId: string) => {
     console.log("Viewing profile for mentor:", mentorId)
-    // Handle navigation to mentor profile page
+    // Navigation is now handled directly in the MentorCard component
   }
 
   return (
