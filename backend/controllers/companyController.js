@@ -1,6 +1,7 @@
 import internshipModel from '../models/internshipModel.js';
 import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
+import userModel from '../models/userModel.js';
 
 const companyDashboard = (req, res) => {
     res.json({ message: "Welcome to the Company Dashboard", user: req.user });
@@ -186,7 +187,8 @@ const getCompanyApplications = async (req, res) => {
 
     const applications = await applicationModel
       .find(query)
-      .populate('internshipId', 'title domain location')
+      .populate('internshipId', 'title domain location workMode salary')
+      .populate('studentId', 'email')
       .sort(sortCriteria)
       .skip(skip)
       .limit(parseInt(limit));
@@ -194,12 +196,15 @@ const getCompanyApplications = async (req, res) => {
     const total = await applicationModel.countDocuments(query);
 
     res.json({
-      applications,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total,
-        pages: Math.ceil(total / parseInt(limit))
+      success: true,
+      data: {
+        applications,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        }
       }
     });
 
@@ -482,6 +487,88 @@ const getCompanyInternships = async (req, res) => {
   }
 };
 
+// Get company profile
+const getCompanyProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find company with user details
+    const company = await companyModel.findOne({ userId }).populate('userId', 'email');
+    
+    if (!company) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Company profile not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: company
+    });
+
+  } catch (error) {
+    console.error('Get company profile error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch company profile',
+      error: error.message 
+    });
+  }
+};
+
+// Update company profile
+const updateCompanyProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const {
+      companyName,
+      description,
+      website,
+      industry,
+      location,
+      foundedYear,
+      employees
+    } = req.body;
+
+    // Find and update company
+    const company = await companyModel.findOneAndUpdate(
+      { userId },
+      {
+        companyName,
+        description,
+        website,
+        industry,
+        location,
+        foundedYear,
+        employees
+      },
+      { new: true, runValidators: true }
+    ).populate('userId', 'email');
+
+    if (!company) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Company profile not found' 
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Company profile updated successfully',
+      data: company
+    });
+
+  } catch (error) {
+    console.error('Update company profile error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to update company profile',
+      error: error.message 
+    });
+  }
+};
+
 export { 
   companyDashboard, 
   createInternship, 
@@ -489,6 +576,8 @@ export {
   getCompanyApplications, 
   updateApplicationStatus, 
   getApplicationAnalytics,
-  updateInternshipCriteria
+  updateInternshipCriteria,
+  getCompanyProfile,
+  updateCompanyProfile
 };
   
