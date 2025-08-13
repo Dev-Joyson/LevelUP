@@ -1,7 +1,7 @@
 import express from "express"
 import { authenticateUser } from "../middlewares/authMiddleware.js"
 import { authorizeRoles } from "../middlewares/roleMiddleware.js"
-import { getAllInternships, studentDashboard } from "../controllers/studentController.js"
+import { getAllInternships, getInternshipById, studentDashboard } from "../controllers/studentController.js"
 import upload from '../middlewares/multer.js';
 import { uploadResume, getStudentProfile, applyInternship, testScoring } from '../controllers/studentController.js';
 
@@ -13,5 +13,6 @@ studentRouter.get("/profile", authenticateUser, authorizeRoles("student"), getSt
 studentRouter.post("/apply-internship", authenticateUser, authorizeRoles("student"), applyInternship);
 studentRouter.get("/test-scoring", authenticateUser, authorizeRoles("student"), testScoring);
 studentRouter.get("/internships", getAllInternships);
+studentRouter.get("/internships/:id", getInternshipById);
 
 export default studentRouter
