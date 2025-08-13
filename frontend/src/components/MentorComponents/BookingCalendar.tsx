@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, isAfter, addWeeks } from "date-fns"
 import { ChevronLeft, ChevronRight, Clock, Calendar, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
@@ -300,133 +300,124 @@ export function BookingCalendar({
   };
   
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle>Book a Session with {mentorName}</CardTitle>
-        <CardDescription>
-          Select a date and time for your {sessionDuration}-minute {sessionType?.name} session
-        </CardDescription>
-      </CardHeader>
+    <div>
+      {/* Calendar Navigation */}
+      <div className="flex items-center justify-between mb-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={goToPreviousWeek}
+          disabled={isBefore(currentWeekStart, new Date())}
+        >
+          <ChevronLeft className="h-4 w-4 mr-1" />
+          Previous
+        </Button>
+        <span className="font-medium">{weekRangeDisplay}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={goToNextWeek}
+          disabled={isAfter(
+            currentWeekStart,
+            addDays(new Date(), availability.advanceBookingLimit - 7)
+          )}
+        >
+          Next
+          <ChevronRight className="h-4 w-4 ml-1" />
+        </Button>
+      </div>
       
-      <CardContent className="space-y-6">
-        {/* Calendar Navigation */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToPreviousWeek}
-            disabled={isBefore(currentWeekStart, new Date())}
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Previous
-          </Button>
-          <span className="font-medium">{weekRangeDisplay}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToNextWeek}
-            disabled={isAfter(
-              currentWeekStart,
-              addDays(new Date(), availability.advanceBookingLimit - 7)
-            )}
-          >
-            Next
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        </div>
-        
-        {/* Calendar Days */}
-        <div className="grid grid-cols-7 gap-1">
-          {getDaysInView().map((day, index) => {
-            const isSelected = selectedDate && isSameDay(day, selectedDate);
-            const isSelectable = isDateSelectable(day);
-            const slotCount = countAvailableSlotsForDate(day);
-            
-            return (
-              <div
-                key={index}
-                className={`
-                  flex flex-col items-center p-2 rounded-md cursor-pointer border
-                  ${isSelected ? "border-primary bg-primary/5" : "border-gray-200"}
-                  ${isSelectable ? "hover:border-primary/50" : "opacity-50 cursor-not-allowed"}
-                `}
-                onClick={() => {
-                  if (isSelectable) {
-                    handleDateSelect(day);
-                  }
-                }}
+      {/* Calendar Days */}
+      <div className="grid grid-cols-7 gap-1 mb-6">
+        {getDaysInView().map((day, index) => {
+          const isSelected = selectedDate && isSameDay(day, selectedDate);
+          const isSelectable = isDateSelectable(day);
+          const slotCount = countAvailableSlotsForDate(day);
+          
+          return (
+            <div
+              key={index}
+              className={`
+                flex flex-col items-center p-2 rounded-md cursor-pointer border
+                ${isSelected ? "border-primary bg-primary/5" : "border-gray-200"}
+                ${isSelectable ? "hover:border-primary/50" : "opacity-50 cursor-not-allowed"}
+              `}
+              onClick={() => {
+                if (isSelectable) {
+                  handleDateSelect(day);
+                }
+              }}
+            >
+              <span className="text-xs text-gray-500">{format(day, "EEE")}</span>
+              <span
+                className={`text-sm font-medium ${isSelected ? "text-primary" : "text-gray-900"}`}
               >
-                <span className="text-xs text-gray-500">{format(day, "EEE")}</span>
-                <span
-                  className={`text-sm font-medium ${isSelected ? "text-primary" : "text-gray-900"}`}
-                >
-                  {format(day, "d")}
-                </span>
-                <span className="text-xs text-gray-500 mt-1">
-                  {slotCount > 0 ? `${slotCount} slots` : "No slots"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        
-        {/* Time Slots */}
-        {selectedDate && (
-          <div>
-            <h3 className="text-sm font-medium mb-3 flex items-center">
-              <Clock className="h-4 w-4 mr-1" />
-              Available times for {formatDateForDisplay(selectedDate)}
-            </h3>
-            
-            {availableSlots[format(selectedDate, "yyyy-MM-dd")]?.length > 0 ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {availableSlots[format(selectedDate, "yyyy-MM-dd")].map((time, index) => (
-                  <div
-                    key={index}
-                    className={`
-                      flex items-center justify-center p-2 border rounded-md cursor-pointer
-                      ${
-                        selectedTimeSlot === time
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-gray-200 hover:border-primary/50"
-                      }
-                    `}
-                    onClick={() => handleTimeSlotSelect(time)}
-                  >
-                    <span className="text-sm">{formatTimeForDisplay(time)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 text-center text-gray-500 border border-dashed rounded-md">
-                No available time slots for this date
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Selected Session Info */}
-        {sessionType && (
-          <div className="bg-gray-50 p-4 rounded-md">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium">Session Type</span>
-              <span>{sessionType.name}</span>
+                {format(day, "d")}
+              </span>
+              <span className="text-xs text-gray-500 mt-1">
+                {slotCount > 0 ? `${slotCount} slots` : "No slots"}
+              </span>
             </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-medium">Duration</span>
-              <span>{sessionType.duration} minutes</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="font-medium">Price</span>
-              <Badge variant="outline" className="font-medium">
-                ${sessionType.price.toFixed(2)}
-              </Badge>
-            </div>
-          </div>
-        )}
-      </CardContent>
+          );
+        })}
+      </div>
       
-      <CardFooter className="flex justify-between">
+      {/* Time Slots */}
+      {selectedDate && (
+        <div className="mb-6">
+          <h3 className="text-sm font-medium mb-3 flex items-center">
+            <Clock className="h-4 w-4 mr-1" />
+            Available times for {formatDateForDisplay(selectedDate)}
+          </h3>
+          
+          {availableSlots[format(selectedDate, "yyyy-MM-dd")]?.length > 0 ? (
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {availableSlots[format(selectedDate, "yyyy-MM-dd")].map((time, index) => (
+                <div
+                  key={index}
+                  className={`
+                    flex items-center justify-center p-2 border rounded-md cursor-pointer
+                    ${
+                      selectedTimeSlot === time
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-gray-200 hover:border-primary/50"
+                    }
+                  `}
+                  onClick={() => handleTimeSlotSelect(time)}
+                >
+                  <span className="text-sm">{formatTimeForDisplay(time)}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-4 text-center text-gray-500 border border-dashed rounded-md">
+              No available time slots for this date
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Selected Session Info */}
+      {sessionType && (
+        <div className="bg-gray-50 p-4 rounded-md mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-medium">Session Type</span>
+            <span>{sessionType.name}</span>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-medium">Duration</span>
+            <span>{sessionType.duration} minutes</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Price</span>
+            <Badge variant="outline" className="font-medium">
+              ${sessionType.price.toFixed(2)}
+            </Badge>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center">
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -447,7 +438,7 @@ export function BookingCalendar({
         >
           Confirm Booking
         </Button>
-      </CardFooter>
+      </div>
       
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
@@ -491,6 +482,6 @@ export function BookingCalendar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+    </div>
   );
 }
