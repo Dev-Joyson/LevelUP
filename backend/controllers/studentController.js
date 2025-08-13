@@ -254,6 +254,26 @@ const getAllInternships = async (req, res) => {
   }
 };
 
+// Get single internship details by ID
+const getInternshipById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const internship = await internshipModel.findById(id)
+      .populate('companyId', 'name logo')
+      .select('-__v');
+    
+    if (!internship) {
+      return res.status(404).json({ message: 'Internship not found' });
+    }
+
+    res.status(200).json(internship);
+  } catch (error) {
+    console.error('Error fetching internship:', error);
+    res.status(500).json({ message: 'Failed to fetch internship details' });
+  }
+};
+
 // Test scoring function
 const testScoring = async (req, res) => {
   console.log('=== TEST SCORING FUNCTION ===');
@@ -302,4 +322,4 @@ const testScoring = async (req, res) => {
   }
 };
 
-export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships }
+export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships, getInternshipById }

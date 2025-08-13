@@ -8,13 +8,19 @@ import {
   getCompanyApplications, 
   updateApplicationStatus, 
   getApplicationAnalytics,
-  updateInternshipCriteria
+  updateInternshipCriteria,
+  getCompanyProfile,
+  updateCompanyProfile
 } from "../controllers/companyController.js"
 
 const companyRouter = express.Router()
 
 // Dashboard
 companyRouter.get('/dashboard', authenticateUser, authorizeRoles("company"), companyDashboard)
+
+// Profile management
+companyRouter.get('/profile', authenticateUser, authorizeRoles("company"), getCompanyProfile)
+companyRouter.put('/profile', authenticateUser, authorizeRoles("company"), updateCompanyProfile)
 
 // Internship management
 companyRouter.post('/create-internship', authenticateUser, authorizeRoles("company"), createInternship)
