@@ -5,24 +5,7 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Bookmark, Briefcase, LucideBookMarked } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-// Job type definition
-export type Job = {
-  _id: string
-  company: {
-    name: string
-    logo?: string
-  }
-  title: string
-  location: string
-  salary: {
-    min: number
-    max: number
-    currency: string
-  }
-  createdAt: string
-  isEasyApply?: boolean
-}
+import type { Job } from "@/types/job"
 
 export function InternshipSidebar() {
   const pathname = usePathname()
@@ -109,12 +92,12 @@ export function InternshipSidebar() {
                     <Briefcase className="h-5 w-5 text-primary" />
                   </div>
                   <div>
-                    <div className="font-medium text-primary">{job.company.name}</div>
+                    <div className="font-medium text-primary">{job.company?.name || job.companyId?.name || 'Unknown Company'}</div>
                     <h3 className="font-bold text-lg mt-1">{job.title}</h3>
                     <p className="text-sm text-gray-500 mt-1">{job.location}</p>
                     
                     <p className="text-xs text-gray-500 mt-1">
-                      LKR{job.salary.min.toLocaleString()} - LKR{job.salary.max.toLocaleString()} {job.salary.currency}
+                      {job.salary.display || `LKR ${job.salary.min.toLocaleString()} - LKR ${job.salary.max.toLocaleString()}`}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">
                       Posted {new Date(job.createdAt).toLocaleDateString()}
