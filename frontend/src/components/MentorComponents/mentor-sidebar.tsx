@@ -27,9 +27,14 @@ const navigationItems = [
     icon: Users,
   },
   {
+    title: "Schedule Sessions",
+    url: "/mentor/schedule",
+    icon: Calendar,
+  },
+  {
     title: "Sessions",
     url: "/mentor/sessions",
-    icon: Calendar,
+    icon: Users,
   },
   {
     title: "Reviews",

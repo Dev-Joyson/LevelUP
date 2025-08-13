@@ -1,12 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { MentorCard, type Mentor } from "@/components/MentorComponents/MentorCard"
 import { FilterSidebar } from "@/components/MentorComponents/FilterSidebar"
 import { MentorshipHeader } from "@/components/MentorComponents/MentorshipHeader"
 import { EmptyState } from "@/components/MentorComponents/EmptyState"
+import axios from "axios"
+import { toast } from "sonner"
 
-const mentors: Mentor[] = [
+// Fallback mentors data in case API fails
+const fallbackMentors: Mentor[] = [
   {
     id: "1",
     name: "Tracy Pham",
@@ -37,53 +40,7 @@ const mentors: Mentor[] = [
     reviewCount: 89,
     pricePerMonth: 3500,
     category: ["Data Science", "Machine Learning", "Leadership"],
-  },
-  {
-    id: "3",
-    name: "Srinidhi Ranganathan",
-    title: "Digital Marketing Expert Consultant",
-    company: "Freelancer",
-    image: "/placeholder.svg?height=120&width=120",
-    description:
-      "10+ years of experience in AI Digital Marketing. Senior Marketing Lead turned Consultant who has been the Chief Executive Officer and Founder of multiple tech companies.",
-    skills: ["Digital Marketing", "Artificial Intelligence", "AI", "Marketing", "Strategy"],
-    experience: "10+ years",
-    rating: 4.7,
-    reviewCount: 156,
-    pricePerMonth: 3500,
-    category: ["Marketing", "Artificial Intelligence", "Leadership"],
-    isQuickResponder: true,
-  },
-  {
-    id: "4",
-    name: "Sarah Chen",
-    title: "Product Manager",
-    company: "Microsoft",
-    image: "/placeholder.svg?height=120&width=120",
-    description:
-      "Senior Product Manager with 7+ years building consumer and enterprise products. I've launched 15+ products and mentored 100+ aspiring PMs.",
-    skills: ["Product Management", "Strategy", "Leadership", "Analytics", "User Research"],
-    experience: "7+ years",
-    rating: 4.9,
-    reviewCount: 203,
-    pricePerMonth: 6000,
-    category: ["Product Management", "Leadership", "Career Growth"],
-  },
-  {
-    id: "5",
-    name: "Alex Rodriguez",
-    title: "Software Engineering Manager",
-    company: "Amazon",
-    image: "/placeholder.svg?height=120&width=120",
-    description:
-      "Engineering Manager with 12+ years in software development. I lead teams of 20+ engineers and have helped 200+ developers advance their careers.",
-    skills: ["Software Engineering", "Leadership", "System Design", "Team Management", "Career Growth"],
-    experience: "12+ years",
-    rating: 4.8,
-    reviewCount: 174,
-    pricePerMonth: 5500,
-    category: ["Leadership", "Career Growth", "Software Engineering"],
-  },
+  }
 ]
 
 const categories = [
@@ -112,6 +69,37 @@ export default function MentorshipPage() {
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
   const [priceRange, setPriceRange] = useState([0, 10000])
   const [showFilters, setShowFilters] = useState(false)
+  const [mentors, setMentors] = useState<Mentor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  
+  // Fetch mentors from the API
+  useEffect(() => {
+    const fetchMentors = async () => {
+      try {
+        setLoading(true)
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+        const response = await axios.get(`${API_BASE_URL}/api/mentor/public`)
+        
+        if (response.data && response.data.mentors && response.data.mentors.length > 0) {
+          setMentors(response.data.mentors)
+        } else {
+          // If no mentors returned, use fallback data
+          setMentors(fallbackMentors)
+          toast.warning("Using demo mentor data as no mentors were found.")
+        }
+      } catch (error) {
+        console.error("Error fetching mentors:", error)
+        setMentors(fallbackMentors)
+        setError(true)
+        toast.error("Failed to fetch mentors. Using demo data instead.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchMentors()
+  }, [])
 
   const filteredMentors = mentors.filter((mentor) => {
     const matchesSearch =
@@ -145,37 +133,70 @@ export default function MentorshipPage() {
     // Navigation is now handled directly in the MentorCard component
   }
 
+  // Generate categories and companies dynamically from fetched mentors
+  useEffect(() => {
+    if (mentors.length > 0) {
+      // Extract unique categories and count occurrences
+      const categoryMap = new Map<string, number>()
+      mentors.forEach(mentor => {
+        mentor.category.forEach(cat => {
+          categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1)
+        })
+      })
+      
+      // Extract unique companies and count occurrences
+      const companyMap = new Map<string, number>()
+      mentors.forEach(mentor => {
+        companyMap.set(mentor.company, (companyMap.get(mentor.company) || 0) + 1)
+      })
+    }
+  }, [mentors])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <MentorshipHeader searchTerm={searchTerm} onSearchChange={setSearchTerm} />
 
-      <div className="max-w-7xl mx-auto  py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          <FilterSidebar
-            mentorCount={filteredMentors.length}
-            categories={categories}
-            companies={companies}
-            selectedCategories={selectedCategories}
-            selectedCompanies={selectedCompanies}
-            priceRange={priceRange}
-            showFilters={showFilters}
-            onToggleFilters={() => setShowFilters(!showFilters)}
-            onCategoryChange={toggleCategory}
-            onCompanyChange={toggleCompany}
-            onPriceRangeChange={setPriceRange}
-          />
-
-          {/* Mentor Cards */}
-          <div className="flex-1">
-            <div className="space-y-6">
-              {filteredMentors.map((mentor) => (
-                <MentorCard key={mentor.id} mentor={mentor} onViewProfile={handleViewProfile} />
-              ))}
-            </div>
-
-            {filteredMentors.length === 0 && <EmptyState />}
+      <div className="max-w-7xl mx-auto py-8">
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col lg:flex-row gap-8">
+            <FilterSidebar
+              mentorCount={filteredMentors.length}
+              categories={categories}
+              companies={companies}
+              selectedCategories={selectedCategories}
+              selectedCompanies={selectedCompanies}
+              priceRange={priceRange}
+              showFilters={showFilters}
+              onToggleFilters={() => setShowFilters(!showFilters)}
+              onCategoryChange={toggleCategory}
+              onCompanyChange={toggleCompany}
+              onPriceRangeChange={setPriceRange}
+            />
+
+            {/* Mentor Cards */}
+            <div className="flex-1">
+              {error && (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                  <p className="text-yellow-700">
+                    We encountered an issue loading mentor data. Showing demo data instead.
+                  </p>
+                </div>
+              )}
+              
+              <div className="space-y-6">
+                {filteredMentors.map((mentor) => (
+                  <MentorCard key={mentor.id} mentor={mentor} onViewProfile={handleViewProfile} />
+                ))}
+              </div>
+
+              {filteredMentors.length === 0 && <EmptyState />}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

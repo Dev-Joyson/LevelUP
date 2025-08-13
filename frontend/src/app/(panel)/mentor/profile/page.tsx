@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader } from "@/components/common/Loader"
+import { SessionTypesManager } from "@/components/MentorComponents/SessionTypesManager"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { 
   User, 
   Mail, 
@@ -91,7 +93,14 @@ export default function ProfilePage() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="sessions">Session Types</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profile Overview */}
         <div className="lg:col-span-1 space-y-6">
           {/* Basic Info Card */}
@@ -277,6 +286,12 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="sessions">
+          <SessionTypesManager />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
