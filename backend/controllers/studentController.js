@@ -322,4 +322,87 @@ const testScoring = async (req, res) => {
   }
 };
 
-export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships, getInternshipById }
+// Update student profile
+const updateStudentProfile = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    const { firstname, lastname, phone, university, graduationYear } = req.body;
+    
+    // Update fields if provided
+    if (firstname) student.firstname = firstname;
+    if (lastname) student.lastname = lastname;
+    if (phone) student.phone = phone;
+    if (university) student.university = university;
+    if (graduationYear) student.graduationYear = graduationYear;
+    
+    await student.save();
+    
+    res.status(200).json({ 
+      message: 'Profile updated successfully',
+      student: {
+        firstname: student.firstname,
+        lastname: student.lastname,
+        phone: student.phone,
+        university: student.university,
+        graduationYear: student.graduationYear
+      } 
+    });
+  } catch (error) {
+    console.error('Error updating student profile:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+};
+
+// Get student applications
+const getStudentApplications = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    const applications = await applicationModel.find({ studentId: student._id })
+      .populate('internshipId', 'title companyId')
+      .populate({
+        path: 'internshipId',
+        populate: {
+          path: 'companyId',
+          select: 'name logo'
+        }
+      })
+      .sort({ appliedAt: -1 });
+
+    // Transform the data for frontend use
+    const transformedApplications = applications.map(app => ({
+      id: app._id,
+      company: app.internshipId.companyId.name,
+      companyLogo: app.internshipId.companyId.logo,
+      role: app.internshipId.title,
+      applicationDate: app.appliedAt,
+      status: app.status.charAt(0).toUpperCase() + app.status.slice(1), // Capitalize status
+      matchScore: app.matchScore?.total || 0,
+      internshipId: app.internshipId._id
+    }));
+
+    res.status(200).json(transformedApplications);
+  } catch (error) {
+    console.error('Error fetching student applications:', error);
+    res.status(500).json({ message: 'Failed to fetch applications' });
+  }
+};
+
+export { 
+  studentDashboard, 
+  uploadResume, 
+  getStudentProfile, 
+  updateStudentProfile,
+  applyInternship, 
+  testScoring, 
+  getAllInternships, 
+  getInternshipById,
+  getStudentApplications 
+}

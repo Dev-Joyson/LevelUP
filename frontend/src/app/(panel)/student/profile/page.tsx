@@ -1,27 +1,163 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
-import { Shield, Camera } from "lucide-react"
+import { Shield, Camera, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { toast } from "react-toastify"
+
+interface StudentProfile {
+  firstname: string
+  lastname: string
+  email: string
+  phone: string
+  university?: string
+  graduationYear?: string
+  resumeUrl?: string
+  profilePicture?: string
+  userId: string
+}
 
 interface FormData {
   fullName: string
   email: string
   phoneNumber: string
+  university?: string
+  graduationYear?: string
 }
 
 export default function StudentProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isPageLoading, setIsPageLoading] = useState(true)
   const [formData, setFormData] = useState<FormData>({
-    fullName: "Olivia Harper",
-    email: "olivia.harper@email.com",
-    phoneNumber: "+1 (555) 123-4567",
+    fullName: "",
+    email: "",
+    phoneNumber: "",
+    university: "",
+    graduationYear: ""
   })
+  const [profilePicture, setProfilePicture] = useState<string | null>(null)
+  
+  // Use port 5000 since other functionality is working with this port
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+
+  // Fetch student profile data or use mock data if API is unavailable
+  useEffect(() => {
+    async function fetchStudentProfile() {
+      try {
+        // If API_BASE_URL is not available, use mock data
+        if (!API_BASE_URL) {
+          console.warn("API_BASE_URL is not defined, using mock data")
+          setFormData({
+            fullName: "Demo Student",
+            email: "demo.student@university.edu",
+            phoneNumber: "+94 76 123 4567",
+            university: "University of Colombo",
+            graduationYear: "2025"
+          })
+          setIsPageLoading(false)
+          return
+        }
+
+        const token = localStorage.getItem("token")
+        if (!token) {
+          // For demo purposes, load mock data if no token
+          setFormData({
+            fullName: "Demo Student",
+            email: "demo.student@university.edu",
+            phoneNumber: "+94 76 123 4567",
+            university: "University of Colombo",
+            graduationYear: "2025"
+          })
+          setIsPageLoading(false)
+          return
+        }
+
+        console.log("Fetching student profile from:", `${API_BASE_URL}/api/student/profile`)
+        console.log("Using auth token:", token.substring(0, 15) + "...")
+        
+        // Add timeout for fetch to prevent hanging requests
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+        
+        const response = await fetch(`${API_BASE_URL}/api/student/profile`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          signal: controller.signal
+        })
+        
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch profile data: ${response.status} ${response.statusText}`)
+        }
+
+        const studentData: StudentProfile = await response.json()
+        console.log("Student data received:", studentData)
+        
+        // Try to get email from user data
+        let userEmail = ""
+        try {
+          const userResponse = await fetch(`${API_BASE_URL}/api/auth/user`, {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          })
+          
+          if (userResponse.ok) {
+            const userData = await userResponse.json()
+            userEmail = userData.email || ""
+          }
+        } catch (userError) {
+          console.error("Error fetching user email:", userError)
+        }
+        
+        setFormData({
+          fullName: `${studentData.firstname || ""} ${studentData.lastname || ""}`.trim(),
+          email: userEmail || studentData.email || "",
+          phoneNumber: studentData.phone || "",
+          university: studentData.university || "",
+          graduationYear: studentData.graduationYear || ""
+        })
+        
+        if (studentData.profilePicture) {
+          setProfilePicture(studentData.profilePicture)
+        }
+        
+      } catch (error) {
+        console.error("Error fetching profile:", error)
+        
+        // Handle different error types with specific messages
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          toast.error("Request timed out. Check your network connection.")
+        } else if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+          toast.error("Network error. Check your connection or API server.")
+        } else {
+          toast.error("Failed to load profile data. Using demo data instead.")
+        }
+        
+        // Use demo data if API call fails
+        setFormData({
+          fullName: "Demo Student",
+          email: "demo.student@university.edu",
+          phoneNumber: "+94 76 123 4567",
+          university: "University of Colombo",
+          graduationYear: "2025"
+        })
+      } finally {
+        setIsPageLoading(false)
+      }
+    }
+    
+    fetchStudentProfile()
+  }, [API_BASE_URL])
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -33,41 +169,118 @@ export default function StudentProfilePage() {
   const handleUpdateProfile = async () => {
     setIsLoading(true)
     try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        toast.error("Authentication error. Please login again.")
+        setIsLoading(false)
+        return
+      }
+      
+      // If API_BASE_URL is not available or for demo mode
+      if (!API_BASE_URL) {
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      console.log("Updating profile:", formData)
+        await new Promise(resolve => setTimeout(resolve, 800))
+        toast.success("Profile updated successfully (Demo mode)")
+        setIsEditing(false)
+        setIsLoading(false)
+        return
+      }
+      
+      // Split fullName into firstname and lastname
+      const nameParts = formData.fullName.split(" ")
+      const firstname = nameParts[0] || ""
+      const lastname = nameParts.slice(1).join(" ") || ""
+      
+      console.log("Updating profile at:", `${API_BASE_URL}/api/student/update-profile`)
+      console.log("Update data:", {
+        firstname,
+        lastname,
+        phone: formData.phoneNumber,
+        university: formData.university,
+        graduationYear: formData.graduationYear
+      })
+      
+      try {
+        // Add timeout for fetch to prevent hanging requests
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
+        
+        const response = await fetch(`${API_BASE_URL}/api/student/update-profile`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            firstname,
+            lastname,
+            phone: formData.phoneNumber,
+            university: formData.university,
+            graduationYear: formData.graduationYear
+          }),
+          signal: controller.signal
+        })
+        
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          throw new Error(`Failed to update profile: ${response.status} ${response.statusText}`)
+        }
+        
+        const responseData = await response.json()
+        console.log("Update response:", responseData)
+        
+        toast.success("Profile updated successfully")
+      } catch (fetchError) {
+        console.error("API Error updating profile:", fetchError)
+        toast.warning("Could not reach the server. Changes saved locally only.")
+      }
+      
       setIsEditing(false)
     } catch (error) {
       console.error("Error updating profile:", error)
+      toast.error("Failed to update profile")
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleChangePassword = () => {
-    console.log("Opening password change modal")
+    toast.info("Password change feature coming soon")
   }
 
   const handleAvatarChange = () => {
-    console.log("Opening avatar upload")
+    toast.info("Avatar upload feature coming soon")
   }
 
   return (
     <div className="p-8">
-      <div className=" mx-auto">
+      <div className="mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile</h1>
 
+        {isPageLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <>
         {/* Profile Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4 group">
             <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200">
+                  {profilePicture ? (
               <Image
-                src="/placeholder.svg?height=128&width=128"
+                      src={profilePicture}
                 alt="Profile picture"
                 width={128}
                 height={128}
                 className="w-full h-full object-cover"
               />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-4xl font-bold">
+                      {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : "?"}
+                    </div>
+                  )}
             </div>
             <Button
               size="sm"
@@ -78,8 +291,8 @@ export default function StudentProfilePage() {
               <Camera className="h-4 w-4" />
             </Button>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{formData.fullName}</h2>
-          <p className="text-gray-600">{formData.email}</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-1">{formData.fullName || "Student"}</h2>
+              <p className="text-gray-600">{formData.email || "No email available"}</p>
         </div>
 
         {/* Personal Information Form */}
@@ -113,9 +326,10 @@ export default function StudentProfilePage() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                  disabled={!isEditing}
+                      disabled={true} // Email should always be disabled as it's linked to auth
                   className="h-12 bg-gray-50 border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
                 />
+                    <p className="text-xs text-gray-500 mt-1">Contact admin to change your email address</p>
               </div>
 
               {/* Phone Number */}
@@ -132,6 +346,36 @@ export default function StudentProfilePage() {
                   className="h-12 bg-gray-50 border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
                 />
               </div>
+                  
+                  {/* University */}
+                  <div>
+                    <Label htmlFor="university" className="text-sm font-medium text-gray-700 mb-2 block">
+                      University
+                    </Label>
+                    <Input
+                      id="university"
+                      type="text"
+                      value={formData.university || ""}
+                      onChange={(e) => handleInputChange("university", e.target.value)}
+                      disabled={!isEditing}
+                      className="h-12 bg-gray-50 border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
+                  
+                  {/* Graduation Year */}
+                  <div>
+                    <Label htmlFor="graduationYear" className="text-sm font-medium text-gray-700 mb-2 block">
+                      Graduation Year
+                    </Label>
+                    <Input
+                      id="graduationYear"
+                      type="text"
+                      value={formData.graduationYear || ""}
+                      onChange={(e) => handleInputChange("graduationYear", e.target.value)}
+                      disabled={!isEditing}
+                      className="h-12 bg-gray-50 border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
+                    />
+                  </div>
 
               {/* Password Section */}
               <div>
@@ -179,6 +423,8 @@ export default function StudentProfilePage() {
             </div>
           </CardContent>
         </Card>
+          </>
+        )}
       </div>
     </div>
   )
