@@ -186,7 +186,7 @@ export function ScheduleSessionModal({ isOpen, onClose, mentor, isLoggedIn }: Sc
     try {
       setSubmitting(true)
       
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
       const sessionData = {
         mentorId: mentor.id,
         date: date,
@@ -195,14 +195,30 @@ export function ScheduleSessionModal({ isOpen, onClose, mentor, isLoggedIn }: Sc
         message: message
       }
       
-      // This would be replaced with an actual API call
-      // const response = await axios.post(`${API_BASE_URL}/api/student/schedule-session`, sessionData)
-      
-      // For now, simulate a successful response
       console.log("Scheduling session with data:", sessionData)
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Get token from localStorage or auth context
+      const token = localStorage.getItem('token')
+      if (!token) {
+        toast.error("Please log in to schedule a session")
+        router.push("/login?redirect=/mentorship/" + mentor.id)
+        onClose()
+        return
+      }
+      
+      // Make actual API call to book session
+      const response = await axios.post(
+        `${API_BASE_URL}/api/student/book-session`, 
+        sessionData,
+        {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+      
+      console.log("Session scheduled successfully:", response.data)
       
       toast.success("Session scheduled successfully!")
       onClose()

@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Bell, Search, LogOut, User, Settings, MessageSquare, Home } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -13,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import axios from "axios"
 
 interface PanelNavbarProps {
   title?: string
@@ -24,11 +26,71 @@ interface PanelNavbarProps {
 export function PanelNavbar({
   title = "Dashboard",
   userRole = "student",
-  userName = "Olivia Harper",
-  userEmail = "olivia.harper@email.com",
+  userName: defaultUserName = "User",
+  userEmail: defaultUserEmail = "user@example.com",
 }: PanelNavbarProps) {
-  const { logout } = useAuth()
+  const { logout, user, token } = useAuth()
   const router = useRouter()
+  const [userData, setUserData] = useState({
+    name: defaultUserName,
+    email: defaultUserEmail,
+    firstname: "User",
+    lastname: ""
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (user?.role === 'mentor' && token) {
+      fetchMentorData()
+    } else {
+      setLoading(false)
+    }
+  }, [user, token])
+
+  const fetchMentorData = async () => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      console.log('🔍 Fetching current mentor profile...')
+      console.log('🎫 User Context:', user)
+      console.log('🔑 Token exists:', !!token)
+      console.log('👤 User role:', user?.role)
+      
+      // Use the new dedicated endpoint for current mentor's complete profile
+      const response = await axios.get(`${API_BASE_URL}/api/mentor/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (response.data) {
+        const mentor = response.data
+        console.log('👤 Mentor Profile Data:', mentor)
+        
+        setUserData({
+          name: mentor.name || 'Mentor User',
+          email: mentor.email || user?.email || defaultUserEmail,
+          firstname: mentor.firstname || 'Mentor',
+          lastname: mentor.lastname || 'User'
+        })
+        
+        console.log('✅ Navbar updated with real mentor data')
+      } else {
+        throw new Error('No mentor data received')
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching mentor profile:', error)
+      // Fallback to user data from auth context
+      const emailName = user?.email?.split('@')[0] || 'User'
+      setUserData({
+        name: emailName,
+        email: user?.email || defaultUserEmail,
+        firstname: emailName,
+        lastname: ''
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const getRoleColor = () => {
     switch (userRole) {
@@ -50,7 +112,7 @@ export function PanelNavbar({
   }
 
   const getUserInitials = () => {
-    return userName
+    return userData.name
       .split(" ")
       .map((name) => name.charAt(0))
       .join("")
@@ -86,7 +148,9 @@ export function PanelNavbar({
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="flex items-center gap-2 px-4 py-2 h-auto">
             <div className="text-right">
-          <div className="text-sm font-medium text-gray-900">Hi {userName.split(" ")[0]}</div>
+          <div className="text-sm font-medium text-gray-900">
+            Hi {loading ? "..." : userData.firstname}
+          </div>
           <div className="text-xs text-gray-500 font-light">{getRoleDisplayName()}</div>
         </div>
               <Avatar className="h-8 w-8">
@@ -102,8 +166,8 @@ export function PanelNavbar({
                 <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
-                <span className="text-sm font-medium">{userName}</span>
-                <span className="text-xs text-gray-500">{userEmail}</span>
+                <span className="text-sm font-medium">{loading ? "Loading..." : userData.name}</span>
+                <span className="text-xs text-gray-500">{userData.email}</span>
               </div>
             </div>
             <DropdownMenuSeparator />
@@ -111,7 +175,13 @@ export function PanelNavbar({
               <Home className="mr-2 h-4 w-4" />
               Home
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => {
+              if (user?.role === 'mentor') {
+                router.push('/mentor/profile')
+              } else {
+                router.push('/profile')
+              }
+            }}>
               <User className="mr-2 h-4 w-4" />
               Profile Settings
             </DropdownMenuItem>

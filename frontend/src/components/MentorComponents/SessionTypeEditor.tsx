@@ -98,6 +98,7 @@ export function SessionTypeEditor({
     }
   )
   const [showTemplates, setShowTemplates] = useState(!initialSessionType)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("")
   const [saving, setSaving] = useState(false)
 
   const handleChange = (field: keyof SessionType, value: string | number | boolean) => {
@@ -140,6 +141,27 @@ export function SessionTypeEditor({
       isNew: true
     })
     setShowTemplates(false)
+    setSelectedTemplate("")
+  }
+
+  const handleTemplateSelect = (templateIndex: string) => {
+    setSelectedTemplate(templateIndex)
+    if (templateIndex === "custom") {
+      setSessionType({
+        name: "",
+        description: "",
+        duration: 30,
+        price: 0,
+        isActive: true,
+        isNew: true
+      })
+      setShowTemplates(false)
+    } else if (templateIndex !== "") {
+      const template = SESSION_TYPE_TEMPLATES[parseInt(templateIndex)]
+      if (template) {
+        applyTemplate(template)
+      }
+    }
   }
 
   return (
@@ -156,36 +178,41 @@ export function SessionTypeEditor({
 
         {showTemplates ? (
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 gap-3">
-              {SESSION_TYPE_TEMPLATES.map((template, index) => (
-                <div 
-                  key={index}
-                  className="border rounded-lg p-4 hover:border-primary hover:bg-blue-50 cursor-pointer transition-colors"
-                  onClick={() => applyTemplate(template)}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="template-select">Choose a template or create custom</Label>
+                <select
+                  id="template-select"
+                  value={selectedTemplate}
+                  onChange={(e) => handleTemplateSelect(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium text-gray-900">{template.name}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-gray-900">
-                        {template.price === 0 ? "Free" : `LKR ${template.price}`}
-                      </div>
-                      <div className="text-xs text-gray-500">{template.duration} min</div>
-                    </div>
+                  <option value="">Select a session type template</option>
+                  {SESSION_TYPE_TEMPLATES.map((template, index) => (
+                    <option key={index} value={index.toString()}>
+                      {template.name} - {template.price === 0 ? "Free" : `LKR ${template.price}`} ({template.duration} min)
+                    </option>
+                  ))}
+                  <option value="custom">Create Custom Session Type</option>
+                </select>
+              </div>
+
+              {selectedTemplate !== "" && selectedTemplate !== "custom" && (
+                <div className="border rounded-lg p-4 bg-blue-50 border-blue-200">
+                  <h4 className="font-medium text-gray-900 mb-2">Preview: {SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)]?.name}</h4>
+                  <p className="text-sm text-gray-600 mb-3">{SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)]?.description}</p>
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="font-medium">Duration: {SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)]?.duration} minutes</span>
+                    <span className="font-medium">Price: {SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)]?.price === 0 ? "Free" : `LKR ${SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)]?.price}`}</span>
                   </div>
+                  <Button 
+                    className="mt-3 w-full"
+                    onClick={() => applyTemplate(SESSION_TYPE_TEMPLATES[parseInt(selectedTemplate)])}
+                  >
+                    Use This Template
+                  </Button>
                 </div>
-              ))}
-              
-              <Button 
-                variant="outline" 
-                className="mt-2 w-full border-dashed"
-                onClick={() => setShowTemplates(false)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Custom Session Type
-              </Button>
+              )}
             </div>
           </div>
         ) : (

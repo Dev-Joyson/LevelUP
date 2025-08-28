@@ -12,7 +12,23 @@ const mentorSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'user', required: true },
   firstname: { type: String, default: '' },
   lastname: { type: String, default: '' },
-  expertise: [String],
+  title: { type: String, default: '' }, // Job title
+  company: { type: String, default: '' }, // Company name
+  profileImage: { type: String, default: '' }, // Profile image URL
+  bio: { type: String, default: '' }, // Short description
+  about: { type: String, default: '' }, // Detailed about section
+  expertise: [String], // Areas of expertise
+  skills: [String], // Technical skills
+  experience: { type: String, default: '' }, // Experience level (e.g., "5+ years")
+  location: { type: String, default: '' }, // Location
+  languages: [String], // Languages spoken
+  rating: { type: Number, default: 4.8 }, // Average rating
+  reviewCount: { type: Number, default: 0 }, // Number of reviews
+  totalSessions: { type: Number, default: 0 }, // Total sessions completed
+  totalMentees: { type: Number, default: 0 }, // Total mentees mentored
+  pricePerMonth: { type: Number, default: 3000 }, // Monthly mentoring price
+  isQuickResponder: { type: Boolean, default: false }, // Quick responder badge
+  certifications: [String], // Certifications
   availability: [String],
   sessionTypes: {
     type: [sessionTypeSchema],

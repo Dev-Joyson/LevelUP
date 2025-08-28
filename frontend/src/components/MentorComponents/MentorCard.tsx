@@ -24,6 +24,14 @@ export interface Mentor {
   location?: string
   languages?: string[]
   about?: string
+  sessionTypes?: {
+    _id: string
+    name: string
+    description: string
+    duration: number
+    price: number
+    isActive: boolean
+  }[]
 }
 
 interface MentorCardProps {

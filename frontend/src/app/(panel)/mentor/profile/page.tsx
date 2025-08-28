@@ -9,7 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader } from "@/components/common/Loader"
 import { SessionTypesManager } from "@/components/MentorComponents/SessionTypesManager"
+import { MinimalProfileCompletion } from "@/components/MentorComponents/MinimalProfileCompletion"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAuth } from "@/context/AuthContext"
+import axios from "axios"
 import { 
   User, 
   Mail, 
@@ -32,15 +35,15 @@ interface MentorProfile {
   location: string
   avatar?: string
   bio: string
-  expertise: string[]
+  expertise?: string[]
   experience: string
   education: string
   rating: number
   totalSessions: number
   totalMentees: number
   joinedDate: string
-  availability: string[]
-  certifications: string[]
+  availability?: string[]
+  certifications?: string[]
 }
 
 // Mock data - Replace with actual API calls
@@ -65,16 +68,88 @@ const mockProfile: MentorProfile = {
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<MentorProfile | null>(null)
-  const [isEditing, setIsEditing] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const { token, user } = useAuth()
 
   useEffect(() => {
-    // Simulate loading and data fetching
-    const timer = setTimeout(() => {
-      setProfile(mockProfile)
-      setLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
+    fetchMentorProfile()
   }, [])
+
+  const fetchMentorProfile = async () => {
+    try {
+      setLoading(true)
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      console.log('🔍 Fetching mentor profile...')
+      console.log('🎫 Token exists:', !!token)
+      console.log('👤 User from auth context:', user)
+      
+      // Check if user is actually a mentor before making the API call
+      if (!user || user.role !== 'mentor') {
+        console.log('❌ User is not a mentor, using mock data')
+        setProfile(mockProfile)
+        setLoading(false)
+        return
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/api/mentor/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (response.data) {
+        const mentor = response.data
+        console.log('👤 Raw mentor data:', mentor)
+        
+        // The API now returns formatted data, so less transformation needed
+        const transformedProfile: MentorProfile = {
+          id: mentor.id || 'unknown',
+          name: mentor.name || 'Mentor User',
+          email: mentor.email || 'mentor@example.com',
+          phone: mentor.phone || '+1 (555) 123-4567',
+          location: mentor.location || 'San Francisco, CA',
+          bio: mentor.bio || 'Experienced professional mentor',
+          experience: mentor.experience || '5+ years',
+          education: mentor.education || 'Not specified',
+          rating: mentor.rating || 4.8,
+          totalSessions: mentor.totalSessions || 0,
+          totalMentees: mentor.totalMentees || 0,
+          joinedDate: mentor.joinedDate || 'January 2024',
+          avatar: mentor.avatar || '/placeholder.svg',
+          expertise: mentor.skills || mentor.expertise || ['General Mentoring'],
+          availability: Array.isArray(mentor.availability) ? mentor.availability : [],
+          certifications: Array.isArray(mentor.certifications) ? mentor.certifications : []
+        }
+        
+        console.log('✅ Transformed profile:', transformedProfile)
+        setProfile(transformedProfile)
+      } else {
+        console.log('❌ No mentor data found, using fallback')
+        setProfile(mockProfile)
+      }
+    } catch (error) {
+      console.error('❌ Error fetching mentor profile:', error)
+      setProfile(mockProfile)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveProfile = async (updatedProfile: Partial<MentorProfile>) => {
+    try {
+      console.log('💾 Saving profile:', updatedProfile)
+      
+      // TODO: Implement backend save
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      // For now, just update local state
+      setProfile(prev => prev ? { ...prev, ...updatedProfile } : null)
+      setEditing(false)
+      
+      console.log('✅ Profile saved successfully')
+    } catch (error) {
+      console.error('❌ Error saving profile:', error)
+    }
+  }
 
   if (loading) return <Loader />
   if (!profile) return <div>Profile not found</div>
@@ -87,11 +162,26 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
           <p className="text-gray-600 text-sm mt-1">Manage your mentor profile information</p>
         </div>
-        <Button className="bg-[#535c91] hover:bg-[#464f7a] gap-2">
-          <Edit className="h-4 w-4" />
-          Edit Profile
+        <Button 
+          onClick={() => setEditing(!editing)}
+          className="bg-[#535c91] hover:bg-[#464f7a] gap-2"
+        >
+          {editing ? (
+            <>
+              <X className="h-4 w-4" />
+              Cancel
+            </>
+          ) : (
+            <>
+              <Edit className="h-4 w-4" />
+              Edit Profile
+            </>
+          )}
         </Button>
       </div>
+
+      {/* Profile Completion Alert */}
+      <MinimalProfileCompletion />
 
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="mb-6">
@@ -167,11 +257,14 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="flex flex-wrap gap-2">
-                {profile.expertise.map((skill, index) => (
+                {(profile.expertise || []).map((skill, index) => (
                   <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
                     {skill}
                   </Badge>
                 ))}
+                {(!profile.expertise || profile.expertise.length === 0) && (
+                  <span className="text-gray-500 text-sm">No expertise specified</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -259,11 +352,14 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="flex flex-wrap gap-2">
-                {profile.certifications.map((cert, index) => (
+                {(profile.certifications || []).map((cert, index) => (
                   <Badge key={index} variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">
                     {cert}
                   </Badge>
                 ))}
+                {(!profile.certifications || profile.certifications.length === 0) && (
+                  <span className="text-gray-500 text-sm">No certifications</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -275,12 +371,15 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-2">
-                {profile.availability.map((slot, index) => (
+                {(profile.availability || []).map((slot, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gray-400" />
                     <span className="text-gray-900">{slot}</span>
                   </div>
                 ))}
+                {(!profile.availability || profile.availability.length === 0) && (
+                  <span className="text-gray-500 text-sm">No availability set</span>
+                )}
               </div>
             </CardContent>
           </Card>
