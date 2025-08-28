@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Calendar, Clock, Plus } from "lucide-react"
 import { toast } from "sonner"
 import { SessionTypeEditor, type SessionType } from "@/components/MentorComponents/SessionTypeEditor"
+import { EditSessionTypeModal } from "@/components/MentorComponents/EditSessionTypeModal"
+import { ProfileCompletionCard } from "@/components/MentorComponents/ProfileCompletionCard"
 import axios from "axios"
 import { useAuth } from "@/context/AuthContext"
 
@@ -22,7 +24,7 @@ interface DaySchedule {
 }
 
 export default function MentorSchedulePage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
@@ -30,6 +32,7 @@ export default function MentorSchedulePage() {
   const [sessionTypes, setSessionTypes] = useState<SessionType[]>([]);
   const [isFetchingSessionTypes, setIsFetchingSessionTypes] = useState(false);
   const [editingSessionType, setEditingSessionType] = useState<SessionType | undefined>(undefined);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   // Load mentor's schedule and session types
   useEffect(() => {
@@ -82,6 +85,7 @@ export default function MentorSchedulePage() {
     setIsFetchingSessionTypes(true);
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      
       const response = await axios.get(
         `${API_BASE_URL}/api/mentor/session-types`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -89,6 +93,7 @@ export default function MentorSchedulePage() {
       
       if (response.data && response.data.sessionTypes) {
         setSessionTypes(response.data.sessionTypes);
+        toast.success("Session types loaded successfully");
       }
     } catch (error) {
       console.error("Error fetching session types:", error);
@@ -98,44 +103,24 @@ export default function MentorSchedulePage() {
     }
   };
   
-  // Handle saving a session type
+  // Handle saving a session type (for new session types)
   const handleSaveSessionType = async (sessionType: SessionType) => {
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
       
-      if (sessionType.isNew) {
-        // Create new session type
-        const response = await axios.post(
-          `${API_BASE_URL}/api/mentor/session-types`, 
-          { sessionType },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        // Add the new session type to the list
-        if (response.data && response.data.sessionType) {
-          setSessionTypes([...sessionTypes, response.data.sessionType]);
-        }
-        
-        toast.success("Session type created successfully");
-      } else {
-        // Update existing session type
-        const response = await axios.put(
-          `${API_BASE_URL}/api/mentor/session-types/${sessionType._id}`, 
-          { sessionType },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        
-        // Update the session type in the list
-        if (response.data && response.data.sessionType) {
-          setSessionTypes(
-            sessionTypes.map(type => 
-              type._id === sessionType._id ? response.data.sessionType : type
-            )
-          );
-        }
-        
-        toast.success("Session type updated successfully");
+      // Create new session type
+      const response = await axios.post(
+        `${API_BASE_URL}/api/mentor/session-types`, 
+        { sessionType },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Add the new session type to the list
+      if (response.data && response.data.sessionType) {
+        setSessionTypes([...sessionTypes, response.data.sessionType]);
       }
+      
+      toast.success("Session type created successfully");
       
       // Close the editor
       setIsSessionTypeEditorOpen(false);
@@ -144,17 +129,62 @@ export default function MentorSchedulePage() {
       toast.error("Failed to save session type");
     }
   };
+
+  // Handle updating existing session type
+  const handleUpdateSessionType = async (sessionType: SessionType) => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      
+      // Update existing session type
+      const response = await axios.put(
+        `${API_BASE_URL}/api/mentor/session-types/${sessionType._id}`, 
+        { sessionType },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Update the session type in the list
+      if (response.data && response.data.sessionType) {
+        setSessionTypes(
+          sessionTypes.map(type => 
+            type._id === sessionType._id ? response.data.sessionType : type
+          )
+        );
+      }
+      
+      toast.success("Session type updated successfully");
+      
+      // Close the edit modal
+      setIsEditModalOpen(false);
+    } catch (error) {
+      console.error("Error updating session type:", error);
+      toast.error("Failed to update session type");
+    }
+  };
   
   // Handle saving the schedule
-  const handleSaveSchedule = (newSchedule: DaySchedule[]) => {
+  const handleSaveSchedule = async (newSchedule: DaySchedule[]) => {
     setSchedule(newSchedule);
     
-    // Save to localStorage (in a real app, this would be saved to your API)
     try {
+      // DEBUG: Log what we're saving
+      console.log("🔧 SAVING SCHEDULE:", newSchedule);
+      
+      // Save to database via API
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      const response = await axios.put(
+        `${API_BASE_URL}/api/mentor/availability`,
+        { schedule: newSchedule },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("✅ SAVE RESPONSE:", response.data);
+      
+      // Also save to localStorage as backup
       localStorage.setItem('mentor-schedule', JSON.stringify(newSchedule));
-      toast.success("Your availability has been updated");
+      toast.success("Your availability has been updated and saved to database");
     } catch (error) {
-      console.error("Error saving schedule:", error);
+      console.error("❌ ERROR saving schedule:", error);
+      
       toast.error("Failed to save your availability");
     }
   };
@@ -212,6 +242,11 @@ export default function MentorSchedulePage() {
           <Plus className="h-4 w-4 mr-2" />
           Create Session Type
         </Button>
+      </div>
+
+      {/* Profile Completion Card */}
+      <div className="mb-8">
+        <ProfileCompletionCard />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -361,7 +396,7 @@ export default function MentorSchedulePage() {
                   className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => {
                     setEditingSessionType(type);
-                    setIsSessionTypeEditorOpen(true);
+                    setIsEditModalOpen(true);
                   }}
                 >
                   <div className="flex items-center justify-between">
@@ -403,7 +438,7 @@ export default function MentorSchedulePage() {
         </CardContent>
       </Card>
       
-      {/* Session Type Editor */}
+      {/* Session Type Editor - For creating new session types */}
       <SessionTypeEditor
         isOpen={isSessionTypeEditorOpen}
         onClose={() => {
@@ -411,8 +446,19 @@ export default function MentorSchedulePage() {
           setEditingSessionType(undefined);
         }}
         onSave={handleSaveSessionType}
+        sessionType={undefined} // Always undefined for new session types
+        title="Create Session Type"
+      />
+
+      {/* Edit Session Type Modal - For editing existing session types */}
+      <EditSessionTypeModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setEditingSessionType(undefined);
+        }}
+        onSuccess={() => fetchSessionTypes()}
         sessionType={editingSessionType}
-        title={editingSessionType ? "Edit Session Type" : "Create Session Type"}
       />
     </div>
   );

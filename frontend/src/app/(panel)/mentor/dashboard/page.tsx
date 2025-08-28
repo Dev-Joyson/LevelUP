@@ -9,6 +9,7 @@ import { MentorStatsCards } from "@/components/MentorComponents/mentor-stats-car
 import { RecentSessions } from "@/components/MentorComponents/recent-sessions"
 import { MenteeProgress } from "@/components/MentorComponents/mentee-progress"
 import { QuickActions } from "@/components/MentorComponents/quick-actions"
+import { MinimalProfileCompletion } from "@/components/MentorComponents/MinimalProfileCompletion"
 import { Download, Plus, TrendingUp } from "lucide-react"
 
 // Chart data for mentor performance
@@ -144,6 +145,9 @@ export default function MentorDashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Profile Completion Alert */}
+      <MinimalProfileCompletion />
 
       {/* Stats Cards */}
       <MentorStatsCards data={statsData} />

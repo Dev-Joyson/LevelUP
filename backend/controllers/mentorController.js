@@ -1,5 +1,6 @@
 import mentorModel from '../models/mentorModel.js';
 import userModel from '../models/userModel.js';
+import mongoose from 'mongoose';
 
 const mentorDashboard = (req, res) => {
     res.json({ message: "Welcome to the Mentor Dashboard", user: req.user });
@@ -8,11 +9,22 @@ const mentorDashboard = (req, res) => {
 // Get session types for the logged-in mentor
 const getSessionTypes = async (req, res) => {
   try {
-    const mentorId = req.user.id;
-    const mentor = await mentorModel.findOne({ userId: mentorId });
+    const mentorId = req.user.userId;
+    let mentor = await mentorModel.findOne({ userId: mentorId });
     
+    // If no mentor profile exists, create one with default session types
     if (!mentor) {
-      return res.status(404).json({ message: 'Mentor profile not found' });
+      console.log(`Creating new mentor profile for user: ${mentorId}`);
+      mentor = new mentorModel({
+        userId: mentorId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+        // Default session types will be added from the model schema
+      });
+      await mentor.save();
+      console.log('New mentor profile created successfully');
     }
     
     res.status(200).json({
@@ -28,7 +40,7 @@ const getSessionTypes = async (req, res) => {
 // Update session types for the logged-in mentor
 const updateSessionTypes = async (req, res) => {
   try {
-    const mentorId = req.user.id;
+    const mentorId = req.user.userId;
     const { sessionTypes } = req.body;
     
     if (!Array.isArray(sessionTypes)) {
@@ -44,10 +56,18 @@ const updateSessionTypes = async (req, res) => {
       }
     }
     
-    const mentor = await mentorModel.findOne({ userId: mentorId });
+    let mentor = await mentorModel.findOne({ userId: mentorId });
     
+    // If no mentor profile exists, create one
     if (!mentor) {
-      return res.status(404).json({ message: 'Mentor profile not found' });
+      console.log(`Creating new mentor profile for user: ${mentorId}`);
+      mentor = new mentorModel({
+        userId: mentorId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+      });
     }
     
     // Update session types
@@ -67,7 +87,7 @@ const updateSessionTypes = async (req, res) => {
 // Add a single session type
 const addSessionType = async (req, res) => {
   try {
-    const mentorId = req.user.id;
+    const mentorId = req.user.userId;
     const { sessionType } = req.body;
     
     // Validate session type
@@ -77,10 +97,18 @@ const addSessionType = async (req, res) => {
       });
     }
     
-    const mentor = await mentorModel.findOne({ userId: mentorId });
+    let mentor = await mentorModel.findOne({ userId: mentorId });
     
+    // If no mentor profile exists, create one
     if (!mentor) {
-      return res.status(404).json({ message: 'Mentor profile not found' });
+      console.log(`Creating new mentor profile for user: ${mentorId}`);
+      mentor = new mentorModel({
+        userId: mentorId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+      });
     }
     
     // Create a new session type with MongoDB ObjectId
@@ -106,7 +134,7 @@ const addSessionType = async (req, res) => {
 // Update a specific session type
 const updateSessionType = async (req, res) => {
   try {
-    const mentorId = req.user.id;
+    const mentorId = req.user.userId;
     const { id } = req.params;
     const { sessionType } = req.body;
     
@@ -117,10 +145,20 @@ const updateSessionType = async (req, res) => {
       });
     }
     
-    const mentor = await mentorModel.findOne({ userId: mentorId });
+    let mentor = await mentorModel.findOne({ userId: mentorId });
     
+    // If no mentor profile exists, create one
     if (!mentor) {
-      return res.status(404).json({ message: 'Mentor profile not found' });
+      console.log(`Creating new mentor profile for user: ${mentorId}`);
+      mentor = new mentorModel({
+        userId: mentorId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+      });
+      await mentor.save();
+      return res.status(404).json({ message: 'Session type not found in new profile' });
     }
     
     // Find the session type to update
@@ -150,6 +188,270 @@ const updateSessionType = async (req, res) => {
   }
 };
 
+// Test endpoint to check mentor data
+// Get current logged-in mentor's complete profile (same format as public API)
+const getCurrentMentorProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find mentor by userId and populate user data
+    const mentor = await mentorModel.findOne({ userId })
+      .populate({
+        path: 'userId',
+        select: 'email isVerified',
+      })
+      .select('-__v');
+    
+    if (!mentor) {
+      // Create mentor profile if it doesn't exist
+      console.log(`Creating new mentor profile for user: ${userId}`);
+      const newMentor = new mentorModel({
+        userId: userId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+      });
+      await newMentor.save();
+      
+      // Fetch the newly created mentor with populated data
+      const createdMentor = await mentorModel.findOne({ userId })
+        .populate({
+          path: 'userId',
+          select: 'email isVerified',
+        })
+        .select('-__v');
+        
+      return res.status(200).json(formatMentorProfile(createdMentor));
+    }
+    
+    res.status(200).json(formatMentorProfile(mentor));
+  } catch (error) {
+    console.error('Error fetching current mentor profile:', error);
+    res.status(500).json({ message: 'Error fetching mentor profile' });
+  }
+};
+
+// Helper function to format mentor profile (same as getMentorById)
+const formatMentorProfile = (mentor) => {
+  return {
+    id: mentor._id,
+    name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
+    title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
+    company: mentor.company || 'LevelUP',
+    image: mentor.profileImage || '/placeholder.svg?height=120&width=120',
+    description: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    skills: mentor.skills?.length > 0 ? mentor.skills : mentor.expertise || [],
+    experience: mentor.experience || '3+ years',
+    rating: mentor.rating || 4.8,
+    reviewCount: mentor.reviewCount || 0,
+    pricePerMonth: mentor.pricePerMonth || 3000,
+    category: mentor.expertise || [],
+    isQuickResponder: mentor.isQuickResponder || false,
+    location: mentor.location || 'Remote',
+    languages: mentor.languages || ['English'],
+    about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    
+    // Additional fields for detailed view
+    email: mentor.userId?.email || '',
+    phone: mentor.phone || '',
+    avatar: mentor.profileImage || '/placeholder.svg?height=120&width=120',
+    bio: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    expertise: mentor.expertise || [],
+    education: mentor.education || 'Not specified',
+    totalSessions: mentor.totalSessions || 0,
+    totalMentees: mentor.totalMentees || 0,
+    joinedDate: mentor.createdAt ? new Date(mentor.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024',
+    availability: mentor.availability || [],
+    certifications: mentor.certifications || [],
+    sessionTypes: mentor.sessionTypes || [],
+    
+    // For navbar display
+    firstname: mentor.firstname || 'Mentor',
+    lastname: mentor.lastname || 'User'
+  };
+};
+
+const testMentorData = async (req, res) => {
+  try {
+    const mentorId = req.user.userId;
+    
+    const mentor = await mentorModel.findOne({ userId: mentorId });
+    
+    res.status(200).json({
+      message: 'Mentor test data',
+      mentorId,
+      mentor: mentor ? {
+        _id: mentor._id,
+        firstname: mentor.firstname,
+        lastname: mentor.lastname,
+        availability: mentor.availability,
+        availabilityCount: mentor.availability ? mentor.availability.length : 0
+      } : null
+    });
+  } catch (error) {
+    console.error('Error in test endpoint:', error);
+    res.status(500).json({ message: 'Error in test endpoint' });
+  }
+};
+
+// Save mentor availability 
+const saveMentorAvailability = async (req, res) => {
+  try {
+    const mentorId = req.user.userId;
+    const { schedule } = req.body;
+    
+    if (!Array.isArray(schedule)) {
+      return res.status(400).json({ message: 'Schedule must be an array' });
+    }
+    
+    let mentor = await mentorModel.findOne({ userId: mentorId });
+    
+    // If no mentor profile exists, create one
+    if (!mentor) {
+      console.log(`Creating new mentor profile for user: ${mentorId}`);
+      mentor = new mentorModel({
+        userId: mentorId,
+        firstname: 'Mentor',
+        lastname: 'User',
+        expertise: ['General Mentoring'],
+        availability: [],
+      });
+    }
+    
+    // Convert schedule to availability format
+    const availability = schedule.map(item => JSON.stringify(item));
+    mentor.availability = availability;
+    await mentor.save();
+    
+    res.status(200).json({
+      message: 'Availability saved successfully',
+      availability: mentor.availability
+    });
+  } catch (error) {
+    console.error('Error saving mentor availability:', error);
+    res.status(500).json({ message: 'Error saving mentor availability' });
+  }
+};
+
+// Get mentor availability for booking
+const getMentorAvailability = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log("🔍 FETCHING AVAILABILITY FOR MENTOR ID:", id);
+    
+    const mentor = await mentorModel.findById(id)
+      .populate({
+        path: 'userId',
+        select: 'isVerified',
+      })
+      .select('availability firstname lastname');
+    
+    if (!mentor) {
+      console.log("❌ MENTOR NOT FOUND");
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+    
+    console.log("📅 RAW MENTOR AVAILABILITY:", mentor.availability);
+    console.log("📅 AVAILABILITY TYPE:", typeof mentor.availability);
+    console.log("📅 AVAILABILITY LENGTH:", mentor.availability ? mentor.availability.length : 0);
+    
+    // Convert mentor availability to the format expected by frontend
+    const availability = {
+      mentorId: mentor._id,
+      weeklySchedule: {
+        monday: { isAvailable: false, timeSlots: [] },
+        tuesday: { isAvailable: false, timeSlots: [] },
+        wednesday: { isAvailable: false, timeSlots: [] },
+        thursday: { isAvailable: false, timeSlots: [] },
+        friday: { isAvailable: false, timeSlots: [] },
+        saturday: { isAvailable: false, timeSlots: [] },
+        sunday: { isAvailable: false, timeSlots: [] }
+      },
+      dateOverrides: [],
+      sessionDurations: [15, 30, 60],
+      bufferBetweenSessions: 15,
+      advanceBookingLimit: 30,
+      timezone: "Asia/Colombo"
+    };
+    
+    // Parse availability from mentor data
+    // Handle both date-specific format (from SimpleScheduler) and day-of-week format
+    if (mentor.availability && mentor.availability.length > 0) {
+      console.log("🔄 PARSING AVAILABILITY SLOTS...");
+      
+      mentor.availability.forEach((slot, index) => {
+        console.log(`📝 PROCESSING SLOT ${index}:`, slot);
+        
+        try {
+          // Try parsing as JSON (date-specific format from SimpleScheduler)
+          const scheduleItem = JSON.parse(slot);
+          console.log("✅ PARSED AS JSON:", scheduleItem);
+          
+          if (scheduleItem.date && scheduleItem.timeSlots) {
+            // Convert specific date to day of week
+            const date = new Date(scheduleItem.date);
+            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+            const dayName = dayNames[date.getDay()];
+            
+            console.log(`📅 DATE: ${scheduleItem.date} -> DAY: ${dayName} (${date.getDay()})`);
+            console.log("⏰ TIME SLOTS:", scheduleItem.timeSlots);
+            
+            if (availability.weeklySchedule[dayName] && scheduleItem.timeSlots.length > 0) {
+              availability.weeklySchedule[dayName] = {
+                isAvailable: true,
+                timeSlots: scheduleItem.timeSlots.map(ts => ({
+                  startTime: ts.startTime,
+                  endTime: ts.endTime,
+                  isAvailable: true
+                }))
+              };
+              console.log(`✅ UPDATED ${dayName.toUpperCase()}:`, availability.weeklySchedule[dayName]);
+            }
+          } else {
+            console.log("❌ MISSING date OR timeSlots in schedule item");
+          }
+        } catch (e) {
+          console.log("❌ JSON PARSE FAILED, TRYING OLD FORMAT:", e.message);
+          
+          // Fallback to old format: "Monday 09:00-17:00"
+          const parts = slot.split(' ');
+          console.log("📝 PARTS:", parts);
+          
+          if (parts.length >= 2) {
+            const dayName = parts[0].toLowerCase();
+            const timeRange = parts[1];
+            
+            console.log(`📅 OLD FORMAT - DAY: ${dayName}, TIME: ${timeRange}`);
+            
+            if (availability.weeklySchedule[dayName] && timeRange.includes('-')) {
+              const [startTime, endTime] = timeRange.split('-');
+              availability.weeklySchedule[dayName] = {
+                isAvailable: true,
+                timeSlots: [{ startTime, endTime, isAvailable: true }]
+              };
+              console.log(`✅ UPDATED ${dayName.toUpperCase()} (OLD FORMAT):`, availability.weeklySchedule[dayName]);
+            }
+          }
+        }
+      });
+    } else {
+      console.log("❌ NO AVAILABILITY DATA TO PARSE - mentor.availability is empty or null");
+    }
+    
+    console.log("✅ FINAL AVAILABILITY OBJECT:", JSON.stringify(availability, null, 2));
+    
+    res.status(200).json({
+      message: 'Mentor availability retrieved successfully',
+      availability
+    });
+  } catch (error) {
+    console.error('Error fetching mentor availability:', error);
+    res.status(500).json({ message: 'Error fetching mentor availability' });
+  }
+};
+
 // Get all public mentors for the mentorship page
 const getAllPublicMentors = async (req, res) => {
   try {
@@ -169,20 +471,20 @@ const getAllPublicMentors = async (req, res) => {
     const mappedMentors = verifiedMentors.map(mentor => ({
       id: mentor._id,
       name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
-      title: mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] : 'Mentor',
+      title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
       company: mentor.company || 'LevelUP',
       image: mentor.profileImage || '/placeholder.svg?height=120&width=120',
       description: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
-      skills: mentor.expertise || [],
+      skills: mentor.skills?.length > 0 ? mentor.skills : mentor.expertise || [],
       experience: mentor.experience || '3+ years',
-      rating: 4.8, // Default rating
-      reviewCount: Math.floor(Math.random() * 100) + 10, // Random review count for demo
-      pricePerMonth: 3000, // Default price
+      rating: mentor.rating || 4.8,
+      reviewCount: mentor.reviewCount || 0,
+      pricePerMonth: mentor.pricePerMonth || 3000,
       category: mentor.expertise || [],
-      isQuickResponder: Math.random() > 0.5, // Random quick responder status
-      location: mentor.location,
-      languages: mentor.languages,
-      about: mentor.about
+      isQuickResponder: mentor.isQuickResponder || false,
+      location: mentor.location || 'Remote',
+      languages: mentor.languages || ['English'],
+      about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`
     }));
 
     res.status(200).json({
@@ -212,48 +514,41 @@ const getMentorById = async (req, res) => {
       return res.status(404).json({ message: 'Mentor not found' });
     }
     
-    // Map mentor to the format expected by the frontend
-    const mappedMentor = {
-      id: mentor._id,
-      name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
-      email: mentor.userId?.email || '',
-      phone: mentor.phone || '',
-      location: mentor.location || 'Remote',
-      avatar: mentor.profileImage || '/placeholder.svg?height=120&width=120',
-      bio: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
-      expertise: mentor.expertise || [],
-      experience: mentor.experience || '3+ years',
-      education: mentor.education || 'Not specified',
-      rating: 4.8, // Default rating
-      totalSessions: Math.floor(Math.random() * 100) + 20, // Random session count for demo
-      totalMentees: Math.floor(Math.random() * 20) + 5, // Random mentee count for demo
-      joinedDate: mentor.createdAt ? new Date(mentor.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024',
-      availability: mentor.availability || ['Monday 9:00-17:00', 'Wednesday 9:00-17:00', 'Friday 9:00-15:00'],
-      certifications: mentor.certifications || ['Professional Certification'],
-      title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
-      company: mentor.company || 'LevelUP',
-      skills: mentor.skills || mentor.expertise || [],
-      reviewCount: Math.floor(Math.random() * 100) + 10, // Random review count for demo
-      pricePerMonth: mentor.pricePerMonth || 3000, // Default price
-      isQuickResponder: Math.random() > 0.5, // Random quick responder status
-      languages: mentor.languages || ['English'],
-      about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
-      // Include active session types
-      sessionTypes: mentor.sessionTypes?.filter(type => type.isActive) || [
-        {
-          name: 'Free Introduction',
-          description: 'A short 15-minute session to get to know each other and discuss potential mentorship',
-          duration: 15,
-          price: 0
-        },
-        {
-          name: 'Expert Session',
-          description: 'A comprehensive 60-minute session focused on specific topics or challenges',
-          duration: 60,
-          price: 2000
-        }
-      ]
-    };
+      // Map mentor to the format expected by the frontend
+  const mappedMentor = {
+    id: mentor._id,
+    name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
+    title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
+    company: mentor.company || 'LevelUP',
+    image: mentor.profileImage || '/placeholder.svg?height=120&width=120',
+    description: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    skills: mentor.skills?.length > 0 ? mentor.skills : mentor.expertise || [],
+    experience: mentor.experience || '3+ years',
+    rating: mentor.rating || 4.8,
+    reviewCount: mentor.reviewCount || 0,
+    pricePerMonth: mentor.pricePerMonth || 3000,
+    category: mentor.expertise || [],
+    isQuickResponder: mentor.isQuickResponder || false,
+    location: mentor.location || 'Remote',
+    languages: mentor.languages || ['English'],
+    about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    
+    // Additional fields for detailed view
+    email: mentor.userId?.email || '',
+    phone: mentor.phone || '',
+    avatar: mentor.profileImage || '/placeholder.svg?height=120&width=120',
+    bio: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+    expertise: mentor.expertise || [],
+    education: mentor.education || 'Not specified',
+    totalSessions: mentor.totalSessions || 0,
+    totalMentees: mentor.totalMentees || 0,
+    joinedDate: mentor.createdAt ? new Date(mentor.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2024',
+    availability: mentor.availability || [],
+    certifications: mentor.certifications || [],
+    
+    // Include active session types
+    sessionTypes: mentor.sessionTypes?.filter(type => type.isActive) || []
+  };
 
     res.status(200).json({
       message: 'Mentor fetched successfully',
@@ -269,7 +564,7 @@ const getMentorById = async (req, res) => {
 const scheduleSession = async (req, res) => {
   try {
     const { mentorId, date, time, sessionType, message } = req.body;
-    const studentId = req.user.id; // Assuming this comes from auth middleware
+    const studentId = req.user.userId; // Assuming this comes from auth middleware
     
     // Find the mentor
     const mentor = await mentorModel.findById(mentorId);
@@ -310,7 +605,11 @@ const scheduleSession = async (req, res) => {
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
-  getMentorById, 
+  getMentorById,
+  getCurrentMentorProfile,
+  getMentorAvailability,
+  saveMentorAvailability,
+  testMentorData,
   scheduleSession,
   getSessionTypes,
   updateSessionTypes,

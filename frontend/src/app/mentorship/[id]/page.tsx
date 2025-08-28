@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, use } from "react"
 import Image from "next/image"
 import { notFound } from "next/navigation"
+import axios from "axios"
+import { toast } from "sonner"
 import { Star, Calendar, Clock, MessageCircle, Award, Briefcase, MapPin, Globe, Languages } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Mentor } from "@/components/MentorComponents/MentorCard"
 import { BookingCalendar } from "@/components/MentorComponents/BookingCalendar"
@@ -170,18 +170,72 @@ const mockSessionTypes = [
   }
 ]
 
-export default function MentorDetailPage({ params }: { params: { id: string } }) {
-  const [selectedTab, setSelectedTab] = useState("about")
+export default function MentorDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+
   const [selectedSessionOption, setSelectedSessionOption] = useState<string | null>(null)
   const [showBookingCalendar, setShowBookingCalendar] = useState(false)
   const [selectedSessionType, setSelectedSessionType] = useState<string | null>(null)
+  const [mentor, setMentor] = useState<Mentor | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [sessionTypes, setSessionTypes] = useState<any[]>([])
+  const [mentorAvailability, setMentorAvailability] = useState<any>(null)
   
-  // In a real app, fetch mentor data based on ID
-  // const mentor = await getMentorById(params.id)
-  // if (!mentor) return notFound()
+  // Fetch mentor data from API
+  useEffect(() => {
+    const fetchMentorData = async () => {
+      try {
+        setLoading(true)
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+        
+        const response = await axios.get(`${API_BASE_URL}/api/mentor/public/${id}`)
+        
+        if (response.data && response.data.mentor) {
+          setMentor(response.data.mentor)
+          // Set session types from mentor data
+          if (response.data.mentor.sessionTypes) {
+            setSessionTypes(response.data.mentor.sessionTypes.map((type: any) => ({
+              id: type._id,
+              name: type.name,
+              duration: type.duration,
+              price: type.price
+            })))
+          }
+          
+          // Fetch mentor availability
+          console.log("🔍 FETCHING AVAILABILITY FOR MENTOR:", id);
+          const availabilityResponse = await axios.get(`${API_BASE_URL}/api/mentor/public/${id}/availability`)
+          console.log("📅 AVAILABILITY RESPONSE:", availabilityResponse.data);
+          
+          if (availabilityResponse.data && availabilityResponse.data.availability) {
+            console.log("✅ SETTING MENTOR AVAILABILITY:", availabilityResponse.data.availability);
+            setMentorAvailability(availabilityResponse.data.availability)
+          } else {
+            console.log("❌ NO AVAILABILITY DATA FOUND");
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching mentor data:', error)
+        toast.error('Failed to load mentor information')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMentorData()
+  }, [id])
   
-  // Using mock data for now
-  const mentor = mentorData
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <p className="mt-2">Loading mentor information...</p>
+        </div>
+      </div>
+    )
+  }
   
   // If no mentor found with this ID
   if (!mentor) {
@@ -195,12 +249,12 @@ export default function MentorDetailPage({ params }: { params: { id: string } })
   
   // Handle booking session
   const handleBookSession = () => {
-    if (!selectedSessionOption) return
+    if (!selectedSessionOption || !mentor) return
     
-    const session = sessionOptions.find(option => option.id === selectedSessionOption)
+    const session = mentor.sessionTypes?.find(type => type._id === selectedSessionOption)
     if (!session) return
     
-    setSelectedSessionType(session.id)
+    setSelectedSessionType(session._id)
     setShowBookingCalendar(true)
   }
   
@@ -272,116 +326,100 @@ export default function MentorDetailPage({ params }: { params: { id: string } })
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2">
-            <Card>
+            {/* About Section */}
+            <Card className="mb-6">
               <CardContent className="p-6">
-                <Tabs defaultValue="about" onValueChange={setSelectedTab} className="w-full">
-                  <TabsList className="mb-6">
-                    <TabsTrigger value="about">About</TabsTrigger>
-                    <TabsTrigger value="reviews">What mentees say</TabsTrigger>
-                    <TabsTrigger value="skills">Skills</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="about" className="mt-0">
-                    <div className="prose max-w-none">
-                      <h3 className="text-lg font-medium mb-4">About</h3>
-                      <p className="text-gray-700 leading-relaxed">{mentor.about}</p>
-                    </div>
-                    <div className="mt-8">
-                      <Button className="w-full">Book Sessions</Button>
-                      <p className="text-sm text-gray-500 text-center mt-2">
-                        You can message Sofa to ask questions before booking their services
-                      </p>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="reviews" className="mt-0">
-                    <h3 className="text-lg font-medium mb-4">What mentees say</h3>
-                    <div className="space-y-6">
-                      {reviews.map((review) => (
-                        <div key={review.id} className="border-b border-gray-200 pb-6 last:border-0">
-                          <div className="flex items-start gap-4">
-                            <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between mb-1">
-                                <h4 className="font-medium text-gray-900">{review.name}</h4>
-                                <span className="text-sm text-gray-500">{review.date}</span>
-                              </div>
-                              <p className="text-sm text-gray-600 mb-2">{review.role}</p>
-                              <div className="flex items-center mb-3">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <p className="text-gray-700">{review.comment}</p>
-                            </div>
+                <div className="prose max-w-none">
+                  <h3 className="text-lg font-medium mb-4">About</h3>
+                  <p className="text-gray-700 leading-relaxed">{mentor.about}</p>
+                </div>
+                
+                <div className="mt-8">
+                  <Button className="w-full">Book Sessions</Button>
+                  <p className="text-sm text-gray-500 text-center mt-2">
+                    You can message {mentor.name.split(' ')[0]} to ask questions before booking their services
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Reviews Section - Separate Card */}
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium mb-6">Reviews</h3>
+                <div className="space-y-6">
+                  {reviews.map((review) => (
+                    <div key={review.id} className="border-b border-gray-200 pb-6 last:border-0">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-gray-200"></div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-medium text-gray-900">{review.name}</h4>
+                            <span className="text-sm text-gray-500">{review.date}</span>
                           </div>
+                          <p className="text-sm text-gray-600 mb-2">{review.role}</p>
+                          <div className="flex items-center mb-3">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${
+                                  i < review.rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <p className="text-gray-700">{review.comment}</p>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="skills" className="mt-0">
-                    <h3 className="text-lg font-medium mb-4">Skills</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-4">
-                      {mentor.skills.map((skill, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <Badge variant="outline" className="bg-gray-100 text-gray-800 border-gray-200">
-                            {skill}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                  ))}
+                </div>
               </CardContent>
             </Card>
 
             {/* Similar Mentors Section */}
-            <div className="mt-8 bg-white rounded-lg p-6 shadow-sm">
-              <h3 className="text-lg font-medium mb-6 text-gray-900">Similar mentors</h3>
-              <div className="space-y-6">
-                {similarMentors.map((similarMentor) => (
-                  <div key={similarMentor.id} className="flex items-start gap-4 pb-6 border-b border-gray-200 last:border-0">
-                    <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0"></div>
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{similarMentor.name}</h4>
-                      <p className="text-sm text-gray-500 mb-2">
-                        {similarMentor.title} @ {similarMentor.company}
-                      </p>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {similarMentor.skills.slice(0, 3).map((skill, index) => (
-                          <Badge key={index} variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="flex items-center">
-                            <div className="flex">
-                              {[...Array(5)].map((_, i) => (
-                                <Star key={i} className="h-3 w-3 text-yellow-400 fill-yellow-400" />
-                              ))}
-                            </div>
-                          </div>
-                          <span className="text-sm font-medium text-gray-900">
-                            From ${similarMentor.price.toLocaleString()} /month
-                          </span>
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-medium mb-6 text-gray-900">Similar mentors</h3>
+                <div className="space-y-6">
+                  {similarMentors.map((similarMentor) => (
+                    <div key={similarMentor.id} className="flex items-start gap-4 pb-6 border-b border-gray-200 last:border-0">
+                      <div className="w-12 h-12 rounded-full bg-gray-200 flex-shrink-0"></div>
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900">{similarMentor.name}</h4>
+                        <p className="text-sm text-gray-500 mb-2">
+                          {similarMentor.title} @ {similarMentor.company}
+                        </p>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {similarMentor.skills.slice(0, 3).map((skill, index) => (
+                            <Badge key={index} variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-200">
+                              {skill}
+                            </Badge>
+                          ))}
                         </div>
-                        <Button size="sm" variant="outline" className="border-gray-200 text-gray-700 hover:bg-gray-50">
-                          Book Now
-                        </Button>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center">
+                              <div className="flex">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star key={i} className="h-3 w-3 text-yellow-400 fill-yellow-400" />
+                                ))}
+                              </div>
+                            </div>
+                            <span className="text-sm font-medium text-gray-900">
+                              From ${similarMentor.price.toLocaleString()} /month
+                            </span>
+                          </div>
+                          <Button size="sm" variant="outline" className="border-gray-200 text-gray-700 hover:bg-gray-50">
+                            Book Now
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar with Sticky Session Booking */}
@@ -390,27 +428,30 @@ export default function MentorDetailPage({ params }: { params: { id: string } })
               <div className="bg-white rounded-lg p-6 mb-4 shadow-sm">
                 <h3 className="text-lg font-medium mb-4 text-gray-900">Sessions</h3>
                 <div className="space-y-4">
-                  {sessionOptions.map((option) => (
+                  {mentor?.sessionTypes?.map((option) => (
                     <div 
-                      key={option.id}
+                      key={option._id}
                       className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        selectedSessionOption === option.id 
+                        selectedSessionOption === option._id 
                           ? 'border-primary bg-primary/5' 
                           : 'border-gray-200 hover:border-gray-300'
                       }`}
-                      onClick={() => handleSessionSelect(option.id)}
+                      onClick={() => handleSessionSelect(option._id)}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm text-gray-600">{option.duration} {option.type}</span>
+                        <span className="text-sm text-gray-600">{option.duration} min - {option.name}</span>
                       </div>
                       <div className="text-lg font-bold mb-1 text-gray-900">
-                        {option.price === 0 ? 'Free' : `$${option.price.toLocaleString()} per session`}
+                        {option.price === 0 ? 'Free' : `LKR ${option.price.toLocaleString()} per session`}
                       </div>
-                      {option.creditCard === false && (
+                      {option.price === 0 && (
                         <div className="flex items-center text-xs text-gray-500 mt-1">
                           <Star className="h-3 w-3 mr-1 text-green-500" />
                           No credit card required
                         </div>
+                      )}
+                      {option.description && (
+                        <p className="text-sm text-gray-500 mt-2">{option.description}</p>
                       )}
                     </div>
                   ))}
@@ -455,20 +496,22 @@ export default function MentorDetailPage({ params }: { params: { id: string } })
             <div className="mt-4">
               {/* Get session details */}
               {(() => {
-                const session = sessionOptions.find(option => option.id === selectedSessionType);
+                const session = mentor?.sessionTypes?.find(type => type._id === selectedSessionType);
                 return session ? (
                   <p className="text-gray-600 mb-6">
-                    Select a date and time for your {session.duration} {session.type} session
+                    Select a date and time for your {session.duration} minute {session.name} session
                   </p>
                 ) : null;
               })()}
               
+
+              
               <BookingCalendar
                 mentorId={mentor.id}
                 mentorName={mentor.name}
-                sessionTypes={mockSessionTypes}
+                sessionTypes={sessionTypes}
                 selectedSessionType={selectedSessionType}
-                availability={mockAvailability}
+                availability={mentorAvailability || mockAvailability}
                 onSlotSelect={handleSlotSelect}
                 existingBookings={[]}
               />
