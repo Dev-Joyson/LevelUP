@@ -59,7 +59,7 @@ const formatTime = (dateString: string, duration: number) => {
 export default function StudentMentorshipPage() {
   const [sessions, setSessions] = useState<MentorshipSession[]>([])
   const [loading, setLoading] = useState(true)
-  const { user, token } = useAuth()
+  const { user, token, loading: authLoading } = useAuth()
   const router = useRouter()
 
   // Fetch student sessions
@@ -67,8 +67,11 @@ export default function StudentMentorshipPage() {
     try {
       setLoading(true)
       
+      // Don't show error if auth is still loading
       if (!token) {
-        toast.error('Authentication required')
+        if (!authLoading) {
+          toast.error('Authentication required')
+        }
         return
       }
 
@@ -93,8 +96,10 @@ export default function StudentMentorshipPage() {
   }
 
   useEffect(() => {
-    fetchSessions()
-  }, [token])
+    if (!authLoading) {
+      fetchSessions()
+    }
+  }, [token, authLoading])
 
   const upcomingSessions = sessions.filter((session) => 
     session.status === "pending" || session.status === "confirmed"
@@ -152,7 +157,7 @@ export default function StudentMentorshipPage() {
     // Handle view feedback logic
   }
 
-  if (loading) return <Loader />
+  if (loading || authLoading) return <Loader />
 
   return (
     <div className="p-8">

@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader } from "@/components/common/Loader"
+import { useAuth } from "@/context/AuthContext"
+import axios from "axios"
+import { toast } from "sonner"
 import { 
   Search, 
   Filter, 
@@ -37,35 +40,13 @@ interface Session {
   createdAt: string
 }
 
-// Mock data - Replace with actual API calls
-const mockSessions: Session[] = [
-  {
-    id: "1",
-    studentName: "Ethan Harper",
-    studentEmail: "ethan.harper@email.com",
-    sessionDate: "2024-08-15",
-    sessionTime: "10:00 AM",
-    duration: 60,
-    status: "upcoming",
-    topic: "React Component Architecture",
-    type: "one-on-one",
-    meetingLink: "https://meet.google.com/abc-defg-hij",
-    createdAt: "2024-08-10",
-  },
-  {
-    id: "2",
-    studentName: "Olivia Bennett",
-    studentEmail: "olivia.bennett@email.com",
-    sessionDate: "2024-08-14",
-    sessionTime: "2:00 PM",
-    duration: 45,
-    status: "completed",
-    topic: "Career Development Planning",
-    type: "one-on-one",
-    notes: "Discussed career goals and next steps for PM role",
-    createdAt: "2024-08-12",
-  },
-]
+interface SessionStats {
+  total: number;
+  upcoming: number;
+  completed: number;
+  inProgress: number;
+  cancelled: number;
+}
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -98,18 +79,60 @@ const getTypeColor = (type: string) => {
 export default function SessionsPage() {
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<Session[]>([])
+  const [stats, setStats] = useState<SessionStats>({ total: 0, upcoming: 0, completed: 0, inProgress: 0, cancelled: 0 })
   const [searchTerm, setSearchTerm] = useState("")
+  const { token, loading: authLoading } = useAuth()
+
+  // Fetch mentor sessions
+  const fetchSessions = async () => {
+    try {
+      setLoading(true)
+      
+      // Don't show error if auth is still loading
+      if (!token) {
+        if (!authLoading) {
+          toast.error('Authentication required')
+        }
+        return
+      }
+
+      // Fetch real mentor sessions from API
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const response = await axios.get(`${API_BASE_URL}/api/mentor/sessions`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (response.data?.sessions) {
+        setSessions(response.data.sessions)
+        setStats(response.data.stats || { total: 0, upcoming: 0, completed: 0, inProgress: 0, cancelled: 0 })
+      } else {
+        setSessions([])
+        setStats({ total: 0, upcoming: 0, completed: 0, inProgress: 0, cancelled: 0 })
+      }
+    } catch (error) {
+      console.error('Error fetching sessions:', error)
+      toast.error('Failed to load sessions')
+      setSessions([])
+      setStats({ total: 0, upcoming: 0, completed: 0, inProgress: 0, cancelled: 0 })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // Simulate loading and data fetching
-    const timer = setTimeout(() => {
-      setSessions(mockSessions)
-      setLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [])
+    if (!authLoading) {
+      fetchSessions()
+    }
+  }, [token, authLoading])
 
-  if (loading) return <Loader />
+  // Filter sessions based on search term
+  const filteredSessions = sessions.filter(session =>
+    session.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    session.studentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    session.topic.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  if (loading || authLoading) return <Loader />
 
   return (
     <div className="p-6 space-y-6">
@@ -137,7 +160,7 @@ export default function SessionsPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Total Sessions</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{sessions.length}</div>
+                <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
               </div>
             </div>
           </CardContent>
@@ -153,9 +176,7 @@ export default function SessionsPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Upcoming</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {sessions.filter(s => s.status === "upcoming").length}
-                </div>
+                <div className="text-2xl font-bold text-gray-900">{stats.upcoming}</div>
               </div>
             </div>
           </CardContent>
@@ -171,20 +192,35 @@ export default function SessionsPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Completed</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">
-                  {sessions.filter(s => s.status === "completed").length}
-                </div>
+                <div className="text-2xl font-bold text-gray-900">{stats.completed}</div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Search Bar */}
+      <Card className="bg-white border border-gray-200 shadow-sm">
+        <CardContent className="p-6">
+          <div className="flex items-center gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search sessions by student, email, or topic..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Sessions Table */}
       <Card className="bg-white border border-gray-200 shadow-sm">
         <CardHeader>
           <CardTitle className="text-xl font-semibold text-gray-900">
-            Recent Sessions
+            Sessions {filteredSessions.length > 0 && `(${filteredSessions.length})`}
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -200,10 +236,10 @@ export default function SessionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sessions.map((session, index) => (
+                {filteredSessions.length > 0 ? filteredSessions.map((session, index) => (
                   <TableRow
                     key={session.id}
-                    className={index !== sessions.length - 1 ? "border-b border-gray-100" : ""}
+                    className={index !== filteredSessions.length - 1 ? "border-b border-gray-100" : ""}
                   >
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-3">
@@ -267,7 +303,21 @@ export default function SessionsPage() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-12 text-center">
+                      <div className="flex flex-col items-center gap-3">
+                        <Calendar className="h-12 w-12 text-gray-300" />
+                        <div>
+                          <p className="text-gray-500 font-medium">No sessions found</p>
+                          <p className="text-gray-400 text-sm">
+                            {searchTerm ? 'Try adjusting your search criteria' : 'You haven\'t scheduled any sessions yet'}
+                          </p>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </div>

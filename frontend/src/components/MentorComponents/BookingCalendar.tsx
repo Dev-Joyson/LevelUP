@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, isAfter, addWeeks } from "date-fns"
-import { ChevronLeft, ChevronRight, Clock, Calendar, Info } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, Calendar, Info, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
@@ -10,6 +10,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
+import axios from "axios"
+import { toast } from "sonner"
 
 // Types
 interface TimeSlot {
@@ -89,6 +91,8 @@ export function BookingCalendar({
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [availableSlots, setAvailableSlots] = useState<{ [date: string]: string[] }>({});
   const [showConfirmation, setShowConfirmation] = useState<boolean>(false);
+  const [isBooking, setIsBooking] = useState<boolean>(false);
+  const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
   
   // Selected session type details
   const sessionType = sessionTypes.find(type => type.id === selectedSessionType);
@@ -238,26 +242,84 @@ export function BookingCalendar({
   };
   
   // Handle booking confirmation
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedDate || !selectedTimeSlot || !sessionType) return;
     
-    // Calculate end time
-    const [startHour, startMinute] = selectedTimeSlot.split(":").map(Number);
-    const startMinutes = startHour * 60 + startMinute;
-    const endMinutes = startMinutes + sessionDuration;
-    const endHour = Math.floor(endMinutes / 60);
-    const endMinute = endMinutes % 60;
-    const endTimeString = `${endHour.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")}`;
-    
-    const bookingSlot: BookingSlot = {
-      date: selectedDate,
-      startTime: selectedTimeSlot,
-      endTime: endTimeString,
-      duration: sessionDuration
-    };
-    
-    onSlotSelect(bookingSlot);
-    setShowConfirmation(true);
+    try {
+      setIsBooking(true);
+      
+      // Calculate end time
+      const [startHour, startMinute] = selectedTimeSlot.split(":").map(Number);
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = startMinutes + sessionDuration;
+      const endHour = Math.floor(endMinutes / 60);
+      const endMinute = endMinutes % 60;
+      const endTimeString = `${endHour.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")}`;
+      
+      // Prepare booking data
+      const bookingData = {
+        mentorId: mentorId,
+        date: format(selectedDate, "yyyy-MM-dd"),
+        startTime: selectedTimeSlot,
+        endTime: endTimeString,
+        sessionTypeId: sessionType.id,
+        sessionTypeName: sessionType.name,
+        duration: sessionType.duration,
+        price: sessionType.price
+      };
+      
+      console.log('Booking session with data:', bookingData);
+      
+      // Get token from localStorage
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Please log in to book a session");
+        return;
+      }
+      
+      // Make API call
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+      const response = await axios.post(
+        `${API_BASE_URL}/api/student/book-mentor-session`,
+        bookingData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log('Session booked successfully:', response.data);
+      
+      // Show success message
+      toast.success("Session booked successfully!");
+      setBookingSuccess(true);
+      
+      // Call the original onSlotSelect for any parent component handling
+      const bookingSlot: BookingSlot = {
+        date: selectedDate,
+        startTime: selectedTimeSlot,
+        endTime: endTimeString,
+        duration: sessionDuration
+      };
+      onSlotSelect(bookingSlot);
+      
+      // Reset selections
+      setSelectedDate(null);
+      setSelectedTimeSlot(null);
+      
+    } catch (error: any) {
+      console.error('Error booking session:', error);
+      
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Failed to book session. Please try again.");
+      }
+    } finally {
+      setIsBooking(false);
+    }
   };
   
   // Format date for display
@@ -434,9 +496,17 @@ export function BookingCalendar({
         
         <Button
           onClick={handleConfirmBooking}
-          disabled={!selectedDate || !selectedTimeSlot}
+          disabled={!selectedDate || !selectedTimeSlot || isBooking}
+          className="min-w-[140px]"
         >
-          Confirm Booking
+          {isBooking ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Booking...
+            </>
+          ) : (
+            "Confirm Booking"
+          )}
         </Button>
       </div>
       

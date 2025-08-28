@@ -1,5 +1,7 @@
 import mentorModel from '../models/mentorModel.js';
 import userModel from '../models/userModel.js';
+import sessionModel from '../models/sessionModel.js';
+import studentModel from '../models/studentModel.js';
 import mongoose from 'mongoose';
 
 const mentorDashboard = (req, res) => {
@@ -601,6 +603,116 @@ const scheduleSession = async (req, res) => {
     res.status(500).json({ message: 'Error scheduling session' });
   }
 };
+
+// Get mentor's booked sessions
+const getMentorSessions = async (req, res) => {
+  try {
+    console.log('=== GET MENTOR SESSIONS FUNCTION STARTED ===');
+    
+    // Find the mentor
+    const mentor = await mentorModel.findOne({ userId: req.user.userId });
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+    console.log('Mentor found:', mentor._id);
+
+    // Fetch all sessions for this mentor with student information
+    const sessions = await sessionModel.find({ mentorId: mentor._id })
+      .populate({
+        path: 'studentId',
+        model: 'student',
+        select: 'firstname lastname',
+        populate: {
+          path: 'userId',
+          model: 'user',
+          select: 'email'
+        }
+      })
+      .sort({ date: -1 }); // Sort by date, newest first
+
+    console.log('Found sessions:', sessions.length);
+
+    // Map sessions to match frontend interface
+    const formattedSessions = sessions.map(session => {
+      const student = session.studentId;
+      const studentUser = student?.userId;
+      
+      // Combine date and startTime to create session date
+      const sessionDate = new Date(session.date);
+      const [hours, minutes] = session.startTime.split(':');
+      sessionDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      // Calculate session end time for duration display
+      const sessionEndTime = new Date(sessionDate.getTime() + (session.duration * 60000));
+      const now = new Date();
+
+      // Determine session status based on time and current status
+      let sessionStatus = session.status;
+      if (sessionStatus === 'confirmed') {
+        if (now > sessionEndTime) {
+          sessionStatus = 'completed';
+          // Update the session in database (fire and forget)
+          sessionModel.findByIdAndUpdate(session._id, { status: 'completed' }).catch(err => 
+            console.error('Error updating session status:', err)
+          );
+        } else if (now >= sessionDate && now <= sessionEndTime) {
+          sessionStatus = 'in-progress';
+        } else {
+          sessionStatus = 'upcoming';
+        }
+      }
+
+      // Format time for display
+      const formatTime = (date) => {
+        return date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+      };
+
+      return {
+        id: session._id.toString(),
+        studentName: student ? `${student.firstname || ''} ${student.lastname || ''}`.trim() : 'Unknown Student',
+        studentEmail: studentUser ? studentUser.email : 'No email',
+        studentAvatar: '', // Add avatar field if needed in student model
+        sessionDate: sessionDate.toISOString().split('T')[0], // YYYY-MM-DD format
+        sessionTime: formatTime(sessionDate),
+        duration: session.duration,
+        status: sessionStatus,
+        topic: session.sessionTypeName,
+        type: 'one-on-one', // Default to one-on-one for mentor sessions
+        meetingLink: '', // Can be added later if needed
+        notes: session.notes || '',
+        createdAt: session.createdAt ? session.createdAt.toISOString().split('T')[0] : sessionDate.toISOString().split('T')[0]
+      };
+    });
+
+    // Calculate statistics
+    const stats = {
+      total: formattedSessions.length,
+      upcoming: formattedSessions.filter(s => s.status === 'upcoming').length,
+      completed: formattedSessions.filter(s => s.status === 'completed').length,
+      inProgress: formattedSessions.filter(s => s.status === 'in-progress').length,
+      cancelled: formattedSessions.filter(s => s.status === 'cancelled').length
+    };
+
+    console.log('Session stats:', stats);
+
+    res.status(200).json({
+      message: 'Sessions retrieved successfully',
+      sessions: formattedSessions,
+      stats: stats
+    });
+
+  } catch (error) {
+    console.error('Get mentor sessions error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch sessions',
+      error: error.message 
+    });
+  }
+};
   
 export { 
   mentorDashboard, 
@@ -614,5 +726,6 @@ export {
   getSessionTypes,
   updateSessionTypes,
   addSessionType,
-  updateSessionType
+  updateSessionType,
+  getMentorSessions
 };

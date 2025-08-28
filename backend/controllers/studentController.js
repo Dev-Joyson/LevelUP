@@ -8,6 +8,8 @@ import applicationModel from '../models/applicationModel.js';
 import { calculateMatchScore } from './scoringController.js';
 import { parseResumeData } from './resumeParserController.js';
 import resumeModel from '../models/resumeModel.js';
+import sessionModel from '../models/sessionModel.js';
+import mentorModel from '../models/mentorModel.js';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -322,4 +324,214 @@ const testScoring = async (req, res) => {
   }
 };
 
-export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships, getInternshipById }
+// Book a mentor session
+const bookMentorSession = async (req, res) => {
+  try {
+    console.log('=== BOOK MENTOR SESSION FUNCTION STARTED ===');
+    
+    // Find the student
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    console.log('Student found:', student._id);
+
+    const { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price } = req.body;
+    
+    // Validate required fields
+    if (!mentorId || !date || !startTime || !endTime || !sessionTypeId || !sessionTypeName || !duration || price === undefined) {
+      return res.status(400).json({ 
+        message: 'All fields are required: mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price' 
+      });
+    }
+    
+    console.log('Booking request data:', { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price });
+
+    // Find the mentor to verify they exist
+    const mentor = await mentorModel.findById(mentorId);
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+    console.log('Mentor found:', mentor._id);
+
+    // Verify the session type exists for this mentor
+    const sessionType = mentor.sessionTypes.find(type => type._id.toString() === sessionTypeId);
+    if (!sessionType) {
+      return res.status(400).json({ message: 'Invalid session type for this mentor' });
+    }
+    console.log('Session type verified:', sessionType.name);
+
+    // Check for conflicting sessions at the same time
+    const conflictingSession = await sessionModel.findOne({
+      mentorId: mentorId,
+      date: new Date(date),
+      $or: [
+        {
+          $and: [
+            { startTime: { $lte: startTime } },
+            { endTime: { $gt: startTime } }
+          ]
+        },
+        {
+          $and: [
+            { startTime: { $lt: endTime } },
+            { endTime: { $gte: endTime } }
+          ]
+        },
+        {
+          $and: [
+            { startTime: { $gte: startTime } },
+            { endTime: { $lte: endTime } }
+          ]
+        }
+      ],
+      status: { $ne: 'cancelled' }
+    });
+
+    if (conflictingSession) {
+      return res.status(400).json({ 
+        message: 'This time slot is already booked. Please select a different time.' 
+      });
+    }
+    console.log('No conflicting sessions found');
+
+    // Create the session
+    const newSession = await sessionModel.create({
+      studentId: student._id,
+      mentorId: mentorId,
+      date: new Date(date),
+      startTime: startTime,
+      endTime: endTime,
+      sessionTypeId: sessionTypeId,
+      sessionTypeName: sessionTypeName,
+      duration: duration,
+      price: price,
+      status: 'confirmed'
+    });
+    console.log('Session created:', newSession._id);
+
+    // Add session to student's sessions array
+    if (!student.sessions.includes(newSession._id)) {
+      student.sessions.push(newSession._id);
+      await student.save();
+    }
+    console.log('Session added to student');
+
+    // Return success response
+    res.status(201).json({
+      message: 'Session booked successfully',
+      session: {
+        sessionId: newSession.sessionId,
+        id: newSession._id,
+        mentorId: newSession.mentorId,
+        date: newSession.date,
+        startTime: newSession.startTime,
+        endTime: newSession.endTime,
+        sessionTypeName: newSession.sessionTypeName,
+        duration: newSession.duration,
+        price: newSession.price,
+        status: newSession.status,
+        createdAt: newSession.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Book mentor session error:', error);
+    res.status(500).json({ 
+      message: 'Failed to book session',
+      error: error.message 
+    });
+  }
+};
+
+// Get student's booked sessions
+const getStudentSessions = async (req, res) => {
+  try {
+    console.log('=== GET STUDENT SESSIONS FUNCTION STARTED ===');
+    
+    // Find the student
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    console.log('Student found:', student._id);
+
+    // Fetch all sessions for this student with mentor information
+    const sessions = await sessionModel.find({ studentId: student._id })
+      .populate({
+        path: 'mentorId',
+        model: 'mentor',
+        select: 'firstname lastname title company profileImage'
+      })
+      .sort({ date: -1 }); // Sort by date, newest first
+
+    console.log('Found sessions:', sessions.length);
+
+    // Map sessions to match frontend interface and update status based on time
+    const formattedSessions = sessions.map(session => {
+      const mentor = session.mentorId;
+      
+      // Combine date and startTime to create full datetime
+      const sessionDate = new Date(session.date);
+      const [hours, minutes] = session.startTime.split(':');
+      sessionDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+
+      // Calculate session end time
+      const sessionEndTime = new Date(sessionDate.getTime() + (session.duration * 60000));
+      const now = new Date();
+
+      // Determine session status based on time
+      let sessionStatus = session.status;
+      if (sessionStatus === 'confirmed' && now > sessionEndTime) {
+        sessionStatus = 'completed';
+        // Update the session in database (fire and forget)
+        sessionModel.findByIdAndUpdate(session._id, { status: 'completed' }).catch(err => 
+          console.error('Error updating session status:', err)
+        );
+      }
+
+      return {
+        _id: session._id.toString(),
+        sessionType: session.sessionTypeName,
+        mentorName: mentor ? `${mentor.firstname} ${mentor.lastname}`.trim() : 'Unknown Mentor',
+        mentorTitle: mentor ? mentor.title : '',
+        mentorImage: mentor ? mentor.profileImage : '',
+        date: sessionDate.toISOString(),
+        duration: session.duration,
+        status: sessionStatus,
+        notes: '',
+        backgroundColor: 'bg-blue-50'
+      };
+    });
+
+    // Separate sessions by status for better organization
+    const upcomingSessions = formattedSessions.filter(session => 
+      session.status === 'confirmed'
+    );
+    const pastSessions = formattedSessions.filter(session => 
+      session.status === 'completed' || session.status === 'cancelled'
+    );
+
+    console.log('Upcoming sessions:', upcomingSessions.length);
+    console.log('Past sessions:', pastSessions.length);
+
+    res.status(200).json({
+      message: 'Sessions retrieved successfully',
+      sessions: formattedSessions,
+      summary: {
+        total: formattedSessions.length,
+        upcoming: upcomingSessions.length,
+        past: pastSessions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Get student sessions error:', error);
+    res.status(500).json({ 
+      message: 'Failed to fetch sessions',
+      error: error.message 
+    });
+  }
+};
+
+export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships, getInternshipById, bookMentorSession, getStudentSessions }
