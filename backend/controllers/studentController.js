@@ -243,6 +243,41 @@ const getStudentProfile = async (req, res) => {
   }
 };
 
+// Update student profile
+const updateStudentProfile = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    const { firstname, lastname, phone, university, graduationYear } = req.body;
+    
+    // Update fields if provided
+    if (firstname) student.firstname = firstname;
+    if (lastname) student.lastname = lastname;
+    if (phone) student.phone = phone;
+    if (university) student.university = university;
+    if (graduationYear) student.graduationYear = graduationYear;
+    
+    await student.save();
+    
+    res.status(200).json({ 
+      message: 'Profile updated successfully',
+      student: {
+        firstname: student.firstname,
+        lastname: student.lastname,
+        phone: student.phone,
+        university: student.university,
+        graduationYear: student.graduationYear
+      } 
+    });
+  } catch (error) {
+    console.error('Error updating student profile:', error);
+    res.status(500).json({ message: 'Failed to update profile' });
+  }
+};
+
 // Get all internship details for students
 const getAllInternships = async (req, res) => {
   try {
@@ -534,4 +569,15 @@ const getStudentSessions = async (req, res) => {
   }
 };
 
-export { studentDashboard, uploadResume, getStudentProfile, applyInternship, testScoring, getAllInternships, getInternshipById, bookMentorSession, getStudentSessions }
+export { 
+  studentDashboard, 
+  uploadResume, 
+  getStudentProfile, 
+  updateStudentProfile,
+  applyInternship, 
+  testScoring, 
+  getAllInternships, 
+  getInternshipById,
+  bookMentorSession, 
+  getStudentSessions
+}
