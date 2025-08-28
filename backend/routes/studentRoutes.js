@@ -10,7 +10,9 @@ import {
   applyInternship, 
   testScoring,
   getAllInternships,
-  getInternshipById
+  getInternshipById,
+  bookMentorSession,
+  getStudentSessions
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -21,6 +23,8 @@ studentRouter.get("/profile", authenticateUser, authorizeRoles("student"), getSt
 studentRouter.put("/update-profile", authenticateUser, authorizeRoles("student"), updateStudentProfile);
 studentRouter.post("/apply-internship", authenticateUser, authorizeRoles("student"), applyInternship);
 studentRouter.get("/test-scoring", authenticateUser, authorizeRoles("student"), testScoring);
+studentRouter.post("/book-mentor-session", authenticateUser, authorizeRoles("student"), bookMentorSession);
+studentRouter.get("/sessions", authenticateUser, authorizeRoles("student"), getStudentSessions);
 studentRouter.get("/internships", getAllInternships);
 studentRouter.get("/internships/:id", getInternshipById);
 // Note: Application routes moved to applicationRoutes.js

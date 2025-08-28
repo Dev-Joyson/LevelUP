@@ -128,6 +128,11 @@ export function Navbar() {
                       Mentorship
                     </Link>
                   )}
+                  {(!user || user.role === "student") && (
+                    <Link href="/student/mentorship" className="text-base font-medium transition-colors hover:text-primary">
+                      Sessions
+                    </Link>
+                  )}
                   {/* {(!user || user.role === "student") && (
                     <Link href="/mock-interviews" className="text-base font-medium transition-colors hover:text-primary">
                       Mock Interviews
@@ -200,6 +205,12 @@ export function Navbar() {
                 Mentorship
               </Link>
             )}
+            {/* Show sessions link for students */}
+            {(!user || user.role === "student") && (
+              <Link href="/student/mentorship" className="text-gray-600 transition-colors hover:text-primary">
+                Sessions
+              </Link>
+            )}
             {/* Show mock interviews for students */}
             {/* {(!user || user.role === "student") && (
               <Link href="/mock-interviews" className="text-gray-600 transition-colors hover:text-primary">
@@ -233,7 +244,7 @@ export function Navbar() {
             {isAuthenticated && user ? (
               <>
                 {/* Only show search for non-admin users */}
-                {user.role !== "admin" && (
+                {/* {user.role !== "admin" && (
                   <div className="relative">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -242,7 +253,7 @@ export function Navbar() {
                       className="w-64 rounded-full bg-muted/30 border-0 pl-10 pr-4 h-10 md:w-80"
                     />
                   </div>
-                )}
+                )} */}
 
                 <div className="relative cursor-pointer">
                   <Bell className="h-5 w-5" />

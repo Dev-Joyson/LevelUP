@@ -12,6 +12,7 @@ const studentSchema = new mongoose.Schema({
     appliedInternships: [{ type: mongoose.Schema.Types.ObjectId, ref: 'internship'}],
     mockInterviewsTaken: [String],
     mentorRequests: [{type: mongoose.Schema.Types.ObjectId, ref: 'mentor'}],
+    sessions: [{type: mongoose.Schema.Types.ObjectId, ref: 'session'}],
     university: { type: String, required: true },
     graduationYear: { type: String, required: true },
 })
