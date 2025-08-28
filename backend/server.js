@@ -10,6 +10,7 @@ import mentorRouter from './routes/mentorRoutes.js';
 import adminRouter from './routes/adminRoutes.js';
 import companyRouter from './routes/companyRoutes.js';
 import resumeParserRouter from './routes/resumeParserRoutes.js';
+import applicationRouter from './routes/applicationRoutes.js';
 
 // App config
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/mentor', mentorRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/company', companyRouter);
 app.use('/api/resume', resumeParserRouter);
+app.use('/api/applications', applicationRouter);
 
 // Multer error handling middleware
 app.use((err, req, res, next) => {

@@ -5,8 +5,6 @@ import {
   companyDashboard, 
   createInternship, 
   getCompanyInternships,
-  getCompanyApplications, 
-  updateApplicationStatus, 
   getApplicationAnalytics,
   updateInternshipCriteria,
   getCompanyProfile,
@@ -28,8 +26,7 @@ companyRouter.get('/internships', authenticateUser, authorizeRoles("company"), g
 companyRouter.put('/internships/:internshipId/criteria', authenticateUser, authorizeRoles("company"), updateInternshipCriteria)
 
 // Application management
-companyRouter.get('/applications', authenticateUser, authorizeRoles("company"), getCompanyApplications)
-companyRouter.put('/applications/:applicationId/status', authenticateUser, authorizeRoles("company"), updateApplicationStatus)
+// Note: Application routes moved to applicationRoutes.js
 
 // Analytics
 companyRouter.get('/analytics', authenticateUser, authorizeRoles("company"), getApplicationAnalytics)

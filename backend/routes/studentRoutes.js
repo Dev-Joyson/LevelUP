@@ -10,8 +10,7 @@ import {
   applyInternship, 
   testScoring,
   getAllInternships,
-  getInternshipById,
-  getStudentApplications
+  getInternshipById
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -24,6 +23,6 @@ studentRouter.post("/apply-internship", authenticateUser, authorizeRoles("studen
 studentRouter.get("/test-scoring", authenticateUser, authorizeRoles("student"), testScoring);
 studentRouter.get("/internships", getAllInternships);
 studentRouter.get("/internships/:id", getInternshipById);
-studentRouter.get("/applications", authenticateUser, authorizeRoles("student"), getStudentApplications);
+// Note: Application routes moved to applicationRoutes.js
 
 export default studentRouter

@@ -357,43 +357,7 @@ const updateStudentProfile = async (req, res) => {
   }
 };
 
-// Get student applications
-const getStudentApplications = async (req, res) => {
-  try {
-    const student = await studentModel.findOne({ userId: req.user.userId });
-    if (!student) {
-      return res.status(404).json({ message: 'Student not found' });
-    }
-
-    const applications = await applicationModel.find({ studentId: student._id })
-      .populate('internshipId', 'title companyId')
-      .populate({
-        path: 'internshipId',
-        populate: {
-          path: 'companyId',
-          select: 'name logo'
-        }
-      })
-      .sort({ appliedAt: -1 });
-
-    // Transform the data for frontend use
-    const transformedApplications = applications.map(app => ({
-      id: app._id,
-      company: app.internshipId.companyId.name,
-      companyLogo: app.internshipId.companyId.logo,
-      role: app.internshipId.title,
-      applicationDate: app.appliedAt,
-      status: app.status.charAt(0).toUpperCase() + app.status.slice(1), // Capitalize status
-      matchScore: app.matchScore?.total || 0,
-      internshipId: app.internshipId._id
-    }));
-
-    res.status(200).json(transformedApplications);
-  } catch (error) {
-    console.error('Error fetching student applications:', error);
-    res.status(500).json({ message: 'Failed to fetch applications' });
-  }
-};
+// Note: Application-related functions have been moved to applicationController.js
 
 export { 
   studentDashboard, 
@@ -403,6 +367,5 @@ export {
   applyInternship, 
   testScoring, 
   getAllInternships, 
-  getInternshipById,
-  getStudentApplications 
+  getInternshipById
 }
