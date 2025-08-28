@@ -150,114 +150,9 @@ const createInternship = async (req, res) => {
   }
 };
 
-// Get applications for a company with filtering and sorting
-const getCompanyApplications = async (req, res) => {
-  try {
-    const userId = req.user.userId;
-    const { internshipId, status, sortBy = 'matchScore', page = 1, limit = 20 } = req.query;
+// Note: Company application functions moved to applicationController.js
 
-    // Get company
-    const company = await companyModel.findOne({ userId });
-    if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
-    }
-
-    // Build query
-    const query = { companyId: company._id };
-    if (internshipId) query.internshipId = internshipId;
-    if (status) query.status = status;
-
-    // Build sort criteria
-    let sortCriteria = {};
-    switch (sortBy) {
-      case 'matchScore':
-        sortCriteria = { 'matchScore.total': -1 };
-        break;
-      case 'appliedAt':
-        sortCriteria = { appliedAt: -1 };
-        break;
-      case 'name':
-        sortCriteria = { 'student.name': 1 };
-        break;
-      default:
-        sortCriteria = { 'matchScore.total': -1 };
-    }
-
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const applications = await applicationModel
-      .find(query)
-      .populate('internshipId', 'title domain location workMode salary')
-      .populate('studentId', 'email')
-      .sort(sortCriteria)
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await applicationModel.countDocuments(query);
-
-    res.json({
-      success: true,
-      data: {
-        applications,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit))
-        }
-      }
-    });
-
-  } catch (error) {
-    console.error('Get applications error:', error);
-    res.status(500).json({ 
-      message: 'Failed to fetch applications',
-      error: error.message 
-    });
-  }
-};
-
-// Update application status
-const updateApplicationStatus = async (req, res) => {
-  try {
-    const { applicationId } = req.params;
-    const { status, notes } = req.body;
-    const userId = req.user.userId;
-
-    // Get company
-    const company = await companyModel.findOne({ userId });
-    if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
-    }
-
-    // Update application
-    const application = await applicationModel.findOneAndUpdate(
-      { _id: applicationId, companyId: company._id },
-      { 
-        status,
-        notes: notes || '',
-        reviewedAt: new Date()
-      },
-      { new: true }
-    );
-
-    if (!application) {
-      return res.status(404).json({ message: 'Application not found' });
-    }
-
-    res.json({ 
-      message: 'Application status updated successfully',
-      application 
-    });
-
-  } catch (error) {
-    console.error('Update application status error:', error);
-    res.status(500).json({ 
-      message: 'Failed to update application status',
-      error: error.message 
-    });
-  }
-};
+// Note: Application status update function moved to applicationController.js
 
 // Get application analytics
 const getApplicationAnalytics = async (req, res) => {
@@ -573,11 +468,10 @@ export {
   companyDashboard, 
   createInternship, 
   getCompanyInternships,
-  getCompanyApplications, 
-  updateApplicationStatus, 
   getApplicationAnalytics,
   updateInternshipCriteria,
   getCompanyProfile,
   updateCompanyProfile
+  // Note: Application-related functions moved to applicationController.js
 };
   

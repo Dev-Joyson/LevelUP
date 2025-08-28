@@ -140,7 +140,7 @@ export default function ApplicantsPage() {
         ...(statusFilter && { status: statusFilter })
       })
 
-      const response = await fetch(`${API_BASE_URL}/api/company/applications?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/company?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -169,7 +169,7 @@ export default function ApplicantsPage() {
   const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch(`${API_BASE_URL}/api/company/applications/${applicationId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/status/${applicationId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
