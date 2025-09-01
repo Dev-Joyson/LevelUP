@@ -392,24 +392,21 @@ const getMentorAvailability = async (req, res) => {
           console.log("✅ PARSED AS JSON:", scheduleItem);
           
           if (scheduleItem.date && scheduleItem.timeSlots) {
-            // Convert specific date to day of week
-            const date = new Date(scheduleItem.date);
-            const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-            const dayName = dayNames[date.getDay()];
-            
-            console.log(`📅 DATE: ${scheduleItem.date} -> DAY: ${dayName} (${date.getDay()})`);
+            // FOR DATE-SPECIFIC SCHEDULES: Add as dateOverrides instead of converting to weekly
+            console.log(`📅 ADDING DATE-SPECIFIC OVERRIDE: ${scheduleItem.date}`);
             console.log("⏰ TIME SLOTS:", scheduleItem.timeSlots);
             
-            if (availability.weeklySchedule[dayName] && scheduleItem.timeSlots.length > 0) {
-              availability.weeklySchedule[dayName] = {
+            if (scheduleItem.timeSlots.length > 0) {
+              availability.dateOverrides.push({
+                date: scheduleItem.date,
                 isAvailable: true,
                 timeSlots: scheduleItem.timeSlots.map(ts => ({
                   startTime: ts.startTime,
                   endTime: ts.endTime,
                   isAvailable: true
                 }))
-              };
-              console.log(`✅ UPDATED ${dayName.toUpperCase()}:`, availability.weeklySchedule[dayName]);
+              });
+              console.log(`✅ ADDED DATE OVERRIDE FOR ${scheduleItem.date}`);
             }
           } else {
             console.log("❌ MISSING date OR timeSlots in schedule item");
@@ -417,7 +414,7 @@ const getMentorAvailability = async (req, res) => {
         } catch (e) {
           console.log("❌ JSON PARSE FAILED, TRYING OLD FORMAT:", e.message);
           
-          // Fallback to old format: "Monday 09:00-17:00"
+          // Fallback to old format: "Monday 09:00-17:00" - these go to weekly schedule
           const parts = slot.split(' ');
           console.log("📝 PARTS:", parts);
           
@@ -442,7 +439,9 @@ const getMentorAvailability = async (req, res) => {
       console.log("❌ NO AVAILABILITY DATA TO PARSE - mentor.availability is empty or null");
     }
     
-    console.log("✅ FINAL AVAILABILITY OBJECT:", JSON.stringify(availability, null, 2));
+    console.log("✅ FINAL AVAILABILITY OBJECT:");
+    console.log("   - Date Overrides:", availability.dateOverrides.length);
+    console.log("   - Weekly Schedule Days:", Object.keys(availability.weeklySchedule).filter(day => availability.weeklySchedule[day].isAvailable).length);
     
     res.status(200).json({
       message: 'Mentor availability retrieved successfully',

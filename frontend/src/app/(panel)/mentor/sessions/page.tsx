@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Loader } from "@/components/common/Loader"
 import { useAuth } from "@/context/AuthContext"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import { toast } from "sonner"
 import { 
@@ -21,7 +22,8 @@ import {
   Eye,
   Edit,
   Video,
-  CheckCircle
+  CheckCircle,
+  MessageCircle
 } from "lucide-react"
 
 interface Session {
@@ -82,6 +84,53 @@ export default function SessionsPage() {
   const [stats, setStats] = useState<SessionStats>({ total: 0, upcoming: 0, completed: 0, inProgress: 0, cancelled: 0 })
   const [searchTerm, setSearchTerm] = useState("")
   const { token, loading: authLoading } = useAuth()
+  const router = useRouter()
+
+  // Check if session is active (during session time)
+  const isSessionActive = (sessionDate: string, sessionTime: string, duration: number, status: string) => {
+    console.log('🔍 Checking session active:', { sessionDate, sessionTime, duration, status })
+    
+    // If status is already "in-progress", session is definitely active
+    if (status === "in-progress") {
+      console.log('✅ Session is in-progress, returning true')
+      return true
+    }
+    
+    const now = new Date()
+    
+    // Handle different time formats (12-hour vs 24-hour)
+    let sessionStart: Date
+    
+    try {
+      if (sessionTime.includes('AM') || sessionTime.includes('PM')) {
+        // 12-hour format: "11:30 AM"
+        const dateTimeString = `${sessionDate} ${sessionTime}`
+        sessionStart = new Date(dateTimeString)
+      } else {
+        // 24-hour format: "11:30"
+        const [year, month, day] = sessionDate.split('-').map(Number)
+        const [hours, minutes] = sessionTime.split(':').map(Number)
+        sessionStart = new Date(year, month - 1, day, hours, minutes)
+      }
+      
+      const sessionEnd = new Date(sessionStart.getTime() + (duration * 60000))
+      return now >= sessionStart && now <= sessionEnd
+    } catch (error) {
+      console.error('Error parsing session time:', error)
+      return false
+    }
+  }
+
+  // Handle joining chat
+  const handleJoinChat = (sessionId: string, sessionDate: string, sessionTime: string, duration: number, status: string) => {
+    if (!isSessionActive(sessionDate, sessionTime, duration, status)) {
+      toast.error('Chat is only available during the scheduled session time')
+      return
+    }
+    
+    // Navigate to chat page
+    router.push(`/chat/${sessionId}`)
+  }
 
   // Fetch mentor sessions
   const fetchSessions = async () => {
@@ -286,6 +335,35 @@ export default function SessionsPage() {
                           <Eye className="h-3 w-3" />
                           View
                         </Button>
+                        
+                        {/* Chat Button - Show for upcoming and in-progress sessions */}
+                        {(session.status === "upcoming" || session.status === "in-progress") && (
+                          <>
+                            {isSessionActive(session.sessionDate, session.sessionTime, session.duration, session.status) ? (
+                              <Button 
+                                onClick={() => handleJoinChat(session.id, session.sessionDate, session.sessionTime, session.duration, session.status)} 
+                                className="bg-green-600 hover:bg-green-700 gap-1"
+                                size="sm"
+                              >
+                                <MessageCircle className="h-3 w-3" />
+                                Join Chat
+                              </Button>
+                            ) : (
+                              <Button 
+                                variant="outline"
+                                onClick={() => handleJoinChat(session.id, session.sessionDate, session.sessionTime, session.duration, session.status)} 
+                                disabled={!isSessionActive(session.sessionDate, session.sessionTime, session.duration, session.status)}
+                                className="text-gray-500 gap-1"
+                                size="sm"
+                                title="Chat only available during session time"
+                              >
+                                <MessageCircle className="h-3 w-3" />
+                                Chat
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        
                         {session.status === "upcoming" && (
                           <>
                             <Button variant="outline" size="sm" className="gap-1">

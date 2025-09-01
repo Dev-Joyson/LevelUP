@@ -71,7 +71,8 @@ const mockMessages: Message[] = [
   },
 ]
 
-export default function SessionPage({ params }: { params: { id: string } }) {
+export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<string>("video")
   const [messages, setMessages] = useState<Message[]>(mockMessages)

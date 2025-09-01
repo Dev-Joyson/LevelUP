@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 import 'dotenv/config';
 import connectDB from './config/mongodb.js';
 import connectCloudinary from './config/cloudinary.js'; // Keep for configuration
@@ -11,17 +13,31 @@ import adminRouter from './routes/adminRoutes.js';
 import companyRouter from './routes/companyRoutes.js';
 import resumeParserRouter from './routes/resumeParserRoutes.js';
 import applicationRouter from './routes/applicationRoutes.js';
+import chatRouter from './routes/chatRoutes.js';
+import { setupSocketHandlers } from './socket/socketHandlers.js';
 
 // App config
 const app = express();
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: ["http://localhost:3000", "http://localhost:3001"], // Frontend URLs
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 const port = process.env.PORT || 4000;
+
 connectDB();
- // Ensure Cloudinary is configured
+// connectCloudinary(); // Ensure Cloudinary is configured
 
 // Middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Added for multipart/form-data
-app.use(cors());
+app.use(cors({
+  origin: ["http://localhost:3000", "http://localhost:3001"],
+  credentials: true
+}));
 
 // API endpoints
 app.get('/', (req, res) => {
@@ -36,6 +52,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/company', companyRouter);
 app.use('/api/resume', resumeParserRouter);
 app.use('/api/applications', applicationRouter);
+app.use('/api/chat', chatRouter);
 
 // Multer error handling middleware
 app.use((err, req, res, next) => {
@@ -47,6 +64,10 @@ app.use((err, req, res, next) => {
   next();
 });
 
-app.listen(port, () => {
+// Setup Socket.IO handlers
+setupSocketHandlers(io);
+
+server.listen(port, () => {
   console.log('Server started on port: ', port);
+  console.log('Socket.IO server ready for connections');
 });

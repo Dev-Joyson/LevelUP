@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, isAfter, addWeeks } from "date-fns"
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, isAfter, addWeeks, startOfDay } from "date-fns"
 import { ChevronLeft, ChevronRight, Clock, Calendar, Info, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
@@ -105,7 +105,7 @@ export function BookingCalendar({
   
   const calculateAvailableSlots = () => {
     const slots: { [date: string]: string[] } = {};
-    const currentDate = new Date();
+    const currentDate = startOfDay(new Date()); // Use start of day for comparison
     const maxBookingDate = addDays(currentDate, availability.advanceBookingLimit);
     
     // For each day in the current week view
@@ -114,7 +114,8 @@ export function BookingCalendar({
       const dateString = format(date, "yyyy-MM-dd");
       
       // Skip if date is in the past or beyond advance booking limit
-      if (isBefore(date, currentDate) || isAfter(date, maxBookingDate)) {
+      // Use startOfDay to compare only dates, not time
+      if (isBefore(startOfDay(date), currentDate) || isAfter(date, maxBookingDate)) {
         slots[dateString] = [];
         continue;
       }
@@ -202,7 +203,7 @@ export function BookingCalendar({
   // Navigate to previous week
   const goToPreviousWeek = () => {
     const newWeekStart = addDays(currentWeekStart, -7);
-    if (!isBefore(newWeekStart, new Date())) {
+    if (!isBefore(startOfDay(newWeekStart), startOfDay(new Date()))) {
       setCurrentWeekStart(newWeekStart);
       setSelectedDate(null);
       setSelectedTimeSlot(null);
@@ -355,7 +356,7 @@ export function BookingCalendar({
   const isDateSelectable = (date: Date) => {
     const dateString = format(date, "yyyy-MM-dd");
     return (
-      !isBefore(date, new Date()) &&
+      !isBefore(startOfDay(date), startOfDay(new Date())) &&
       !isAfter(date, addDays(new Date(), availability.advanceBookingLimit)) &&
       (availableSlots[dateString]?.length || 0) > 0
     );
@@ -369,7 +370,7 @@ export function BookingCalendar({
           variant="outline"
           size="sm"
           onClick={goToPreviousWeek}
-          disabled={isBefore(currentWeekStart, new Date())}
+          disabled={isBefore(startOfDay(currentWeekStart), startOfDay(new Date()))}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
           Previous
