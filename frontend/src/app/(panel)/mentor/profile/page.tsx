@@ -24,8 +24,10 @@ import {
   Star,
   Calendar,
   Award,
-  Briefcase
+  Briefcase,
+  Shield
 } from "lucide-react"
+import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
 
 interface MentorProfile {
   id: string
@@ -69,6 +71,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<MentorProfile | null>(null)
   const [editing, setEditing] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const { token, user } = useAuth()
 
   useEffect(() => {
@@ -134,6 +137,10 @@ export default function ProfilePage() {
     }
   }
 
+  const handleChangePassword = () => {
+    setShowPasswordModal(true)
+  }
+
   const handleSaveProfile = async (updatedProfile: Partial<MentorProfile>) => {
     try {
       console.log('💾 Saving profile:', updatedProfile)
@@ -162,22 +169,32 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
           <p className="text-gray-600 text-sm mt-1">Manage your mentor profile information</p>
         </div>
-        <Button 
-          onClick={() => setEditing(!editing)}
-          className="bg-[#535c91] hover:bg-[#464f7a] gap-2"
-        >
-          {editing ? (
-            <>
-              <X className="h-4 w-4" />
-              Cancel
-            </>
-          ) : (
-            <>
-              <Edit className="h-4 w-4" />
-              Edit Profile
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline"
+            onClick={handleChangePassword}
+            className="gap-2"
+          >
+            <Shield className="h-4 w-4" />
+            Change Password
+          </Button>
+          <Button 
+            onClick={() => setEditing(!editing)}
+            className="bg-[#535c91] hover:bg-[#464f7a] gap-2"
+          >
+            {editing ? (
+              <>
+                <X className="h-4 w-4" />
+                Cancel
+              </>
+            ) : (
+              <>
+                <Edit className="h-4 w-4" />
+                Edit Profile
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       {/* Profile Completion Alert */}
@@ -391,6 +408,13 @@ export default function ProfilePage() {
           <SessionTypesManager />
         </TabsContent>
       </Tabs>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal 
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        userRole="mentor"
+      />
     </div>
   )
 }

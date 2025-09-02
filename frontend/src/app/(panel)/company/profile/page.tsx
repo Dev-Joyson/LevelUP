@@ -10,7 +10,8 @@ import { CompanySidebar } from "@/components/CompanyComponents/company-sidebar"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Globe, Mail, MapPin, Calendar, Users, CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { Building2, Globe, Mail, MapPin, Calendar, Users, CheckCircle, XCircle, Loader2, Shield } from "lucide-react"
+import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
 
 interface CompanyProfile {
   _id: string
@@ -34,6 +35,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<CompanyProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [formData, setFormData] = useState({
     companyName: "",
     description: "",
@@ -89,6 +91,10 @@ export default function ProfilePage() {
       ...prev,
       [field]: value
     }))
+  }
+
+  const handleChangePassword = () => {
+    setShowPasswordModal(true)
   }
 
   const handleSave = async () => {
@@ -309,6 +315,26 @@ export default function ProfilePage() {
                     </div>
                   </div>
 
+                  {/* Security Section */}
+                  <div className="border-t pt-6">
+                    <h3 className="text-lg font-semibold mb-4">Security</h3>
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <Shield className="h-5 w-5 text-gray-600" />
+                        <div>
+                          <p className="font-medium text-gray-900">Password</p>
+                          <p className="text-sm text-gray-500">Change your account password</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={handleChangePassword}
+                      >
+                        Change Password
+                      </Button>
+                    </div>
+                  </div>
+
                   <div className="flex justify-end pt-4">
                     <Button 
                       size="lg" 
@@ -331,6 +357,13 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* Change Password Modal */}
+        <ChangePasswordModal 
+          isOpen={showPasswordModal}
+          onClose={() => setShowPasswordModal(false)}
+          userRole="company"
+        />
       </SidebarInset>
     </>
   )

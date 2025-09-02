@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { toast } from "react-toastify"
+import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
 
 interface StudentProfile {
   firstname: string
@@ -33,6 +34,7 @@ export default function StudentProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isPageLoading, setIsPageLoading] = useState(true)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -246,7 +248,7 @@ export default function StudentProfilePage() {
   }
 
   const handleChangePassword = () => {
-    toast.info("Password change feature coming soon")
+    setShowPasswordModal(true)
   }
 
   const handleAvatarChange = () => {
@@ -426,6 +428,12 @@ export default function StudentProfilePage() {
           </>
         )}
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal 
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </div>
   )
 }

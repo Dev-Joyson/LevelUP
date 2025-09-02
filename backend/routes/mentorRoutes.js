@@ -14,7 +14,8 @@ import {
   updateSessionTypes,
   addSessionType,
   updateSessionType,
-  getMentorSessions
+  getMentorSessions,
+  changePassword
 } from "../controllers/mentorController.js"
 
 
@@ -23,6 +24,7 @@ const mentorRouter = express.Router()
 // Protected routes - require mentor authentication
 mentorRouter.get('/dashboard', authenticateUser, authorizeRoles("mentor"), mentorDashboard)
 mentorRouter.get('/me', authenticateUser, authorizeRoles("mentor"), getCurrentMentorProfile)
+mentorRouter.put('/change-password', authenticateUser, authorizeRoles("mentor"), changePassword)
 mentorRouter.get('/sessions', authenticateUser, authorizeRoles("mentor"), getMentorSessions)
 mentorRouter.get('/session-types', authenticateUser, authorizeRoles("mentor"), getSessionTypes)
 mentorRouter.put('/session-types', authenticateUser, authorizeRoles("mentor"), updateSessionTypes)

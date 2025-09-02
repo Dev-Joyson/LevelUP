@@ -3,6 +3,7 @@ import userModel from '../models/userModel.js';
 import sessionModel from '../models/sessionModel.js';
 import studentModel from '../models/studentModel.js';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const mentorDashboard = (req, res) => {
     res.json({ message: "Welcome to the Mentor Dashboard", user: req.user });
@@ -713,6 +714,57 @@ const getMentorSessions = async (req, res) => {
   }
 };
   
+// Change password
+const changePassword = async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ 
+        message: 'Both old password and new password are required' 
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        message: 'New password must be at least 6 characters long' 
+      });
+    }
+
+    // Get user from database
+    const user = await userModel.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Hash new password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password
+    await userModel.findByIdAndUpdate(req.user.userId, { 
+      password: hashedNewPassword,
+      updatedAt: new Date()
+    });
+
+    res.status(200).json({ 
+      message: 'Password changed successfully' 
+    });
+
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ 
+      message: 'Failed to change password. Please try again.' 
+    });
+  }
+};
+
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
@@ -726,5 +778,6 @@ export {
   updateSessionTypes,
   addSessionType,
   updateSessionType,
-  getMentorSessions
+  getMentorSessions,
+  changePassword
 };
