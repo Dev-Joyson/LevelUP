@@ -44,6 +44,7 @@ interface OnlineUser {
   userId: string;
   role: 'student' | 'mentor';
   email: string;
+  name?: string;
 }
 
 interface SessionInfo {
@@ -79,6 +80,23 @@ export default function ChatPage() {
   const router = useRouter()
   const { user, token, loading: authLoading } = useAuth()
   
+  // Fallback: Check localStorage directly if useAuth fails
+  const getFallbackUser = () => {
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('user')
+      if (storedUser) {
+        try {
+          return JSON.parse(storedUser)
+        } catch (error) {
+          console.error('Error parsing stored user:', error)
+        }
+      }
+    }
+    return null
+  }
+  
+  const effectiveUser = user || getFallbackUser()
+  
   const sessionId = params?.sessionId as string
   
   // State management
@@ -90,7 +108,7 @@ export default function ChatPage() {
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null)
   const [sessionTime, setSessionTime] = useState<SessionTime | null>(null)
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
-  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [typingUsers, setTypingUsers] = useState<{email: string, name: string}[]>([])
   const [error, setError] = useState<string | null>(null)
   
   // Refs
@@ -110,9 +128,14 @@ export default function ChatPage() {
     })
   }
 
-  // Scroll to bottom of messages
+  // Scroll to bottom of messages (only within chat container)
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      const container = messagesEndRef.current.parentElement
+      if (container) {
+        container.scrollTop = container.scrollHeight
+      }
+    }
   }, [])
 
   // Load chat history
@@ -144,16 +167,32 @@ export default function ChatPage() {
     }
   }, [token, sessionId, scrollToBottom])
 
+  // Track if chat is already initialized to prevent duplicates
+  const chatInitialized = useRef(false)
+
   // Initialize socket connection and join session
   const initializeChat = useCallback(async () => {
-    if (!token || !sessionId) return
+    if (!token || !sessionId || chatInitialized.current) return
 
     try {
       setLoading(true)
+      chatInitialized.current = true
       
       // Connect to socket
       await socketService.connect(token)
       setConnected(true)
+
+      // Remove any existing listeners to prevent duplicates
+      socketService.off('session-joined')
+      socketService.off('access-denied')
+      socketService.off('error')
+      socketService.off('new-message')
+      socketService.off('user-online')
+      socketService.off('user-offline')
+      socketService.off('online-users')
+      socketService.off('user-typing')
+      socketService.off('user-stopped-typing')
+      socketService.off('message-read')
 
       // Set up event listeners
       socketService.on('session-joined', (data) => {
@@ -189,7 +228,7 @@ export default function ChatPage() {
         setTimeout(scrollToBottom, 100)
         
         // Mark message as read if not sent by current user
-        if (message.senderId !== user?.userId) {
+        if (message.senderId !== (effectiveUser?.userId || effectiveUser?.id)) {
           setTimeout(() => {
             socketService.markMessageRead(message._id, sessionId)
           }, 1000)
@@ -202,12 +241,28 @@ export default function ChatPage() {
           role: userInfo.role as 'student' | 'mentor',
           email: userInfo.email
         }])
-        toast.success(`${userInfo.email} joined the chat`)
+        
+        // Use name if available, otherwise format email nicely  
+        let displayName = userInfo.name || userInfo.email
+        if (displayName === userInfo.email) {
+          const emailPrefix = userInfo.email.split('@')[0]
+          displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+        }
+        
+        toast.success(`${displayName} joined the chat`)
       })
 
       socketService.on('user-offline', (userInfo) => {
         setOnlineUsers(prev => prev.filter(u => u.userId !== userInfo.userId))
-        toast.info(`${userInfo.email} left the chat`)
+        
+        // Use name if available, otherwise format email nicely
+        let displayName = userInfo.name || userInfo.email
+        if (displayName === userInfo.email) {
+          const emailPrefix = userInfo.email.split('@')[0]
+          displayName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+        }
+        
+        toast.info(`${displayName} left the chat`)
       })
 
       socketService.on('online-users', (data) => {
@@ -215,11 +270,28 @@ export default function ChatPage() {
       })
 
       socketService.on('user-typing', (userInfo) => {
-        setTypingUsers(prev => [...prev.filter(email => email !== userInfo.email), userInfo.email])
+        // Use first name from backend, with fallback to formatted email
+        let userName = userInfo.name || userInfo.email
+        
+        // If still just email, extract first name from email
+        if (userName === userInfo.email) {
+          const emailPrefix = userInfo.email.split('@')[0]
+          if (emailPrefix.includes('.')) {
+            // Take first part before dot as first name
+            userName = emailPrefix.split('.')[0].charAt(0).toUpperCase() + emailPrefix.split('.')[0].slice(1)
+          } else {
+            userName = emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)
+          }
+        }
+        
+        setTypingUsers(prev => [
+          ...prev.filter(user => user.email !== userInfo.email), 
+          { email: userInfo.email, name: userName }
+        ])
       })
 
       socketService.on('user-stopped-typing', (userInfo) => {
-        setTypingUsers(prev => prev.filter(email => email !== userInfo.email))
+        setTypingUsers(prev => prev.filter(user => user.email !== userInfo.email))
       })
 
       socketService.on('message-read', (data) => {
@@ -251,7 +323,7 @@ export default function ChatPage() {
     } finally {
       setLoading(false)
     }
-  }, [token, sessionId, user?.userId, loadChatHistory, scrollToBottom])
+  }, [token, sessionId, effectiveUser?.userId, effectiveUser?.id, loadChatHistory, scrollToBottom])
 
   // Send message
   const sendMessage = async () => {
@@ -264,12 +336,13 @@ export default function ChatPage() {
       setNewMessage('') // Clear message immediately to prevent double sending
       
       // Create temporary message for immediate display
+      const currentUserId = effectiveUser?.userId || effectiveUser?.id || ''
       const tempMessage: ChatMessage = {
         _id: `temp-${Date.now()}`, // Temporary ID
         sessionId,
-        senderId: user?.userId || '',
-        senderEmail: user?.email || '',
-        senderRole: user?.role as 'student' | 'mentor',
+        senderId: currentUserId,
+        senderEmail: effectiveUser?.email || '',
+        senderRole: effectiveUser?.role as 'student' | 'mentor',
         message: messageToSend,
         messageType: 'text',
         createdAt: new Date().toISOString(),
@@ -318,15 +391,18 @@ export default function ChatPage() {
 
   // Get participant info
   const getParticipantInfo = () => {
-    if (!sessionInfo || !user) return null
+    if (!sessionInfo || !effectiveUser) return null
     
-    const isStudent = user.role === 'student'
+    const isStudent = effectiveUser.role === 'student'
     const participant = isStudent ? sessionInfo.mentor : sessionInfo.student
     
+    // Safety check: ensure participant exists before accessing properties
+    if (!participant) return null
+    
     return {
-      name: participant.name,
-      email: participant.email,
-      image: isStudent ? sessionInfo.mentor.profileImage : undefined,
+      name: participant.name || 'Unknown User',
+      email: participant.email || '',
+      image: isStudent ? sessionInfo.mentor?.profileImage : undefined,
       role: isStudent ? 'mentor' : 'student'
     }
   }
@@ -347,25 +423,12 @@ export default function ChatPage() {
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current)
       }
+      chatInitialized.current = false
       socketService.leaveSession()
     }
-  }, [authLoading, token, sessionId, initializeChat])
+  }, [authLoading, token, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Handle keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        sendMessage()
-      }
-    }
-
-    const inputElement = messageInputRef.current
-    if (inputElement) {
-      inputElement.addEventListener('keypress', handleKeyPress)
-      return () => inputElement.removeEventListener('keypress', handleKeyPress)
-    }
-  }, [])
+  // Handle keyboard shortcuts - now handled directly on Input component
 
   // Show loading screen
   if (loading || authLoading) {
@@ -429,7 +492,7 @@ export default function ChatPage() {
                       <User className="h-4 w-4" />
                     </AvatarFallback>
                   </Avatar>
-                  {isUserOnline(participantInfo.role === 'mentor' ? sessionInfo?.mentor._id || '' : sessionInfo?.student._id || '') && (
+                  {participantInfo && sessionInfo && isUserOnline(participantInfo.role === 'mentor' ? sessionInfo?.mentor?._id || '' : sessionInfo?.student?._id || '') && (
                     <Circle className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 rounded-full border-2 border-white" />
                   )}
                 </div>
@@ -469,8 +532,11 @@ export default function ChatPage() {
           <div className="flex-1 p-4 overflow-y-auto h-[calc(100vh-16rem)]">
             <div className="space-y-4">
               {messages.map((message, index) => {
-                const isOwn = message.senderId === user?.userId
-                const isRead = message.readBy.length > 1 // More than just the sender
+                const currentUserId = effectiveUser?.userId || effectiveUser?.id
+                const isOwn = message.senderId === currentUserId
+                // Check if the OTHER user (not sender) has read the message
+                const otherUserHasRead = message.readBy.some(read => read.userId !== currentUserId)
+                const isRead = otherUserHasRead
                 
                 return (
                   <div
@@ -518,7 +584,7 @@ export default function ChatPage() {
                         <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                       </div>
                       <span className="text-xs text-gray-500 ml-2">
-                        {typingUsers[0]} is typing...
+                        {typingUsers[0]?.name || 'Someone'} is typing...
                       </span>
                     </div>
                   </div>
@@ -538,6 +604,12 @@ export default function ChatPage() {
                 onChange={(e) => {
                   setNewMessage(e.target.value)
                   handleTyping()
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    sendMessage()
+                  }
                 }}
                 placeholder="Type your message..."
                 disabled={!connected || sending}

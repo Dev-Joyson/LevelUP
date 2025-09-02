@@ -132,8 +132,12 @@ export default function StudentApplicationsPage() {
         const apiUrl = `${API_BASE_URL}/api/applications/student`
         console.log("API URL:", apiUrl)
           
-        console.log("Fetching applications for student ID:", studentId || "from token")
-        console.log("Using auth token:", token.substring(0, 15) + "...")
+        console.log("🔑 Auth Debug:", {
+          studentId: studentId || "from token",
+          tokenPreview: token.substring(0, 15) + "...",
+          user: localStorage.getItem("user"),
+          userData: localStorage.getItem("userData")
+        })
         
         // Add timeout for fetch to prevent hanging requests
         const controller = new AbortController()
@@ -203,17 +207,47 @@ export default function StudentApplicationsPage() {
           setApplications([])
         } else {
           try {
+            // Debug: Log the actual API response structure
+            console.log('📋 Raw API Response:', data)
+            console.log('📋 First application structure:', data[0])
+            
             // Format the applications data
-            const formattedApplications: Application[] = data.map((app: any) => {
+            const formattedApplications: Application[] = data.map((app: any, index: number) => {
+              // Debug: Log each application structure
+              if (index < 3) { // Only log first 3 to avoid spam
+                console.log(`📋 Application ${index}:`, {
+                  id: app.id,
+                  company: app.company,
+                  companyDetails: app.companyDetails,
+                  internshipDetails: app.internshipDetails,
+                  fullApp: app
+                })
+              }
+              
               // Validate required fields
               if (!app.id || !app.company || !app.role || !app.applicationDate || !app.status) {
                 console.warn("Application missing required fields:", app)
               }
               
+              // Enhanced company name extraction
+              const companyName = app.company || 
+                                 app.companyName || 
+                                 app.companyDetails?.name || 
+                                 app.internshipDetails?.companyName || 
+                                 app.internshipDetails?.company?.name ||
+                                 'Unknown Company'
+              
+              const companyLogo = app.companyLogo || 
+                                 app.companyDetails?.logo || 
+                                 app.internshipDetails?.companyLogo ||
+                                 app.internshipDetails?.company?.logo
+              
+              console.log(`📋 Extracted company for app ${index}: "${companyName}"`)
+              
               return {
                 id: app.id || app._id || `unknown-${Math.random()}`,
-                company: app.company || app.companyName || app.internshipDetails?.companyName || app.companyDetails?.name || 'Unknown Company',
-                companyLogo: app.companyLogo || app.companyDetails?.logo,
+                company: companyName,
+                companyLogo: companyLogo,
                 role: app.role || app.internshipDetails?.title || 'Unknown Role',
                 applicationDate: app.applicationDate ? new Date(app.applicationDate).toISOString().split('T')[0] : 'Unknown Date',
                 status: (app.status || 'Pending') as Application["status"],

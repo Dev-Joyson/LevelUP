@@ -1,5 +1,8 @@
 import jwt from 'jsonwebtoken';
 import userModel from '../models/userModel.js';
+import studentModel from '../models/studentModel.js';
+import mentorModel from '../models/mentorModel.js';
+import companyModel from '../models/companyModel.js';
 
 // Socket authentication middleware
 export const authenticateSocket = async (socket, next) => {
@@ -19,12 +22,31 @@ export const authenticateSocket = async (socket, next) => {
       return next(new Error('User not found'));
     }
 
+    // Get user first name from role-specific model
+    let userName = user.email; // fallback
+    try {
+      if (user.role === 'student') {
+        const student = await studentModel.findOne({ userId: user._id });
+        userName = student ? student.firstname || user.email : user.email;
+      } else if (user.role === 'mentor') {
+        const mentor = await mentorModel.findOne({ userId: user._id });
+        // Try name field first, then firstname, finally email
+        userName = mentor ? (mentor.name || mentor.firstname || user.email) : user.email;
+      } else if (user.role === 'company') {
+        const company = await companyModel.findOne({ userId: user._id });
+        userName = company ? company.name : user.email;
+      }
+    } catch (error) {
+      console.log('Error fetching user name:', error.message);
+    }
+
     // Attach user to socket
     socket.userId = user._id.toString();
     socket.userRole = user.role;
     socket.userEmail = user.email;
+    socket.userName = userName;
 
-    console.log(`Socket authenticated: ${user.email} (${user.role})`);
+    console.log(`Socket authenticated: ${userName} - ${user.email} (${user.role})`);
     next();
   } catch (error) {
     console.error('Socket authentication error:', error.message);

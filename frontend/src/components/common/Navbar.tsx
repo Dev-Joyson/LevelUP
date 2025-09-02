@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
-import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
+import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import Image from "next/image"
 
 export function Navbar() {
@@ -103,6 +103,7 @@ export function Navbar() {
                 <Button variant="ghost" size="icon" className="p-0"><Menu className="h-6 w-6" /></Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0">
+                <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                 {/* Profile section at the top of the menu */}
                 {isAuthenticated && user && (
                   <div className="flex flex-col items-center gap-2 py-6 border-b">

@@ -61,13 +61,13 @@ export interface SocketEvents {
   'message-read': (data: { messageId: string; readBy: { userId: string; email: string; role: string; readAt: string } }) => void;
 
   // User status events
-  'user-online': (user: { userId: string; role: string; email: string }) => void;
-  'user-offline': (user: { userId: string; role: string; email: string }) => void;
+  'user-online': (user: { userId: string; role: string; email: string; name?: string }) => void;
+  'user-offline': (user: { userId: string; role: string; email: string; name?: string }) => void;
   'online-users': (data: { users: OnlineUser[] }) => void;
 
   // Typing events
-  'user-typing': (user: { userId: string; email: string; role: string }) => void;
-  'user-stopped-typing': (user: { userId: string; email: string; role: string }) => void;
+  'user-typing': (user: { userId: string; email: string; role: string; name?: string }) => void;
+  'user-stopped-typing': (user: { userId: string; email: string; role: string; name?: string }) => void;
 
   // Connection health
   'pong': () => void;

@@ -63,7 +63,8 @@ export const setupSocketHandlers = (io) => {
         socket.to(sessionId).emit('user-online', {
           userId: socket.userId,
           role: socket.userRole,
-          email: socket.userEmail
+          email: socket.userEmail,
+          name: socket.userName
         });
 
         // Send list of currently online users
@@ -137,7 +138,8 @@ export const setupSocketHandlers = (io) => {
         socket.to(sessionId).emit('user-typing', {
           userId: socket.userId,
           email: socket.userEmail,
-          role: socket.userRole
+          role: socket.userRole,
+          name: socket.userName
         });
       }
     });
@@ -148,7 +150,8 @@ export const setupSocketHandlers = (io) => {
         socket.to(sessionId).emit('user-stopped-typing', {
           userId: socket.userId,
           email: socket.userEmail,
-          role: socket.userRole
+          role: socket.userRole,
+          name: socket.userName
         });
       }
     });
@@ -214,7 +217,8 @@ export const setupSocketHandlers = (io) => {
         socket.to(sessionId).emit('user-offline', {
           userId: socket.userId,
           role: socket.userRole,
-          email: socket.userEmail
+          email: socket.userEmail,
+          name: socket.userName
         });
 
         socket.currentSessionId = null;
@@ -244,7 +248,8 @@ export const setupSocketHandlers = (io) => {
         socket.to(sessionId).emit('user-offline', {
           userId: socket.userId,
           role: socket.userRole,
-          email: socket.userEmail
+          email: socket.userEmail,
+          name: socket.userName
         });
       }
       

@@ -29,36 +29,70 @@ const getStudentApplications = async (req, res) => {
     
     console.log(`Found ${applications.length} applications`);
     
+    // Debug: Log population results
+    const populationStats = {
+      totalApps: applications.length,
+      withInternship: applications.filter(app => app.internshipId).length,
+      withCompany: applications.filter(app => app.internshipId?.companyId).length,
+      withCompanyName: applications.filter(app => app.internshipId?.companyId?.name).length
+    };
+    console.log('📊 Population Stats:', populationStats);
+    
     // Transform the data for frontend use
-    const transformedApplications = applications.map(app => ({
-      id: app._id,
-      company: app.internshipId?.companyId?.name || 'Unknown Company',
-      companyLogo: app.internshipId?.companyId?.logo || null,
-      role: app.internshipId?.title || 'Unknown Position',
-      applicationDate: app.appliedAt,
-      status: app.status.charAt(0).toUpperCase() + app.status.slice(1), // Capitalize status
-      matchScore: app.matchScore?.total || 0,
-      internshipId: app.internshipId?._id || null,
-      coverLetter: app.coverLetter,
-      resumeUrl: app.resumeUrl,
-      // Include additional internship details
-      internshipDetails: app.internshipId ? {
-        domain: app.internshipId.domain,
-        location: app.internshipId.location,
-        workMode: app.internshipId.workMode,
-        salary: app.internshipId.salary,
-        duration: app.internshipId.duration,
-        startDate: app.internshipId.startDate
-      } : null,
-      // Include additional company details
-      companyDetails: app.internshipId?.companyId ? {
-        name: app.internshipId.companyId.name,
-        logo: app.internshipId.companyId.logo,
-        website: app.internshipId.companyId.website,
-        industry: app.internshipId.companyId.industry,
-        size: app.internshipId.companyId.size
-      } : null
-    }));
+    const transformedApplications = applications.map(app => {
+      // Debug: Log individual application data
+      console.log('🔍 Processing application:', {
+        appId: app._id,
+        internshipId: app.internshipId?._id,
+        companyData: app.internshipId?.companyId,
+        hasInternship: !!app.internshipId,
+        hasCompany: !!app.internshipId?.companyId
+      });
+      
+      return {
+        id: app._id,
+        company: app.internshipId?.companyId?.name || 
+                app.internshipId?.company?.name || // Fallback to embedded company name
+                'Unknown Company',
+        companyLogo: app.internshipId?.companyId?.logo || null,
+        role: app.internshipId?.title || 'Unknown Position',
+        applicationDate: app.appliedAt,
+        status: app.status.charAt(0).toUpperCase() + app.status.slice(1), // Capitalize status
+        matchScore: app.matchScore?.total || 0,
+        internshipId: app.internshipId?._id || null,
+        coverLetter: app.coverLetter,
+        resumeUrl: app.resumeUrl,
+        // Include additional internship details
+        internshipDetails: app.internshipId ? {
+          domain: app.internshipId.domain,
+          location: app.internshipId.location,
+          workMode: app.internshipId.workMode,
+          salary: app.internshipId.salary,
+          duration: app.internshipId.duration,
+          startDate: app.internshipId.startDate,
+          company: app.internshipId.company // Include embedded company data
+        } : null,
+        // Include additional company details
+        companyDetails: app.internshipId?.companyId ? {
+          name: app.internshipId.companyId.name,
+          logo: app.internshipId.companyId.logo,
+          website: app.internshipId.companyId.website,
+          industry: app.internshipId.companyId.industry,
+          size: app.internshipId.companyId.size
+        } : null
+      };
+    });
+
+    // Debug: Log final transformed data sample
+    console.log('📤 Final transformed data sample:', {
+      count: transformedApplications.length,
+      firstApp: transformedApplications[0] ? {
+        id: transformedApplications[0].id,
+        company: transformedApplications[0].company,
+        hasCompanyDetails: !!transformedApplications[0].companyDetails
+      } : 'No applications',
+      companiesFound: transformedApplications.filter(app => app.company !== 'Unknown Company').length
+    });
 
     res.status(200).json(transformedApplications);
   } catch (error) {

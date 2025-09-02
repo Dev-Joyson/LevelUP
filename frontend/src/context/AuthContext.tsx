@@ -38,19 +38,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     
+    // Debug: Check what's in localStorage
+    console.log('🔍 AuthContext Debug:', {
+      storedToken: storedToken ? 'EXISTS' : 'MISSING',
+      storedUser: storedUser ? storedUser : 'MISSING',
+      rawUserData: storedUser
+    });
+    
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        console.log('✅ Setting user:', parsedUser);
+        setToken(storedToken);
+        setUser(parsedUser);
+      } catch (error) {
+        console.error('❌ Error parsing user data:', error);
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+      }
+    } else {
+      console.log('❌ No stored auth data found');
     }
     setLoading(false);
   }, []);
 
   // Ensure user/token are cleared if token is missing (handles edge cases)
   useEffect(() => {
-    if (!token) {
+    if (!token && user) {
+      console.log('🚨 Clearing user because token is missing');
       setUser(null);
     }
-  }, [token]);
+  }, [token, user]);
 
   const login = async (email: string, password: string) => {
     try {
@@ -84,17 +102,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await userResponse.json();
 
       if (userResponse.ok) {
+        const userToStore = {
+          userId: userData.userId,
+          role: userData.role,
+          email: email  // Store the email too
+        };
+        
         localStorage.setItem('token', userData.token);
-        localStorage.setItem('user', JSON.stringify({
-          userId: userData.userId,
-          role: userData.role
-        }));
+        localStorage.setItem('user', JSON.stringify(userToStore));
 
+        console.log('✅ Login successful, storing user:', userToStore);
+        
         setToken(userData.token);
-        setUser({
-          userId: userData.userId,
-          role: userData.role
-        });
+        setUser(userToStore);
 
         // Redirect based on role
         switch (userData.role) {

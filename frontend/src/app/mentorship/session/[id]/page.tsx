@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/context/AuthContext"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -74,6 +75,7 @@ const mockMessages: Message[] = [
 export default async function SessionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const router = useRouter()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<string>("video")
   const [messages, setMessages] = useState<Message[]>(mockMessages)
   const [newMessage, setNewMessage] = useState<string>("")
@@ -118,10 +120,13 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
   const handleSendMessage = () => {
     if (!newMessage.trim()) return
     
+    const currentUserId = user?.userId || user?.id || "unknown"
+    const currentUserName = user?.email || "You"
+    
     const newMsg: Message = {
       id: `msg-${Date.now()}`,
-      senderId: "student-789", // In a real app, this would be the current user's ID
-      senderName: "Alex Johnson",
+      senderId: currentUserId,
+      senderName: currentUserName,
       senderAvatar: "/placeholder.svg",
       content: newMessage,
       timestamp: new Date(),
@@ -406,30 +411,35 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               
               {/* Messages */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message) => (
-                  <div 
-                    key={message.id} 
-                    className={`flex ${message.senderId === "student-789" ? "justify-end" : "justify-start"}`}
-                  >
+                {messages.map((message) => {
+                  const currentUserId = user?.userId || user?.id
+                  const isOwn = message.senderId === currentUserId
+                  
+                  return (
                     <div 
-                      className={`max-w-[80%] rounded-lg p-3 ${
-                        message.senderId === "student-789" 
-                          ? "bg-primary text-white" 
-                          : "bg-gray-100 text-gray-900"
-                      }`}
+                      key={message.id} 
+                      className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                     >
+                      <div 
+                        className={`max-w-[80%] rounded-lg p-3 ${
+                          isOwn 
+                            ? "bg-primary text-white" 
+                            : "bg-gray-100 text-gray-900"
+                        }`}
+                      >
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium">
-                          {message.senderId === "student-789" ? "You" : message.senderName}
+                          {isOwn ? "You" : message.senderName}
                         </span>
                         <span className="text-xs opacity-70">
                           {formatTimestamp(message.timestamp)}
                         </span>
                       </div>
                       <p className="text-sm">{message.content}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
                 <div ref={messagesEndRef} />
               </div>
               
@@ -541,36 +551,41 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
               <TabsContent value="chat" className="flex-1 flex flex-col data-[state=active]:flex">
                 {/* Chat Content for Mobile */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div 
-                      key={message.id} 
-                      className={`flex ${message.senderId === "student-789" ? "justify-end" : "justify-start"}`}
-                    >
-                      {message.senderId !== "student-789" && (
-                        <Avatar className="mr-2 flex-shrink-0">
-                          <AvatarImage src={message.senderAvatar} />
-                          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                      )}
+                  {messages.map((message) => {
+                    const currentUserId = user?.userId || user?.id
+                    const isOwn = message.senderId === currentUserId
+                    
+                    return (
                       <div 
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          message.senderId === "student-789" 
-                            ? "bg-primary text-white" 
-                            : "bg-gray-100 text-gray-900"
-                        }`}
+                        key={message.id} 
+                        className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
                       >
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-medium">
-                            {message.senderId === "student-789" ? "You" : message.senderName}
-                          </span>
-                          <span className="text-xs opacity-70">
-                            {formatTimestamp(message.timestamp)}
-                          </span>
+                        {!isOwn && (
+                          <Avatar className="mr-2 flex-shrink-0">
+                            <AvatarImage src={message.senderAvatar} />
+                            <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div 
+                          className={`max-w-[80%] rounded-lg p-3 ${
+                            isOwn 
+                              ? "bg-primary text-white" 
+                              : "bg-gray-100 text-gray-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs font-medium">
+                              {isOwn ? "You" : message.senderName}
+                            </span>
+                            <span className="text-xs opacity-70">
+                              {formatTimestamp(message.timestamp)}
+                            </span>
+                          </div>
+                          <p className="text-sm">{message.content}</p>
                         </div>
-                        <p className="text-sm">{message.content}</p>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
                 
