@@ -56,9 +56,6 @@ const register = async (req, res) => {
   } catch (error) {
 
     console.error('Registration error:', error);
-    if (error.name === 'MongoServerError' && error.code === 11000) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
     res.status(500).json({ message: 'Something went wrong during registration' });
     
   }
@@ -110,4 +107,21 @@ const login = async (req,res) => {
   }
 }
 
-export { register, login};
+// Get current user data (for profile)
+const getCurrentUser = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await userModel.findById(userId).select('-password -__v');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.status(200).json(user);
+  } catch (error) {
+    console.error('Error fetching user data:', error);
+    res.status(500).json({ message: 'Server error fetching user data' });
+  }
+};
+
+export { register, login, getCurrentUser };

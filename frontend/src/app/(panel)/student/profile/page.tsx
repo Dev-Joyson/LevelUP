@@ -14,7 +14,7 @@ interface StudentProfile {
   firstname: string
   lastname: string
   email: string
-  phone: string
+  phoneNumber: string
   university?: string
   graduationYear?: string
   resumeUrl?: string
@@ -46,6 +46,7 @@ export default function StudentProfilePage() {
   
   // Use port 5000 since other functionality is working with this port
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+  const [isPhoneSyncing, setIsPhoneSyncing] = useState(false)
 
   // Fetch student profile data or use mock data if API is unavailable
   useEffect(() => {
@@ -121,13 +122,26 @@ export default function StudentProfilePage() {
           console.error("Error fetching user email:", userError)
         }
         
+        console.log("Processing student data:", studentData)
+        
+        const phoneNumber = studentData.phoneNumber || "";
+        
         setFormData({
           fullName: `${studentData.firstname || ""} ${studentData.lastname || ""}`.trim(),
-          email: userEmail || studentData.email || "",
-          phoneNumber: studentData.phone || "",
+          // Use the email directly from studentData since we've updated the backend to include it
+          email: studentData.email || userEmail || "",
+          phoneNumber: phoneNumber,
           university: studentData.university || "",
           graduationYear: studentData.graduationYear || ""
         })
+        
+        // Automatically sync phone number if it's missing
+        if (!phoneNumber) {
+          syncPhoneFromResume(false).catch(err => {
+            console.error("Auto-sync phone failed:", err);
+            // Silently fail - don't show error toast for automatic sync
+          });
+        }
         
         if (studentData.profilePicture) {
           setProfilePicture(studentData.profilePicture)
@@ -197,7 +211,7 @@ export default function StudentProfilePage() {
       console.log("Update data:", {
         firstname,
         lastname,
-        phone: formData.phoneNumber,
+        phoneNumber: formData.phoneNumber,
         university: formData.university,
         graduationYear: formData.graduationYear
       })
@@ -216,7 +230,7 @@ export default function StudentProfilePage() {
           body: JSON.stringify({
             firstname,
             lastname,
-            phone: formData.phoneNumber,
+            phoneNumber: formData.phoneNumber,
             university: formData.university,
             graduationYear: formData.graduationYear
           }),
@@ -253,6 +267,56 @@ export default function StudentProfilePage() {
 
   const handleAvatarChange = () => {
     toast.info("Avatar upload feature coming soon")
+  }
+
+  const syncPhoneFromResume = async (showToasts = false) => {
+    setIsPhoneSyncing(true)
+    try {
+      const token = localStorage.getItem("token")
+      if (!token) {
+        if (showToasts) {
+          toast.error("Authentication error. Please login again.")
+        }
+        setIsPhoneSyncing(false)
+        return
+      }
+
+      const response = await fetch(`${API_BASE_URL}/api/student/sync-phone`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.message || "Failed to sync phone number")
+      }
+
+      const data = await response.json()
+      console.log("Phone sync response:", data)
+      
+      // Update the form data with the synced phone number
+      if (data && data.phoneNumber) {
+        setFormData(prev => ({
+          ...prev,
+          phoneNumber: data.phoneNumber
+        }))
+        
+        if (showToasts) {
+          toast.success("Phone number successfully synced from resume")
+        }
+      }
+    } catch (error) {
+      console.error("Error syncing phone:", error)
+      if (showToasts) {
+        const errorMessage = error instanceof Error ? error.message : "Failed to sync phone number";
+        toast.error(errorMessage)
+      }
+    } finally {
+      setIsPhoneSyncing(false)
+    }
   }
 
   return (
@@ -295,6 +359,7 @@ export default function StudentProfilePage() {
           </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-1">{formData.fullName || "Student"}</h2>
               <p className="text-gray-600">{formData.email || "No email available"}</p>
+              <p className="text-gray-600">{formData.phoneNumber || "No phone number available"}</p>
         </div>
 
         {/* Personal Information Form */}
