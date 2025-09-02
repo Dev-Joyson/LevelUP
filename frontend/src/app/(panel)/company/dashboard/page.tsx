@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Users, Briefcase, Clock, CheckCircle, Calendar, TrendingUp, BarChart3, PieChart } from "lucide-react"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar } from 'recharts'
+import { DateRange } from "react-day-picker"
 import { toast } from "sonner"
 
 interface DashboardStats {
@@ -89,10 +90,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [timeRange, setTimeRange] = useState("30") // 30, 90, 180 days
-  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-    from: undefined,
-    to: undefined
-  })
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
 
