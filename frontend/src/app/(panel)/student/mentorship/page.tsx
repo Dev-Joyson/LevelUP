@@ -76,7 +76,7 @@ export default function StudentMentorshipPage() {
       }
 
       // Fetch real student sessions from API
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.get(`${API_BASE_URL}/api/student/sessions`, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -120,7 +120,7 @@ export default function StudentMentorshipPage() {
 
   const handleConfirmSession = async (sessionId: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.post(
         `${API_BASE_URL}/api/student/sessions/${sessionId}/confirm`,
         {},
@@ -137,7 +137,7 @@ export default function StudentMentorshipPage() {
 
   const handleCancelSession = async (sessionId: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.post(
         `${API_BASE_URL}/api/student/sessions/${sessionId}/cancel`,
         {},

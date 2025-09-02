@@ -146,7 +146,7 @@ export default function SessionsPage() {
       }
 
       // Fetch real mentor sessions from API
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.get(`${API_BASE_URL}/api/mentor/sessions`, {
         headers: { Authorization: `Bearer ${token}` }
       })
