@@ -9,6 +9,7 @@ import {
   updateInternshipCriteria,
   getCompanyProfile,
   updateCompanyProfile,
+  getDashboardAnalytics,
   changePassword
 } from "../controllers/companyController.js"
 
@@ -16,6 +17,7 @@ const companyRouter = express.Router()
 
 // Dashboard
 companyRouter.get('/dashboard', authenticateUser, authorizeRoles("company"), companyDashboard)
+companyRouter.get('/dashboard-analytics', authenticateUser, authorizeRoles("company"), getDashboardAnalytics)
 
 // Profile management
 companyRouter.get('/profile', authenticateUser, authorizeRoles("company"), getCompanyProfile)
