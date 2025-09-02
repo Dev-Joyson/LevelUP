@@ -18,7 +18,8 @@ interface MentorshipSession {
   mentorName?: string
   mentorTitle?: string
   mentorImage?: string
-  date: string
+  date: string // YYYY-MM-DD format
+  startTime: string // HH:MM format
   duration: number
   status: "pending" | "confirmed" | "completed" | "cancelled"
   notes?: string
@@ -26,8 +27,8 @@ interface MentorshipSession {
 }
 
 // Helper functions
-const isSessionActive = (sessionDate: string, duration: number) => {
-  const sessionStart = new Date(sessionDate);
+const isSessionActive = (dateString: string, startTime: string, duration: number) => {
+  const sessionStart = new Date(`${dateString}T${startTime}:00`);
   const sessionEnd = new Date(sessionStart.getTime() + duration * 60000);
   const now = new Date();
   return now >= sessionStart && now <= sessionEnd;
@@ -43,17 +44,22 @@ const formatDate = (dateString: string) => {
   });
 };
 
-const formatTime = (dateString: string, duration: number) => {
-  const startDate = new Date(dateString);
+const formatTime = (dateString: string, startTime: string, duration: number) => {
+  // Combine date and time properly in user's timezone
+  const [hours, minutes] = startTime.split(':');
+  const startDate = new Date(`${dateString}T${startTime}:00`); // Combine as local time
   const endDate = new Date(startDate.getTime() + duration * 60000);
   
-  return `${startDate.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })} - ${endDate.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })}`;
+  // Clean timezone handling - dates are now handled consistently
+  
+  // Simple format for consistent display
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  };
+  
+  return `${startDate.toLocaleTimeString('en-US', formatOptions)} - ${endDate.toLocaleTimeString('en-US', formatOptions)}`;
 };
 
 export default function StudentMentorshipPage() {
@@ -76,7 +82,7 @@ export default function StudentMentorshipPage() {
       }
 
       // Fetch real student sessions from API
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.get(`${API_BASE_URL}/api/student/sessions`, {
         headers: { Authorization: `Bearer ${token}` }
       })
@@ -108,8 +114,8 @@ export default function StudentMentorshipPage() {
     session.status === "completed" || session.status === "cancelled"
   )
 
-  const handleJoinChat = (sessionId: string, sessionDate: string, duration: number) => {
-    if (!isSessionActive(sessionDate, duration)) {
+  const handleJoinChat = (sessionId: string, sessionDate: string, startTime: string, duration: number) => {
+    if (!isSessionActive(sessionDate, startTime, duration)) {
       toast.error('Chat is only available during the scheduled session time')
       return
     }
@@ -120,7 +126,7 @@ export default function StudentMentorshipPage() {
 
   const handleConfirmSession = async (sessionId: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.post(
         `${API_BASE_URL}/api/student/sessions/${sessionId}/confirm`,
         {},
@@ -137,7 +143,7 @@ export default function StudentMentorshipPage() {
 
   const handleCancelSession = async (sessionId: string) => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       const response = await axios.post(
         `${API_BASE_URL}/api/student/sessions/${sessionId}/cancel`,
         {},
@@ -171,7 +177,7 @@ export default function StudentMentorshipPage() {
           {upcomingSessions.length > 0 ? (
             <div className="space-y-4">
               {upcomingSessions.map((session) => {
-                const isActive = isSessionActive(session.date, session.duration);
+                const isActive = isSessionActive(session.date, session.startTime, session.duration);
                 
                 return (
                   <Card key={session._id} className="overflow-hidden">
@@ -199,7 +205,7 @@ export default function StudentMentorshipPage() {
                             </div>
                             <div className="flex items-center gap-1">
                               <Clock className="h-4 w-4" />
-                              <span>{formatTime(session.date, session.duration)}</span>
+                              <span>{formatTime(session.date, session.startTime, session.duration)}</span>
                             </div>
                           </div>
                           
@@ -210,7 +216,7 @@ export default function StudentMentorshipPage() {
                               <>
                                 {isActive ? (
                                   <Button 
-                                    onClick={() => handleJoinChat(session._id, session.date, session.duration)} 
+                                    onClick={() => handleJoinChat(session._id, session.date, session.startTime, session.duration)} 
                                     className="bg-green-600 hover:bg-green-700"
                                   >
                                     <MessageCircle className="h-4 w-4 mr-2" />
@@ -219,7 +225,7 @@ export default function StudentMentorshipPage() {
                                 ) : (
                                   <Button 
                                     variant="outline"
-                                    onClick={() => handleJoinChat(session._id, session.date, session.duration)} 
+                                    onClick={() => handleJoinChat(session._id, session.date, session.startTime, session.duration)} 
                                     disabled={!isActive}
                                     className="text-gray-500"
                                     title="Chat only available during session time"
@@ -319,7 +325,7 @@ export default function StudentMentorshipPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4" />
-                            <span>{formatTime(session.date, session.duration)}</span>
+                            <span>{formatTime(session.date, session.startTime, session.duration)}</span>
                           </div>
                         </div>
                         

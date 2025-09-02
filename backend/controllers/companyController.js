@@ -3,6 +3,7 @@ import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
 import userModel from '../models/userModel.js';
 import bcrypt from 'bcryptjs';
+import mongoose from 'mongoose';
 
 const companyDashboard = (req, res) => {
     res.json({ message: "Welcome to the Company Dashboard", user: req.user });
@@ -465,6 +466,195 @@ const updateCompanyProfile = async (req, res) => {
   }
 };
 
+// Get dashboard analytics and stats
+const getDashboardAnalytics = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { timeRange = '30' } = req.query; // days: 30, 90, 180
+
+    // First, find the company document using the user ID
+    const company = await companyModel.findOne({ userId: new mongoose.Types.ObjectId(userId) });
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company profile not found'
+      });
+    }
+
+    const companyId = company._id;
+    console.log(`🏢 Dashboard for Company: ${company.companyName} (ID: ${companyId})`);
+
+    // Calculate date range
+    const now = new Date();
+    const daysBack = parseInt(timeRange);
+    const startDate = new Date(now);
+    startDate.setDate(startDate.getDate() - daysBack);
+
+    // Get company's internships
+    const companyInternships = await internshipModel.find({ 
+      companyId: new mongoose.Types.ObjectId(companyId) 
+    }).select('_id title');
+
+    console.log(`📊 Found ${companyInternships.length} internships for this company`);
+
+    const internshipIds = companyInternships.map(int => int._id);
+
+    // Dashboard Stats
+    const [
+      totalInternships,
+      totalApplications,
+      pendingApplications,
+      approvedApplications
+    ] = await Promise.all([
+      // Total internships by this company
+      internshipModel.countDocuments({ companyId: companyId }),
+      
+      // Total applications for company's internships
+      applicationModel.countDocuments({ 
+        companyId: companyId
+      }),
+      
+      // Pending reviews (pending + reviewed status)
+      applicationModel.countDocuments({ 
+        companyId: companyId,
+        status: { $in: ['pending', 'reviewed'] }
+      }),
+      
+      // Approved this month (accepted + shortlisted)
+      applicationModel.countDocuments({ 
+        companyId: companyId,
+        status: { $in: ['accepted', 'shortlisted'] },
+        updatedAt: { $gte: startDate }
+      })
+    ]);
+
+    console.log(`📈 Stats - Internships: ${totalInternships}, Applications: ${totalApplications}, Pending: ${pendingApplications}, Approved: ${approvedApplications}`);
+
+    // Analytics Data
+
+    // 1. Applications over time (daily for last period)
+    const applicationsOverTime = await applicationModel.aggregate([
+      {
+        $match: {
+          companyId: companyId,
+          appliedAt: { $gte: startDate }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$appliedAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // 2. Application status breakdown
+    const statusBreakdown = await applicationModel.aggregate([
+      {
+        $match: {
+          companyId: companyId
+        }
+      },
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // 3. Top internship positions by applications
+    const topPositions = await applicationModel.aggregate([
+      {
+        $match: {
+          companyId: companyId
+        }
+      },
+      {
+        $lookup: {
+          from: 'internships',
+          localField: 'internshipId',
+          foreignField: '_id',
+          as: 'internship'
+        }
+      },
+      {
+        $unwind: '$internship'
+      },
+      {
+        $group: {
+          _id: '$internship.title',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // Recent internships with application counts
+    const recentInternships = await internshipModel.aggregate([
+      {
+        $match: {
+          companyId: companyId
+        }
+      },
+      {
+        $lookup: {
+          from: 'applications',
+          localField: '_id',
+          foreignField: 'internshipId',
+          as: 'applications'
+        }
+      },
+      {
+        $project: {
+          title: 1,
+          location: 1,
+          jobType: 1,
+          isActive: 1,
+          createdAt: 1,
+          applicationCount: { $size: '$applications' }
+        }
+      },
+      { $sort: { createdAt: -1 } },
+      { $limit: 10 }
+    ]);
+
+    console.log(`📊 Analytics - Applications over time: ${applicationsOverTime.length} data points`);
+    console.log(`📊 Analytics - Status breakdown:`, statusBreakdown);
+    console.log(`📊 Analytics - Top positions:`, topPositions);
+    console.log(`📊 Analytics - Recent internships: ${recentInternships.length}`);
+
+    res.json({
+      success: true,
+      data: {
+        stats: {
+          totalInternships,
+          totalApplications,
+          pendingReviews: pendingApplications,
+          studentsApproved: approvedApplications
+        },
+        analytics: {
+          applicationsOverTime,
+          statusBreakdown,
+          topPositions
+        },
+        recentInternships
+      }
+    });
+
+  } catch (error) {
+    console.error('Dashboard analytics error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to fetch dashboard analytics' 
+    });
+  }
+};
+
 // Change password
 const changePassword = async (req, res) => {
   try {
@@ -524,6 +714,7 @@ export {
   updateInternshipCriteria,
   getCompanyProfile,
   updateCompanyProfile,
+  getDashboardAnalytics,
   changePassword
   // Note: Application-related functions moved to applicationController.js
 };

@@ -626,13 +626,17 @@ const getStudentSessions = async (req, res) => {
     const formattedSessions = sessions.map(session => {
       const mentor = session.mentorId;
       
-      // Combine date and startTime to create full datetime
+      // Get date in YYYY-MM-DD format (local date, no timezone conversion)
       const sessionDate = new Date(session.date);
+      const dateOnly = sessionDate.toISOString().split('T')[0]; // Gets YYYY-MM-DD
+      
+      // Combine date and startTime for status checking only
+      const sessionDateTime = new Date(session.date);
       const [hours, minutes] = session.startTime.split(':');
-      sessionDate.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+      sessionDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
 
-      // Calculate session end time
-      const sessionEndTime = new Date(sessionDate.getTime() + (session.duration * 60000));
+      // Calculate session end time for status checking
+      const sessionEndTime = new Date(sessionDateTime.getTime() + (session.duration * 60000));
       const now = new Date();
 
       // Determine session status based on time
@@ -651,7 +655,8 @@ const getStudentSessions = async (req, res) => {
         mentorName: mentor ? `${mentor.firstname} ${mentor.lastname}`.trim() : 'Unknown Mentor',
         mentorTitle: mentor ? mentor.title : '',
         mentorImage: mentor ? mentor.profileImage : '',
-        date: sessionDate.toISOString(),
+        date: dateOnly, // ✅ Send date without timezone conversion
+        startTime: session.startTime, // ✅ Send time separately  
         duration: session.duration,
         status: sessionStatus,
         notes: '',

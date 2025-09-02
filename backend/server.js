@@ -35,7 +35,7 @@ connectDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Added for multipart/form-data
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:3001"],
+  origin: ["http://localhost:3000", "http://localhost:3001","https://level-up-five.vercel.app"],
   credentials: true
 }));
 
