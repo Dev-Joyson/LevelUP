@@ -47,13 +47,23 @@ const formatTime = (dateString: string, duration: number) => {
   const startDate = new Date(dateString);
   const endDate = new Date(startDate.getTime() + duration * 60000);
   
-  return `${startDate.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })} - ${endDate.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit' 
-  })}`;
+  // Debug logging to understand timezone differences
+  console.log('🕐 Date Debug:', {
+    original: dateString,
+    parsed: startDate.toISOString(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    userAgent: typeof window !== 'undefined' ? window.navigator.userAgent.slice(0, 50) : 'SSR'
+  });
+  
+  // Ensure consistent timezone handling across environments
+  const formatOptions: Intl.DateTimeFormatOptions = {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone // Use browser's timezone
+  };
+  
+  return `${startDate.toLocaleTimeString('en-US', formatOptions)} - ${endDate.toLocaleTimeString('en-US', formatOptions)}`;
 };
 
 export default function StudentMentorshipPage() {
