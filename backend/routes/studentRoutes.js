@@ -13,7 +13,8 @@ import {
   getInternshipById,
   bookMentorSession,
   getStudentSessions,
-  changePassword
+  changePassword,
+  syncPhoneFromResume
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -23,6 +24,7 @@ studentRouter.post("/resume", authenticateUser, authorizeRoles("student"), uploa
 studentRouter.get("/profile", authenticateUser, authorizeRoles("student"), getStudentProfile);
 studentRouter.put("/update-profile", authenticateUser, authorizeRoles("student"), updateStudentProfile);
 studentRouter.put("/change-password", authenticateUser, authorizeRoles("student"), changePassword);
+studentRouter.post("/sync-phone", authenticateUser, authorizeRoles("student"), syncPhoneFromResume);
 studentRouter.post("/apply-internship", authenticateUser, authorizeRoles("student"), applyInternship);
 studentRouter.get("/test-scoring", authenticateUser, authorizeRoles("student"), testScoring);
 studentRouter.post("/book-mentor-session", authenticateUser, authorizeRoles("student"), bookMentorSession);
