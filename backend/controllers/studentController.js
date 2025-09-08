@@ -5,12 +5,14 @@ import cloudinary from '../config/cloudinary.js';
 import internshipModel from '../models/internshipModel.js';
 import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
+import notificationModel from '../models/notificationModel.js';
 import { calculateMatchScore } from './scoringController.js';
 import { parseResumeData } from './resumeParserController.js';
 import resumeModel from '../models/resumeModel.js';
 import sessionModel from '../models/sessionModel.js';
 import mentorModel from '../models/mentorModel.js';
 import bcrypt from 'bcryptjs';
+import { emitAdminNotification } from '../socket/socketHandlers.js';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -202,6 +204,36 @@ const applyInternship = async (req, res) => {
     if (company) {
       company.appliedStudents = (company.appliedStudents || 0) + 1;
       await company.save();
+      
+      // Create notification for the company
+      try {
+        const notification = await notificationModel.create({
+          type: 'application_submitted',
+          title: 'New Application Received',
+          message: `${student.firstname} ${student.lastname} has applied for ${internship.title} position.`,
+          recipient: 'company',
+          entityId: application._id,
+          entityModel: 'Application',
+          isRead: false,
+          isArchived: false
+        });
+        
+        // Emit notification to company via websocket
+        const io = global.io;
+        if (io) {
+          emitCompanyNotification(io, company._id.toString(), {
+            _id: notification._id,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            entityId: notification.entityId,
+            createdAt: notification.createdAt
+          });
+        }
+      } catch (notifError) {
+        console.error('Error creating application notification:', notifError);
+        // Don't block the application process if notification fails
+      }
     }
 
     console.log('12. Sending response...');

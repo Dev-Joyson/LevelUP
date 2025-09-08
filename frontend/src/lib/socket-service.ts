@@ -50,6 +50,16 @@ interface SessionTime {
   current: Date;
 }
 
+// Admin notification interface
+export interface Notification {
+  _id: string;
+  type: 'company_registration' | 'mentor_registration' | 'application_submitted' | 'system';
+  title: string;
+  message: string;
+  entityId?: string;
+  createdAt: string;
+}
+
 export interface SocketEvents {
   // Connection events
   'session-joined': (data: { sessionId: string; message: string; sessionInfo: SessionInfo; sessionTime: SessionTime }) => void;
@@ -69,6 +79,12 @@ export interface SocketEvents {
   'user-typing': (user: { userId: string; email: string; role: string; name?: string }) => void;
   'user-stopped-typing': (user: { userId: string; email: string; role: string; name?: string }) => void;
 
+  // Admin notifications
+  'admin-notification': (notification: Notification) => void;
+  
+  // Company notifications
+  'company-notification': (notification: Notification) => void;
+
   // Connection health
   'pong': () => void;
 }
@@ -77,6 +93,9 @@ class SocketService {
   private socket: Socket | null = null;
   private token: string | null = null;
   private currentSessionId: string | null = null;
+  private adminNotificationsSubscribed: boolean = false;
+  private companyNotificationsSubscribed: boolean = false;
+  private companyId: string | null = null;
 
   // Initialize socket connection
   connect(token: string): Promise<Socket> {
@@ -185,6 +204,40 @@ class SocketService {
     }
   }
 
+  // Subscribe to admin notifications
+  subscribeToAdminNotifications(): void {
+    if (this.socket?.connected && !this.adminNotificationsSubscribed) {
+      this.socket.emit('subscribe-admin-notifications');
+      this.adminNotificationsSubscribed = true;
+    }
+  }
+
+  // Unsubscribe from admin notifications
+  unsubscribeFromAdminNotifications(): void {
+    if (this.socket?.connected && this.adminNotificationsSubscribed) {
+      this.socket.emit('unsubscribe-admin-notifications');
+      this.adminNotificationsSubscribed = false;
+    }
+  }
+  
+  // Subscribe to company notifications
+  subscribeToCompanyNotifications(companyId: string): void {
+    if (this.socket?.connected && !this.companyNotificationsSubscribed) {
+      this.companyId = companyId;
+      this.socket.emit('subscribe-company-notifications', { companyId });
+      this.companyNotificationsSubscribed = true;
+    }
+  }
+
+  // Unsubscribe from company notifications
+  unsubscribeFromCompanyNotifications(): void {
+    if (this.socket?.connected && this.companyNotificationsSubscribed) {
+      this.socket.emit('unsubscribe-company-notifications');
+      this.companyNotificationsSubscribed = false;
+      this.companyId = null;
+    }
+  }
+
   // Get connection status
   get isConnected(): boolean {
     return this.socket?.connected || false;
@@ -193,6 +246,21 @@ class SocketService {
   // Get current session ID
   get sessionId(): string | null {
     return this.currentSessionId;
+  }
+
+  // Get admin notifications subscription status
+  get isAdminNotificationsSubscribed(): boolean {
+    return this.adminNotificationsSubscribed;
+  }
+  
+  // Get company notifications subscription status
+  get isCompanyNotificationsSubscribed(): boolean {
+    return this.companyNotificationsSubscribed;
+  }
+  
+  // Get company ID
+  get currentCompanyId(): string | null {
+    return this.companyId;
   }
 
   // Ping server for connection health check

@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import { NotificationDropdown } from "@/components/AdminComponents/notification-dropdown"
+import { CompanyNotificationDropdown } from "@/components/CompanyComponents/notification-dropdown"
 import axios from "axios"
 
 interface PanelNavbarProps {
@@ -140,9 +142,15 @@ export function PanelNavbar({
           <MessageSquare className="h-5 w-5" />
         </Button>
 
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-        </Button>
+        {userRole === 'admin' ? (
+          <NotificationDropdown />
+        ) : userRole === 'company' ? (
+          <CompanyNotificationDropdown />
+        ) : (
+          <Button variant="ghost" size="icon">
+            <Bell className="h-5 w-5" />
+          </Button>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
