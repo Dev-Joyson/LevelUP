@@ -713,6 +713,84 @@ const getMentorSessions = async (req, res) => {
     });
   }
 };
+
+// Cancel/Delete a session (accessible by mentor)
+const cancelSession = async (req, res) => {
+  try {
+    console.log('=== CANCEL SESSION FUNCTION STARTED ===');
+    const { sessionId } = req.params;
+    const mentorUserId = req.user.userId;
+
+    // Validate sessionId
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID is required' });
+    }
+
+    // Find the mentor
+    const mentor = await mentorModel.findOne({ userId: mentorUserId });
+    if (!mentor) {
+      return res.status(404).json({ message: 'Mentor not found' });
+    }
+    console.log('Mentor found:', mentor._id);
+
+    // Find the session and verify ownership
+    const session = await sessionModel.findById(sessionId).populate('studentId');
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Verify that this mentor owns the session
+    if (session.mentorId.toString() !== mentor._id.toString()) {
+      return res.status(403).json({ message: 'You are not authorized to cancel this session' });
+    }
+    console.log('Session ownership verified');
+
+    // Check if session can be cancelled (not already completed)
+    if (session.status === 'completed') {
+      return res.status(400).json({ message: 'Cannot cancel a completed session' });
+    }
+
+    // Update session status to cancelled
+    const cancelledSession = await sessionModel.findByIdAndUpdate(
+      sessionId,
+      { status: 'cancelled' },
+      { new: true }
+    );
+    console.log('Session cancelled:', cancelledSession._id);
+
+    // Remove session from student's sessions array if it exists
+    if (session.studentId && session.studentId.sessions) {
+      const student = await studentModel.findById(session.studentId._id);
+      if (student && student.sessions.includes(sessionId)) {
+        student.sessions = student.sessions.filter(id => id.toString() !== sessionId);
+        await student.save();
+        console.log('Session removed from student sessions array');
+      }
+    }
+
+    // Get student info for notification
+    const studentInfo = session.studentId;
+    const studentName = studentInfo ? `${studentInfo.firstname} ${studentInfo.lastname}`.trim() : 'Student';
+
+    res.status(200).json({
+      message: `Session with ${studentName} has been cancelled successfully`,
+      cancelledSession: {
+        id: cancelledSession._id,
+        status: cancelledSession.status,
+        studentName: studentName,
+        date: cancelledSession.date,
+        startTime: cancelledSession.startTime
+      }
+    });
+
+  } catch (error) {
+    console.error('Error cancelling session:', error);
+    res.status(500).json({ 
+      message: 'Failed to cancel session. Please try again.',
+      error: error.message 
+    });
+  }
+};
   
 // Change password
 const changePassword = async (req, res) => {
@@ -779,5 +857,6 @@ export {
   addSessionType,
   updateSessionType,
   getMentorSessions,
-  changePassword
+  changePassword,
+  cancelSession
 };

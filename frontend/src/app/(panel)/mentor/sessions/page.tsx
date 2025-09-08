@@ -23,7 +23,9 @@ import {
   Edit,
   Video,
   CheckCircle,
-  MessageCircle
+  MessageCircle,
+  Trash2,
+  X
 } from "lucide-react"
 
 interface Session {
@@ -130,6 +132,34 @@ export default function SessionsPage() {
     
     // Navigate to chat page
     router.push(`/chat/${sessionId}`)
+  }
+
+  // Handle canceling/deleting a session
+  const handleCancelSession = async (sessionId: string, studentName: string) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to cancel the session with ${studentName}? This action cannot be undone and will also remove the session from the student's panel.`
+    )
+    
+    if (!confirmed) return
+
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      const response = await axios.delete(`${API_BASE_URL}/api/mentor/sessions/${sessionId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+
+      if (response.data) {
+        toast.success(response.data.message || 'Session cancelled successfully')
+        
+        // Refresh sessions list
+        fetchSessions()
+      }
+    } catch (error: any) {
+      console.error('Error cancelling session:', error)
+      const errorMessage = error.response?.data?.message || 'Failed to cancel session'
+      toast.error(errorMessage)
+    }
   }
 
   // Fetch mentor sessions
@@ -377,6 +407,20 @@ export default function SessionsPage() {
                               </Button>
                             )}
                           </>
+                        )}
+                        
+                        {/* Cancel/Delete Button - Show for upcoming and in-progress sessions */}
+                        {(session.status === "upcoming" || session.status === "in-progress") && (
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
+                            onClick={() => handleCancelSession(session.id, session.studentName)}
+                            title="Cancel this session"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Cancel
+                          </Button>
                         )}
                       </div>
                     </TableCell>
