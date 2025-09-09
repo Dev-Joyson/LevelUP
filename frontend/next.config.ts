@@ -18,6 +18,9 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  images: {
+    domains: ['res.cloudinary.com'], // ✅ allow Cloudinary images
+  },
 }
 
 module.exports = nextConfig

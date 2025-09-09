@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
+import { useStudentContextSafe } from "@/context/StudentContext"
 import axios from "axios"
 
 interface PanelNavbarProps {
@@ -30,6 +31,7 @@ export function PanelNavbar({
   userEmail: defaultUserEmail = "user@example.com",
 }: PanelNavbarProps) {
   const { logout, user, token } = useAuth()
+  const { profileData, profileLoading } = useStudentContextSafe()
   const router = useRouter()
   const [userData, setUserData] = useState({
     name: defaultUserName,
@@ -42,10 +44,21 @@ export function PanelNavbar({
   useEffect(() => {
     if (user?.role === 'mentor' && token) {
       fetchMentorData()
-    } else {
+    } else if (user?.role === 'student' && profileData && !profileLoading) {
+      // Use student data from context
+      setUserData({
+        name: `${profileData.firstname} ${profileData.lastname}`.trim() || 'Student User',
+        email: profileData.email || user?.email || defaultUserEmail,
+        firstname: profileData.firstname || 'Student',
+        lastname: profileData.lastname || 'User'
+      })
+      setLoading(false)
+    } else if (user?.role === 'student' && !profileLoading) {
+      setLoading(false)
+    } else if (!user?.role) {
       setLoading(false)
     }
-  }, [user, token])
+  }, [user, token, profileData, profileLoading])
 
   const fetchMentorData = async () => {
     try {
@@ -154,7 +167,9 @@ export function PanelNavbar({
           <div className="text-xs text-gray-500 font-light">{getRoleDisplayName()}</div>
         </div>
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder.svg?height=32&width=32" />
+                <AvatarImage 
+                  src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg?height=32&width=32"} 
+                />
                 <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
               </Avatar>
             </Button>
@@ -162,7 +177,10 @@ export function PanelNavbar({
           <DropdownMenuContent align="end" className="w-56">
             <div className="flex items-center gap-2 p-2">
               <Avatar className="h-8 w-8">
-                <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                <AvatarImage 
+                  src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg"} 
+                  alt="User avatar" 
+                />
                 <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">

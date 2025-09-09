@@ -2,6 +2,7 @@ import express from "express"
 import { authenticateUser } from "../middlewares/authMiddleware.js"
 import { authorizeRoles } from "../middlewares/roleMiddleware.js"
 import upload from '../middlewares/multer.js';
+import imageUpload from '../middlewares/multerImage.js';
 import { 
   studentDashboard, 
   uploadResume, 
@@ -13,7 +14,8 @@ import {
   getInternshipById,
   bookMentorSession,
   getStudentSessions,
-  changePassword
+  changePassword,
+  uploadProfileImage
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -29,6 +31,7 @@ studentRouter.post("/book-mentor-session", authenticateUser, authorizeRoles("stu
 studentRouter.get("/sessions", authenticateUser, authorizeRoles("student"), getStudentSessions);
 studentRouter.get("/internships", getAllInternships);
 studentRouter.get("/internships/:id", getInternshipById);
+studentRouter.post("/upload-profile-image", authenticateUser, authorizeRoles("student"), imageUpload.single('profileImage'), uploadProfileImage);
 // Note: Application routes moved to applicationRoutes.js
 
 export default studentRouter

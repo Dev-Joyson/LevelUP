@@ -237,7 +237,17 @@ const getStudentProfile = async (req, res) => {
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    res.status(200).json(student);
+
+    // Also get user email from userModel
+    const user = await userModel.findById(req.user.userId).select('email');
+    
+    // Combine student data with user email
+    const profileData = {
+      ...student.toObject(),
+      email: user ? user.email : ''
+    };
+
+    res.status(200).json(profileData);
   } catch (error) {
     console.error('Get student profile error:', error);
     res.status(500).json({ message: 'Failed to fetch student profile' });
@@ -252,14 +262,36 @@ const updateStudentProfile = async (req, res) => {
       return res.status(404).json({ message: 'Student not found' });
     }
     
-    const { firstname, lastname, phone, university, graduationYear } = req.body;
+    const { firstname, lastname, phoneNumber, email, university, graduationYear } = req.body;
     
-    // Update fields if provided
+    // Update student fields if provided
     if (firstname) student.firstname = firstname;
     if (lastname) student.lastname = lastname;
-    if (phone) student.phone = phone;
+    if (phoneNumber) student.phoneNumber = phoneNumber; // Fixed field name
     if (university) student.university = university;
     if (graduationYear) student.graduationYear = graduationYear;
+    
+    // Update email in userModel if provided
+    if (email) {
+      const user = await userModel.findById(req.user.userId);
+      if (user) {
+        // Check if email is already taken by another user
+        const existingUser = await userModel.findOne({ 
+          email: email, 
+          _id: { $ne: req.user.userId } 
+        });
+        
+        if (existingUser) {
+          return res.status(400).json({ 
+            message: 'Email address is already in use by another account' 
+          });
+        }
+        
+        user.email = email;
+        user.updatedAt = new Date();
+        await user.save();
+      }
+    }
     
     await student.save();
     
@@ -268,9 +300,10 @@ const updateStudentProfile = async (req, res) => {
       student: {
         firstname: student.firstname,
         lastname: student.lastname,
-        phone: student.phone,
+        phoneNumber: student.phoneNumber, // Fixed field name
         university: student.university,
-        graduationYear: student.graduationYear
+        graduationYear: student.graduationYear,
+        email: email // Return updated email if provided
       } 
     });
   } catch (error) {
@@ -626,6 +659,47 @@ const changePassword = async (req, res) => {
   }
 };
 
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // Remove old profile image from Cloudinary
+    if (student.profileImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(student.profileImagePublicId, { resource_type: 'image' });
+      } catch (err) {
+        console.error('Failed to delete old profile image:', err.message);
+      }
+    }
+
+    const fileName = `${student.firstname}_${student.lastname}_profile`;
+    const { url, publicId } = await uploadToCloudinary(req.file, req.user.userId, fileName,   {
+      folder: 'student_profile_images',
+      resourceType: 'image',
+    }
+  );
+
+    student.profileImageUrl = url;
+    student.profileImagePublicId = publicId;
+    await student.save();
+
+    res.status(200).json({
+      message: 'Profile image uploaded successfully',
+      profileImageUrl: url,
+    });
+
+  } catch (error) {
+    console.error('Profile image upload error:', error);
+    res.status(500).json({ message: 'Failed to upload profile image' });
+  }
+};
+
+
 export { 
   studentDashboard, 
   uploadResume, 
@@ -637,5 +711,6 @@ export {
   getInternshipById,
   bookMentorSession, 
   getStudentSessions,
-  changePassword
+  changePassword,
+  uploadProfileImage
 }

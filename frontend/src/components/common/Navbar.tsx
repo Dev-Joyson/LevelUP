@@ -13,13 +13,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/context/AuthContext"
+import { useStudentContextSafe } from "@/context/StudentContext"
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet"
 import Image from "next/image"
 
 export function Navbar() {
   const { user, isAuthenticated, logout, loading } = useAuth()
+  const { profileData, profileLoading } = useStudentContextSafe()
 
   const getUserInitials = () => {
+    // For students, use actual name if available
+    if (user?.role === "student" && profileData) {
+      const firstname = profileData.firstname || ""
+      const lastname = profileData.lastname || ""
+      if (firstname && lastname) {
+        return `${firstname.charAt(0)}${lastname.charAt(0)}`.toUpperCase()
+      }
+      if (firstname) {
+        return firstname.charAt(0).toUpperCase()
+      }
+    }
+    
+    // Fallback to email-based initials
     if (!user || !user.email) return "U"
     const email = user.email
     const nameParts = email.split("@")[0].split(".")
@@ -264,14 +279,22 @@ export function Navbar() {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-8 w-8 cursor-pointer">
-                      <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                      <AvatarImage 
+                        src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg"} 
+                        alt="User avatar" 
+                      />
                       <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
                     </Avatar>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <div className="flex items-center justify-start gap-2 p-2">
                       <div className="flex flex-col space-y-1 leading-none">
-                        <p className="font-medium">{user.email ? user.email.split("@")[0] : "User"}</p>
+                        <p className="font-medium">
+                          {user?.role === "student" && profileData ? 
+                            `${profileData.firstname} ${profileData.lastname}`.trim() || user.email?.split("@")[0] || "User" :
+                            user.email?.split("@")[0] || "User"
+                          }
+                        </p>
                         {user.email && <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>}
                         <p className="text-xs text-muted-foreground">{getRoleDisplayName()}</p>
                       </div>

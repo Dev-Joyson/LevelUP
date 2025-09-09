@@ -7,18 +7,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { toast } from "react-toastify"
+import { toast } from "sonner"
 import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
+import { useStudentContext } from "@/context/StudentContext"
 
 interface StudentProfile {
   firstname: string
   lastname: string
   email: string
-  phone: string
+  phoneNumber: string
   university?: string
   graduationYear?: string
   resumeUrl?: string
-  profilePicture?: string
+  profileImageUrl?: string
   userId: string
 }
 
@@ -31,9 +32,11 @@ interface FormData {
 }
 
 export default function StudentProfilePage() {
+  const { updateProfileData } = useStudentContext()
   const [isEditing, setIsEditing] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isPageLoading, setIsPageLoading] = useState(true)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
@@ -42,7 +45,7 @@ export default function StudentProfilePage() {
     university: "",
     graduationYear: ""
   })
-  const [profilePicture, setProfilePicture] = useState<string | null>(null)
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null)
   
   // Use port 5000 since other functionality is working with this port
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
@@ -103,34 +106,16 @@ export default function StudentProfilePage() {
         const studentData: StudentProfile = await response.json()
         console.log("Student data received:", studentData)
         
-        // Try to get email from user data
-        let userEmail = ""
-        try {
-          const userResponse = await fetch(`${API_BASE_URL}/api/auth/user`, {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
-          })
-          
-          if (userResponse.ok) {
-            const userData = await userResponse.json()
-            userEmail = userData.email || ""
-          }
-        } catch (userError) {
-          console.error("Error fetching user email:", userError)
-        }
-        
         setFormData({
           fullName: `${studentData.firstname || ""} ${studentData.lastname || ""}`.trim(),
-          email: userEmail || studentData.email || "",
-          phoneNumber: studentData.phone || "",
+          email: studentData.email || "",
+          phoneNumber: studentData.phoneNumber || "",
           university: studentData.university || "",
           graduationYear: studentData.graduationYear || ""
         })
         
-        if (studentData.profilePicture) {
-          setProfilePicture(studentData.profilePicture)
+        if (studentData.profileImageUrl) {
+          setProfileImageUrl(studentData.profileImageUrl)
         }
         
       } catch (error) {
@@ -197,7 +182,8 @@ export default function StudentProfilePage() {
       console.log("Update data:", {
         firstname,
         lastname,
-        phone: formData.phoneNumber,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email,
         university: formData.university,
         graduationYear: formData.graduationYear
       })
@@ -216,7 +202,8 @@ export default function StudentProfilePage() {
           body: JSON.stringify({
             firstname,
             lastname,
-            phone: formData.phoneNumber,
+            phoneNumber: formData.phoneNumber,
+            email: formData.email,
             university: formData.university,
             graduationYear: formData.graduationYear
           }),
@@ -251,9 +238,55 @@ export default function StudentProfilePage() {
     setShowPasswordModal(true)
   }
 
-  const handleAvatarChange = () => {
-    toast.info("Avatar upload feature coming soon")
-  }
+  const handleAvatarChange = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+  
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+  
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Not authenticated. Please log in again.");
+        return;
+      }
+
+      setIsUploadingImage(true); // Start loading
+  
+      const formData = new FormData();
+      formData.append("profileImage", file); // 👈 must match backend field name
+  
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/student/upload-profile-image`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+  
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+  
+        const data = await response.json();
+        setProfileImageUrl(data.profileImageUrl); // 👈 update avatar
+        // Update context so navbar gets updated immediately
+        updateProfileData({ profileImageUrl: data.profileImageUrl });
+        toast.success("Profile image updated!");
+      } catch (error) {
+        console.error("Image upload error:", error);
+        toast.error("Failed to upload profile image.");
+      } finally {
+        setIsUploadingImage(false); // Stop loading
+      }
+    };
+  
+    input.click(); // 👈 open file dialog
+  };
+  
 
   return (
     <div className="p-8">
@@ -269,10 +302,10 @@ export default function StudentProfilePage() {
         {/* Profile Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-4 group">
-            <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200">
-                  {profilePicture ? (
+            <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 relative">
+                    {profileImageUrl ? (
               <Image
-                      src={profilePicture}
+                      src={profileImageUrl}
                 alt="Profile picture"
                 width={128}
                 height={128}
@@ -283,14 +316,26 @@ export default function StudentProfilePage() {
                       {formData.fullName ? formData.fullName.charAt(0).toUpperCase() : "?"}
                     </div>
                   )}
+              
+              {/* Loading overlay */}
+              {isUploadingImage && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                  <Loader2 className="h-8 w-8 animate-spin text-white" />
+                </div>
+              )}
             </div>
             <Button
               size="sm"
               variant="secondary"
               className="absolute bottom-2 right-2 rounded-full w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={handleAvatarChange}
+              disabled={isUploadingImage}
             >
-              <Camera className="h-4 w-4" />
+              {isUploadingImage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Camera className="h-4 w-4" />
+              )}
             </Button>
           </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-1">{formData.fullName || "Student"}</h2>
@@ -328,10 +373,9 @@ export default function StudentProfilePage() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange("email", e.target.value)}
-                      disabled={true} // Email should always be disabled as it's linked to auth
+                  disabled={!isEditing}
                   className="h-12 bg-gray-50 border-gray-200 disabled:bg-gray-50 disabled:text-gray-500"
                 />
-                    <p className="text-xs text-gray-500 mt-1">Contact admin to change your email address</p>
               </div>
 
               {/* Phone Number */}
