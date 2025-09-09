@@ -5,12 +5,14 @@ import cloudinary from '../config/cloudinary.js';
 import internshipModel from '../models/internshipModel.js';
 import companyModel from '../models/companyModel.js';
 import applicationModel from '../models/applicationModel.js';
+import notificationModel from '../models/notificationModel.js';
 import { calculateMatchScore } from './scoringController.js';
 import { parseResumeData } from './resumeParserController.js';
 import resumeModel from '../models/resumeModel.js';
 import sessionModel from '../models/sessionModel.js';
 import mentorModel from '../models/mentorModel.js';
 import bcrypt from 'bcryptjs';
+import { emitAdminNotification } from '../socket/socketHandlers.js';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -202,6 +204,36 @@ const applyInternship = async (req, res) => {
     if (company) {
       company.appliedStudents = (company.appliedStudents || 0) + 1;
       await company.save();
+      
+      // Create notification for the company
+      try {
+        const notification = await notificationModel.create({
+          type: 'application_submitted',
+          title: 'New Application Received',
+          message: `${student.firstname} ${student.lastname} has applied for ${internship.title} position.`,
+          recipient: 'company',
+          entityId: application._id,
+          entityModel: 'Application',
+          isRead: false,
+          isArchived: false
+        });
+        
+        // Emit notification to company via websocket
+        const io = global.io;
+        if (io) {
+          emitCompanyNotification(io, company._id.toString(), {
+            _id: notification._id,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            entityId: notification.entityId,
+            createdAt: notification.createdAt
+          });
+        }
+      } catch (notifError) {
+        console.error('Error creating application notification:', notifError);
+        // Don't block the application process if notification fails
+      }
     }
 
     console.log('12. Sending response...');
@@ -233,11 +265,74 @@ const applyInternship = async (req, res) => {
 // Get current student profile
 const getStudentProfile = async (req, res) => {
   try {
-    const student = await studentModel.findOne({ userId: req.user.userId }).select('-_id -__v -resumePublicId');
+    // Find the student and populate with user data to get email
+    const student = await studentModel.findOne({ userId: req.user.userId })
+      .populate('userId', 'email')
+      .select('-_id -__v -resumePublicId');
+      
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    res.status(200).json(student);
+    
+    // Create a clean response object with user email included
+    const studentResponse = {
+      ...student.toJSON(),
+      email: student.userId ? student.userId.email : '',
+    };
+    
+    // Remove the userId object since we extracted what we needed
+    if (studentResponse.userId && typeof studentResponse.userId === 'object') {
+      delete studentResponse.userId;
+    }
+    
+    // Log to verify data structure
+    console.log('Student data being returned:', {
+      firstName: studentResponse.firstname,
+      lastName: studentResponse.lastname,
+      email: studentResponse.email,
+      phone: studentResponse.phoneNumber,
+      hasPhoneField: 'phoneNumber' in studentResponse
+    });
+    
+    // Find the latest resume for this student - don't update DB yet, just include in response
+    try {
+      // If no phone number or empty phone number
+      if (!studentResponse.phoneNumber || studentResponse.phoneNumber.trim() === '') {
+        const resumeData = await resumeModel.findOne({ studentId: student._id })
+          .sort({ uploadedAt: -1 });
+          
+        if (resumeData && resumeData.parsedData) {
+          console.log('Resume parsed data:', resumeData.parsedData);
+          
+          // Try various possible formats of phone field
+          if (resumeData.parsedData.Phone) {
+            studentResponse.phoneNumber = resumeData.parsedData.Phone;
+            console.log('Found phone in resume (Phone):', studentResponse.phoneNumber);
+          } else if (resumeData.parsedData.phone) {
+            studentResponse.phoneNumber = resumeData.parsedData.phone;
+            console.log('Found phone in resume (phone):', studentResponse.phoneNumber);
+          } else if (resumeData.parsedData.PhoneNumber) {
+            studentResponse.phoneNumber = resumeData.parsedData.PhoneNumber;
+            console.log('Found phone in resume (PhoneNumber):', studentResponse.phoneNumber);
+          } else if (resumeData.parsedData.phoneNumber) {
+            studentResponse.phoneNumber = resumeData.parsedData.phoneNumber;
+            console.log('Found phone in resume (phoneNumber):', studentResponse.phoneNumber);
+          } else if (resumeData.parsedData.contact && resumeData.parsedData.contact.phone) {
+            studentResponse.phoneNumber = resumeData.parsedData.contact.phone;
+            console.log('Found phone in resume (contact.phone):', studentResponse.phoneNumber);
+          } else {
+            console.log('No phone field found in parsed resume data');
+          }
+        } else {
+          console.log('No resume data found for student');
+        }
+      }
+    } catch (resumeError) {
+      console.error('Error retrieving phone from resume:', resumeError);
+      // Continue without phone number if resume retrieval fails
+    }
+    
+    res.status(200).json(studentResponse);
   } catch (error) {
     console.error('Get student profile error:', error);
     res.status(500).json({ message: 'Failed to fetch student profile' });
@@ -252,12 +347,12 @@ const updateStudentProfile = async (req, res) => {
       return res.status(404).json({ message: 'Student not found' });
     }
     
-    const { firstname, lastname, phone, university, graduationYear } = req.body;
+    const { firstname, lastname, phoneNumber, university, graduationYear } = req.body;
     
     // Update fields if provided
     if (firstname) student.firstname = firstname;
     if (lastname) student.lastname = lastname;
-    if (phone) student.phone = phone;
+    if (phoneNumber) student.phoneNumber = phoneNumber;
     if (university) student.university = university;
     if (graduationYear) student.graduationYear = graduationYear;
     
@@ -268,7 +363,7 @@ const updateStudentProfile = async (req, res) => {
       student: {
         firstname: student.firstname,
         lastname: student.lastname,
-        phone: student.phone,
+        phoneNumber: student.phoneNumber,
         university: student.university,
         graduationYear: student.graduationYear
       } 
@@ -276,6 +371,62 @@ const updateStudentProfile = async (req, res) => {
   } catch (error) {
     console.error('Error updating student profile:', error);
     res.status(500).json({ message: 'Failed to update profile' });
+  }
+};
+
+// Sync phone number from resume to student profile
+const syncPhoneFromResume = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    // Find the latest resume for this student
+    const resumeData = await resumeModel.findOne({ studentId: student._id })
+      .sort({ uploadedAt: -1 });
+      
+    if (!resumeData || !resumeData.parsedData) {
+      return res.status(404).json({ message: 'No resume found or resume has no parsed data' });
+    }
+    
+    let phoneFound = false;
+    let phoneNumber = '';
+    
+    // Try various possible formats of phone field
+    if (resumeData.parsedData.Phone) {
+      phoneNumber = resumeData.parsedData.Phone;
+      phoneFound = true;
+    } else if (resumeData.parsedData.phone) {
+      phoneNumber = resumeData.parsedData.phone;
+      phoneFound = true;
+    } else if (resumeData.parsedData.PhoneNumber) {
+      phoneNumber = resumeData.parsedData.PhoneNumber;
+      phoneFound = true;
+    } else if (resumeData.parsedData.phoneNumber) {
+      phoneNumber = resumeData.parsedData.phoneNumber;
+      phoneFound = true;
+    } else if (resumeData.parsedData.contact && resumeData.parsedData.contact.phone) {
+      phoneNumber = resumeData.parsedData.contact.phone;
+      phoneFound = true;
+    }
+    
+    if (!phoneFound) {
+      return res.status(404).json({ message: 'No phone number found in resume' });
+    }
+    
+    // Update the student profile with the phone number
+    student.phoneNumber = phoneNumber;
+    await student.save();
+    
+    return res.status(200).json({
+      message: 'Phone number successfully synced from resume',
+      phoneNumber
+    });
+    
+  } catch (error) {
+    console.error('Error syncing phone from resume:', error);
+    res.status(500).json({ message: 'Failed to sync phone number' });
   }
 };
 
@@ -637,5 +788,6 @@ export {
   getInternshipById,
   bookMentorSession, 
   getStudentSessions,
-  changePassword
+  changePassword,
+  syncPhoneFromResume
 }

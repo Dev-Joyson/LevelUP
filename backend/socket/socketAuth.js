@@ -34,7 +34,11 @@ export const authenticateSocket = async (socket, next) => {
         userName = mentor ? (mentor.name || mentor.firstname || user.email) : user.email;
       } else if (user.role === 'company') {
         const company = await companyModel.findOne({ userId: user._id });
-        userName = company ? company.name : user.email;
+        userName = company ? company.companyName || user.email : user.email;
+        if (company) {
+          // Store company ID on the socket
+          socket.companyId = company._id.toString();
+        }
       }
     } catch (error) {
       console.log('Error fetching user name:', error.message);

@@ -4,7 +4,9 @@ import userModel from '../models/userModel.js'
 import mentorModel from '../models/mentorModel.js';
 import studentModel from '../models/studentModel.js'
 import resumeModel from '../models/resumeModel.js'
+import notificationModel from '../models/notificationModel.js'
 import { sendEmail } from '../utils/emailService.js'
+import { emitAdminNotification } from '../socket/socketHandlers.js'
 
 const adminLogin = (req, res) => {
   const { email, password } = req.body;
