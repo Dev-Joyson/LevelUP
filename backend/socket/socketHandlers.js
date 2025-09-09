@@ -1,9 +1,58 @@
 import { authenticateSocket, verifySessionAccess } from './socketAuth.js';
 import chatModel from '../models/chatModel.js';
 import sessionModel from '../models/sessionModel.js';
+import notificationModel from '../models/notificationModel.js';
 
 // Store active users per session
 const activeUsers = new Map(); // sessionId -> Set of user objects
+
+// Store active admin users for notifications
+const activeAdmins = new Set(); // Set of admin socket IDs
+
+// Store active company users for notifications
+const activeCompanies = new Map(); // companyId -> Set of socket IDs
+
+// Function to emit notification to all connected admins
+export const emitAdminNotification = (io, notification) => {
+  try {
+    // Broadcast to all active admin sockets
+    if (activeAdmins.size > 0) {
+      console.log(`Emitting notification to ${activeAdmins.size} active admins`);
+      
+      // Convert Set to Array for iteration
+      for (const adminSocketId of activeAdmins) {
+        io.to(adminSocketId).emit('admin-notification', notification);
+      }
+    } else {
+      console.log('No active admin users to notify');
+    }
+  } catch (error) {
+    console.error('Error emitting admin notification:', error);
+  }
+};
+
+// Function to emit notification to a specific company
+export const emitCompanyNotification = (io, companyId, notification) => {
+  try {
+    // Check if company has active sockets
+    if (activeCompanies.has(companyId) && activeCompanies.get(companyId).size > 0) {
+      const companySockets = activeCompanies.get(companyId);
+      console.log(`Emitting notification to company ${companyId} with ${companySockets.size} active sockets`);
+      
+      // Send notification to all active sockets for this company
+      for (const socketId of companySockets) {
+        io.to(socketId).emit('company-notification', notification);
+      }
+      return true;
+    } else {
+      console.log(`No active sockets for company ${companyId}`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error emitting company notification:', error);
+    return false;
+  }
+};
 
 export const setupSocketHandlers = (io) => {
   // Authentication middleware
@@ -11,6 +60,21 @@ export const setupSocketHandlers = (io) => {
 
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.userEmail} (${socket.userRole})`);
+    
+    // If this is an admin user, track them for notifications
+    if (socket.userRole === 'admin') {
+      activeAdmins.add(socket.id);
+      console.log(`Admin user connected: ${socket.userEmail}, total admins online: ${activeAdmins.size}`);
+    }
+    
+    // If this is a company user, track them for notifications
+    if (socket.userRole === 'company' && socket.companyId) {
+      if (!activeCompanies.has(socket.companyId)) {
+        activeCompanies.set(socket.companyId, new Set());
+      }
+      activeCompanies.get(socket.companyId).add(socket.id);
+      console.log(`Company user connected: ${socket.userEmail}, companyId: ${socket.companyId}`);
+    }
 
     // Handle joining a session chat room
     socket.on('join-session', async (data) => {
@@ -253,12 +317,89 @@ export const setupSocketHandlers = (io) => {
         });
       }
       
+      // If admin, remove from active admins tracking
+      if (socket.userRole === 'admin') {
+        activeAdmins.delete(socket.id);
+        console.log(`Admin user disconnected, remaining admins: ${activeAdmins.size}`);
+      }
+      
+      // If company, remove from active companies tracking
+      if (socket.userRole === 'company' && socket.companyId) {
+        if (activeCompanies.has(socket.companyId)) {
+          activeCompanies.get(socket.companyId).delete(socket.id);
+          
+          // If no more active connections for this company, remove the entry
+          if (activeCompanies.get(socket.companyId).size === 0) {
+            activeCompanies.delete(socket.companyId);
+          }
+          
+          console.log(`Company user disconnected: ${socket.userEmail}, companyId: ${socket.companyId}`);
+        }
+      }
+      
       console.log(`User disconnected: ${socket.userEmail}`);
     });
 
     // Handle ping/pong for connection health
     socket.on('ping', () => {
       socket.emit('pong');
+    });
+    
+    // Subscribe to admin notification channel
+    socket.on('subscribe-admin-notifications', () => {
+      if (socket.userRole === 'admin') {
+        console.log(`Admin ${socket.userEmail} subscribed to notifications`);
+        socket.join('admin-notifications');
+      } else {
+        socket.emit('error', { message: 'Only admins can subscribe to admin notifications' });
+      }
+    });
+    
+    // Unsubscribe from admin notification channel
+    socket.on('unsubscribe-admin-notifications', () => {
+      socket.leave('admin-notifications');
+      console.log(`User ${socket.userEmail} unsubscribed from admin notifications`);
+    });
+    
+    // Subscribe to company notification channel
+    socket.on('subscribe-company-notifications', (data) => {
+      const { companyId } = data || {};
+      const socketCompanyId = socket.companyId || companyId;
+      
+      if (socket.userRole === 'company' && socketCompanyId) {
+        // Store the company ID with the socket for future reference
+        socket.companyId = socketCompanyId;
+        
+        // Add to active companies tracking if not already there
+        if (!activeCompanies.has(socketCompanyId)) {
+          activeCompanies.set(socketCompanyId, new Set());
+        }
+        activeCompanies.get(socketCompanyId).add(socket.id);
+        
+        // Join the company specific room
+        socket.join(`company-${socketCompanyId}`);
+        console.log(`Company user ${socket.userEmail} subscribed to notifications for company ${socketCompanyId}`);
+      } else {
+        socket.emit('error', { message: 'Only company users can subscribe to company notifications' });
+      }
+    });
+    
+    // Unsubscribe from company notification channel
+    socket.on('unsubscribe-company-notifications', () => {
+      if (socket.userRole === 'company' && socket.companyId) {
+        socket.leave(`company-${socket.companyId}`);
+        console.log(`Company user ${socket.userEmail} unsubscribed from company notifications`);
+        
+        // Remove from active companies tracking
+        if (activeCompanies.has(socket.companyId)) {
+          activeCompanies.get(socket.companyId).delete(socket.id);
+          
+          // Clean up if no more connections
+          if (activeCompanies.get(socket.companyId).size === 0) {
+            activeCompanies.delete(socket.companyId);
+          }
+        }
+      }
     });
   });
 

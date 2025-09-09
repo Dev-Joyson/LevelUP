@@ -14,6 +14,7 @@ import companyRouter from './routes/companyRoutes.js';
 import resumeParserRouter from './routes/resumeParserRoutes.js';
 import applicationRouter from './routes/applicationRoutes.js';
 import chatRouter from './routes/chatRoutes.js';
+import notificationRouter from './routes/notificationRoutes.js';
 import { setupSocketHandlers } from './socket/socketHandlers.js';
 
 // App config
@@ -26,6 +27,8 @@ const io = new Server(server, {
     credentials: true
   }
 });
+// Make io instance globally available
+global.io = io;
 const port = process.env.PORT || 4000;
 
 connectDB();
@@ -53,6 +56,7 @@ app.use('/api/company', companyRouter);
 app.use('/api/resume', resumeParserRouter);
 app.use('/api/applications', applicationRouter);
 app.use('/api/chat', chatRouter);
+app.use('/api/notifications', notificationRouter);
 
 // Multer error handling middleware
 app.use((err, req, res, next) => {

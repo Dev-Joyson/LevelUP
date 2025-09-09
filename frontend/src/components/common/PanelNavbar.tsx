@@ -153,9 +153,15 @@ export function PanelNavbar({
           <MessageSquare className="h-5 w-5" />
         </Button>
 
-        <Button variant="ghost" size="icon">
-          <Bell className="h-5 w-5" />
-        </Button>
+        {userRole === 'admin' ? (
+          <NotificationDropdown />
+        ) : userRole === 'company' ? (
+          <CompanyNotificationDropdown />
+        ) : (
+          <Button variant="ghost" size="icon">
+            <Bell className="h-5 w-5" />
+          </Button>
+        )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
