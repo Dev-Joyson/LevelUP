@@ -116,12 +116,12 @@ export default function StudentProfilePage() {
         })
         
         // Automatically sync phone number if it's missing
-        if (!phoneNumber) {
-          syncPhoneFromResume(false).catch(err => {
-            console.error("Auto-sync phone failed:", err);
-            // Silently fail - don't show error toast for automatic sync
-          });
-        }
+        // if (!phoneNumber) {
+        //   syncPhoneFromResume(false).catch(err => {
+        //     console.error("Auto-sync phone failed:", err);
+        //     // Silently fail - don't show error toast for automatic sync
+        //   });
+        // }
         
         if (studentData.profileImageUrl) {
           setProfileImageUrl(studentData.profileImageUrl)

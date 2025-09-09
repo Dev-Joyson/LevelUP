@@ -16,7 +16,9 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useStudentContextSafe } from "@/context/StudentContext"
 import axios from "axios"
-
+import { NotificationDropdown } from "@/components/AdminComponents/notification-dropdown"
+import { CompanyNotificationDropdown } from "@/components/CompanyComponents/notification-dropdown"
+    
 interface PanelNavbarProps {
   title?: string
   userRole?: "student" | "mentor" | "company" | "admin"
