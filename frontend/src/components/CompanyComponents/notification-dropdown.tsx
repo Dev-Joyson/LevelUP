@@ -17,7 +17,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 import socketService, { Notification } from "@/lib/socket-service"
 import axios from "axios"
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow'
 
 export function CompanyNotificationDropdown() {
   const { token, user } = useAuth()
@@ -150,8 +150,8 @@ export function CompanyNotificationDropdown() {
           // Subscribe to company notifications with the company ID
           socketService.on('company-notification', handleNewNotification)
           
-          // Let the server know this is a company connection
-          socketService.emit('subscribe-company-notifications', { companyId })
+          // Subscribe to company notifications
+          socketService.subscribeToCompanyNotifications(companyId)
         })
         .catch(error => {
           console.error('Socket connection error:', error)

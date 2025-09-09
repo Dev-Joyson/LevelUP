@@ -58,6 +58,7 @@ export interface Notification {
   message: string;
   entityId?: string;
   createdAt: string;
+  isRead?: boolean;
 }
 
 export interface SocketEvents {

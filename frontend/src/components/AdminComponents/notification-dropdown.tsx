@@ -17,7 +17,7 @@ import { useAuth } from "@/context/AuthContext"
 import { useRouter } from "next/navigation"
 import socketService, { Notification } from "@/lib/socket-service"
 import axios from "axios"
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow'
 
 export function NotificationDropdown() {
   const { token, user } = useAuth()
