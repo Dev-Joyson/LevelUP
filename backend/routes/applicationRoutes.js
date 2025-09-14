@@ -16,6 +16,6 @@ applicationRouter.get("/student/:applicationId", authenticateUser, authorizeRole
 
 // Company routes
 applicationRouter.get("/company", authenticateUser, authorizeRoles("company"), getCompanyApplications);
-applicationRouter.patch("/status/:applicationId", authenticateUser, authorizeRoles("company", "admin"), updateApplicationStatus);
+applicationRouter.put("/:applicationId/status", authenticateUser, authorizeRoles("company", "admin"), updateApplicationStatus);
 
 export default applicationRouter;

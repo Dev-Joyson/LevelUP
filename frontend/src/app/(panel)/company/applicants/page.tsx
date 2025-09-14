@@ -169,7 +169,7 @@ export default function ApplicantsPage() {
   const updateApplicationStatus = async (applicationId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem("token")
-      const response = await fetch(`${API_BASE_URL}/api/applications/status/${applicationId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/applications/${applicationId}/status`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
