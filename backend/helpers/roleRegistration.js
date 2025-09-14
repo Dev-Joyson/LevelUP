@@ -21,7 +21,8 @@ const registerByRole = async (role, userId, extra) => {
       mentorRequests: extra.mentorRequests || [],
     });
   } else if (role === 'mentor') {
-    return await mentorModel.create({
+    // Create the mentor
+    const mentor = await mentorModel.create({
       userId,
       firstname: extra.firstname || '',
       lastname: extra.lastname || '',
@@ -29,6 +30,39 @@ const registerByRole = async (role, userId, extra) => {
       availability: extra.availability || [],
       sessions: [],
     });
+    
+    // Create notification for admin
+    try {
+      const notification = await notificationModel.create({
+        type: 'mentor_registration',
+        title: 'New Mentor Registration',
+        message: `${extra.firstname} ${extra.lastname} has registered as a mentor and is awaiting verification.`,
+        recipient: 'admin',
+        entityId: mentor._id,
+        entityModel: 'Mentor',
+        isRead: false,
+        isArchived: false
+      });
+      
+      // Get the server instance to emit socket events
+      const io = global.io; // Access global io instance
+      if (io) {
+        // Emit notification to all connected admins
+        emitAdminNotification(io, {
+          _id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          entityId: notification.entityId,
+          createdAt: notification.createdAt
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error creating mentor registration notification:', error);
+    }
+    
+    return mentor;
   } else if (role === 'company') {
     // Create the company
     const company = await companyModel.create({
