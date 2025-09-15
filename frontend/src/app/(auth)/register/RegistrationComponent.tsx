@@ -14,8 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { MultiSelect } from "@/components/multi-select"
-import { toast, ToastContainer } from "react-toastify"
-import "react-toastify/dist/ReactToastify.css"
+import { toast } from "sonner"
+import OTPVerification from "@/components/OTPVerification"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || '';
 
@@ -42,8 +42,11 @@ export default function RegistrationComponent() {
   const [registrationDocument, setRegistrationDocument] = useState<File | null>(null)
   const [uploadError, setUploadError] = useState("")
 
+  // Registration email for OTP verification
+  const [registrationEmail, setRegistrationEmail] = useState("")
+
   const [step, setStep] = useState(1)
-  const totalSteps = 2
+  const totalSteps = 3
 
   const skillOptions = [
     "JavaScript",
@@ -83,6 +86,7 @@ export default function RegistrationComponent() {
     if (emailParam && !emailTouched) setEmail(emailParam)
   }, [searchParams, emailTouched])
 
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -101,7 +105,13 @@ export default function RegistrationComponent() {
     }
   }
 
+  // OTP Verification Success Handler
+  const handleOTPVerificationSuccess = () => {
+    router.push("/login")
+  }
+
   const handleContinue = async () => {
+    // Step 1: Basic Information
     if (step === 1) {
       if (role === "company") {
         if (!email.trim() || !password.trim()) {
@@ -115,7 +125,9 @@ export default function RegistrationComponent() {
         }
       }
       setStep(2)
-    } else {
+    } 
+    // Step 2: Profile Details & Registration
+    else if (step === 2) {
       let extra: any = {}
 
       if (role === "company") {
@@ -138,12 +150,14 @@ export default function RegistrationComponent() {
             body: formData,
           })
 
+          const data = await response.json()
+
           if (response.ok) {
-            toast.success("Registration successful!")
-            router.push("/login")
+            setRegistrationEmail(email)
+            setStep(3) // Move to OTP verification
+            toast.success("Registration completed! Please check your email for verification code.")
           } else {
-            const error = await response.json()
-            toast.error(error.message || "Registration failed")
+            toast.error(data.message || "Registration failed")
           }
         } catch (err) {
           toast.error("Server error. Please try again later.")
@@ -178,12 +192,14 @@ export default function RegistrationComponent() {
           body: JSON.stringify({ email, password, role, extra }),
         })
 
+        const data = await response.json()
+
         if (response.ok) {
-          toast.success("Registration successful!")
-          router.push("/login")
+          setRegistrationEmail(email)
+          setStep(3) // Move to OTP verification
+          toast.success("Registration completed! Please check your email for verification code.")
         } else {
-          const error = await response.json()
-          toast.error(error.message || "Registration failed")
+          toast.error(data.message || "Registration failed")
         }
       } catch (err) {
         toast.error("Server error. Please try again later.")
@@ -195,7 +211,6 @@ export default function RegistrationComponent() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-2 sm:px-0">
-      <ToastContainer />
       <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8">
         <div>
           <p className="text-[#535c91] text-xl sm:text-2xl text-center font-bold">
@@ -205,13 +220,15 @@ export default function RegistrationComponent() {
           <h2 className="text-base sm:text-[20px] font-semibold mb-4 sm:mb-5 text-primary">
             {step === 1
               ? `${role.charAt(0).toUpperCase() + role.slice(1)} registration`
-              : "Complete your profile"}
+              : step === 2 
+              ? "Complete your profile"
+              : "Verify your email"}
           </h2>
 
-          {step === 2 && (
+          {(step === 2 || step === 3) && (
             <div className="mb-3 sm:mb-4">
               <button
-                onClick={() => setStep(1)}
+                onClick={() => setStep(step - 1)}
                 className="text-xs sm:text-sm text-blue-700 underline cursor-pointer"
               >
                 Back
@@ -389,12 +406,23 @@ export default function RegistrationComponent() {
             </div>
           )}
 
-          <Button
-            onClick={handleContinue}
-            className="w-full mt-6 bg-primary text-white py-2 rounded text-sm sm:text-base"
-          >
-            {step === totalSteps ? "Sign Up" : "Continue"}
-          </Button>
+          {step === 3 && (
+            <OTPVerification
+              email={registrationEmail}
+              onVerifySuccess={handleOTPVerificationSuccess}
+              title="Verify Your Email Address"
+              subtitle={`We've sent a verification code to ${registrationEmail}. Please enter the 6-digit code below.`}
+            />
+          )}
+
+          {step < 3 && (
+            <Button
+              onClick={handleContinue}
+              className="w-full mt-6 bg-primary text-white py-2 rounded text-sm sm:text-base"
+            >
+              {step === 2 ? "Sign Up" : "Continue"}
+            </Button>
+          )}
 
           <div className="mt-4 text-center">
             <p className="text-xs sm:text-sm text-gray-500">

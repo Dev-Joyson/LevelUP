@@ -134,6 +134,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             router.push('/');
         }
       } else {
+        // Handle email verification required case
+        if (userData.emailNotVerified) {
+          // Redirect to verification page with email as parameter
+          const encodedEmail = encodeURIComponent(email);
+          router.push(`/verify-email?email=${encodedEmail}`);
+          throw new Error('Please complete email verification to continue.');
+        }
         throw new Error(userData.message || 'Login failed');
       }
     } catch (error) {
