@@ -28,6 +28,10 @@ export const authenticateSocket = async (socket, next) => {
       if (user.role === 'student') {
         const student = await studentModel.findOne({ userId: user._id });
         userName = student ? student.firstname || user.email : user.email;
+        if (student) {
+          // Store student ID on the socket
+          socket.studentId = student._id.toString();
+        }
       } else if (user.role === 'mentor') {
         const mentor = await mentorModel.findOne({ userId: user._id });
         // Try name field first, then firstname, finally email
