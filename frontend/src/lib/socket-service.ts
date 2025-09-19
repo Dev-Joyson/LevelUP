@@ -53,7 +53,7 @@ interface SessionTime {
 // Admin notification interface
 export interface Notification {
   _id: string;
-  type: 'company_registration' | 'mentor_registration' | 'application_submitted' | 'application_approved' | 'application_rejected' | 'system';
+  type: 'company_registration' | 'mentor_registration' | 'application_submitted' | 'application_approved' | 'application_rejected' | 'system' | 'session_booked';
   title: string;
   message: string;
   entityId?: string;
@@ -99,8 +99,10 @@ class SocketService {
   private currentSessionId: string | null = null;
   private adminNotificationsSubscribed: boolean = false;
   private companyNotificationsSubscribed: boolean = false;
+  private mentorNotificationsSubscribed: boolean = false;
   private studentNotificationsSubscribed: boolean = false;
   private companyId: string | null = null;
+  private mentorId: string | null = null;
 
   // Initialize socket connection
   connect(token: string): Promise<Socket> {
@@ -243,6 +245,24 @@ class SocketService {
     }
   }
 
+  // Subscribe to mentor notifications
+  subscribeToMentorNotifications(mentorId?: string): void {
+    if (this.socket?.connected && !this.mentorNotificationsSubscribed) {
+      if (mentorId) {
+        this.mentorId = mentorId;
+      }
+      this.socket.emit('subscribe-mentor-notifications', { mentorId: this.mentorId });
+      this.mentorNotificationsSubscribed = true;
+    }
+  }
+
+  // Unsubscribe from mentor notifications
+  unsubscribeFromMentorNotifications(): void {
+    if (this.socket?.connected && this.mentorNotificationsSubscribed) {
+      this.socket.emit('unsubscribe-mentor-notifications');
+      this.mentorNotificationsSubscribed = false;
+      this.mentorId = null;
+
   // Subscribe to student notifications
   subscribeToStudentNotifications(): void {
     if (this.socket?.connected && !this.studentNotificationsSubscribed) {
@@ -256,6 +276,7 @@ class SocketService {
     if (this.socket?.connected && this.studentNotificationsSubscribed) {
       this.socket.emit('unsubscribe-student-notifications');
       this.studentNotificationsSubscribed = false;
+
     }
   }
 
@@ -287,6 +308,52 @@ class SocketService {
   // Get company ID
   get currentCompanyId(): string | null {
     return this.companyId;
+  }
+
+  // Get mentor notifications subscription status
+  get isMentorNotificationsSubscribed(): boolean {
+    return this.mentorNotificationsSubscribed;
+  }
+  
+  // Get mentor ID
+  get currentMentorId(): string | null {
+    return this.mentorId;
+  }
+
+  // Notification event listeners
+  onAdminNotification(callback: (notification: Notification) => void): void {
+    if (this.socket) {
+      this.socket.on('admin-notification', callback);
+    }
+  }
+
+  onCompanyNotification(callback: (notification: Notification) => void): void {
+    if (this.socket) {
+      this.socket.on('company-notification', callback);
+    }
+  }
+
+  onMentorNotification(callback: (notification: Notification) => void): void {
+    if (this.socket) {
+      this.socket.on('mentor-notification', callback);
+    }
+  }
+
+  onStudentNotification(callback: (notification: Notification) => void): void {
+    if (this.socket) {
+      this.socket.on('student-notification', callback);
+    }
+  }
+
+  // Subscribe to student notifications (placeholder for future implementation)
+  subscribeToStudentNotifications(): void {
+    // TODO: Implement student notification subscription
+    console.log('Student notifications not yet implemented');
+  }
+
+  unsubscribeFromStudentNotifications(): void {
+    // TODO: Implement student notification unsubscription
+    console.log('Student notifications not yet implemented');
   }
 
   // Ping server for connection health check

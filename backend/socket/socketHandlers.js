@@ -5,13 +5,12 @@ import notificationModel from '../models/notificationModel.js';
 
 // Store active users per session
 const activeUsers = new Map(); // sessionId -> Set of user objects
-
 // Store active admin users for notifications
 const activeAdmins = new Set(); // Set of admin socket IDs
-
 // Store active company users for notifications
 const activeCompanies = new Map(); // companyId -> Set of socket IDs
-
+// Store active mentor users for notifications
+const activeMentors = new Map(); // mentorId -> Set of socket IDs
 // Store active student users for notifications
 const activeStudents = new Map(); // studentId -> Set of socket IDs
 
@@ -57,6 +56,27 @@ export const emitCompanyNotification = (io, companyId, notification) => {
   }
 };
 
+
+// Function to emit notification to a specific mentor
+export const emitMentorNotification = (io, mentorId, notification) => {
+  try {
+    // Check if mentor has active sockets
+    if (activeMentors.has(mentorId) && activeMentors.get(mentorId).size > 0) {
+      const mentorSockets = activeMentors.get(mentorId);
+      console.log(`Emitting notification to mentor ${mentorId} with ${mentorSockets.size} active sockets`);
+      
+      // Send notification to all active sockets for this mentor
+      for (const socketId of mentorSockets) {
+        io.to(socketId).emit('mentor-notification', notification);
+      }
+      return true;
+    } else {
+      console.log(`No active sockets for mentor ${mentorId}`);
+      return false;
+    }
+  } catch (error) {
+    console.error('Error emitting mentor notification:', error);
+    
 // Function to emit notification to a specific student
 export const emitStudentNotification = (io, studentId, notification) => {
   try {
@@ -76,6 +96,7 @@ export const emitStudentNotification = (io, studentId, notification) => {
     }
   } catch (error) {
     console.error('Error emitting student notification:', error);
+
     return false;
   }
 };
@@ -102,6 +123,13 @@ export const setupSocketHandlers = (io) => {
       console.log(`Company user connected: ${socket.userEmail}, companyId: ${socket.companyId}`);
     }
 
+    // If this is a mentor user, track them for notifications
+    if (socket.userRole === 'mentor' && socket.mentorId) {
+      if (!activeMentors.has(socket.mentorId)) {
+        activeMentors.set(socket.mentorId, new Set());
+      }
+      activeMentors.get(socket.mentorId).add(socket.id);
+      console.log(`Mentor user connected: ${socket.userEmail}, mentorId: ${socket.mentorId}`);
     // If this is a student user, track them for notifications
     if (socket.userRole === 'student' && socket.studentId) {
       if (!activeStudents.has(socket.studentId)) {
@@ -372,6 +400,19 @@ export const setupSocketHandlers = (io) => {
         }
       }
 
+
+      // If mentor, remove from active mentors tracking
+      if (socket.userRole === 'mentor' && socket.mentorId) {
+        if (activeMentors.has(socket.mentorId)) {
+          activeMentors.get(socket.mentorId).delete(socket.id);
+          
+          // If no more active connections for this mentor, remove the entry
+          if (activeMentors.get(socket.mentorId).size === 0) {
+            activeMentors.delete(socket.mentorId);
+          }
+          
+          console.log(`Mentor user disconnected: ${socket.userEmail}, mentorId: ${socket.mentorId}`);
+          
       // If student, remove from active students tracking
       if (socket.userRole === 'student' && socket.studentId) {
         if (activeStudents.has(socket.studentId)) {
@@ -451,6 +492,39 @@ export const setupSocketHandlers = (io) => {
       }
     });
 
+
+    // Subscribe to mentor notification channel
+    socket.on('subscribe-mentor-notifications', (data) => {
+      if (socket.userRole === 'mentor' && socket.mentorId) {
+        const socketMentorId = socket.mentorId;
+        
+        // Add to tracking set for real-time notifications
+        if (!activeMentors.has(socketMentorId)) {
+          activeMentors.set(socketMentorId, new Set());
+        }
+        activeMentors.get(socketMentorId).add(socket.id);
+        
+        console.log(`Mentor user ${socket.userEmail} subscribed to notifications for mentor ${socketMentorId}`);
+      } else {
+        socket.emit('error', { message: 'Only mentor users can subscribe to mentor notifications' });
+      }
+    });
+    
+    // Unsubscribe from mentor notification channel
+    socket.on('unsubscribe-mentor-notifications', () => {
+      if (socket.userRole === 'mentor' && socket.mentorId) {
+        console.log(`Mentor user ${socket.userEmail} unsubscribed from mentor notifications`);
+        
+        // Remove from active mentors tracking
+        if (activeMentors.has(socket.mentorId)) {
+          activeMentors.get(socket.mentorId).delete(socket.id);
+          
+          // Clean up if no more connections
+          if (activeMentors.get(socket.mentorId).size === 0) {
+            activeMentors.delete(socket.mentorId);
+          }
+        }
+
     // Subscribe to student notification channel
     socket.on('subscribe-student-notifications', () => {
       if (socket.userRole === 'student' && socket.studentId) {
@@ -466,6 +540,7 @@ export const setupSocketHandlers = (io) => {
       if (socket.userRole === 'student' && socket.studentId) {
         socket.leave(`student-${socket.studentId}`);
         console.log(`Student user ${socket.userEmail} unsubscribed from student notifications`);
+
       }
     });
   });

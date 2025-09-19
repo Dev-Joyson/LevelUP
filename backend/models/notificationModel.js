@@ -26,7 +26,7 @@ const notificationSchema = new mongoose.Schema({
   },
   entityModel: {
     type: String,
-    enum: ['Company', 'Mentor', 'Student', 'User', 'Application'],
+    enum: ['Company', 'Mentor', 'Student', 'User', 'Application', 'Session'],
     required: false
   },
   isRead: {

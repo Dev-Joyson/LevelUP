@@ -18,7 +18,9 @@ import { useStudentContextSafe } from "@/context/StudentContext"
 import axios from "axios"
 import { NotificationDropdown } from "@/components/AdminComponents/notification-dropdown"
 import { CompanyNotificationDropdown } from "@/components/CompanyComponents/notification-dropdown"
+import { MentorNotificationDropdown } from "@/components/MentorComponents/notification-dropdown"
 import { StudentNotificationDropdown } from "@/components/StudentComponents/notification-dropdown"
+
     
 interface PanelNavbarProps {
   title?: string
@@ -160,6 +162,8 @@ export function PanelNavbar({
           <NotificationDropdown />
         ) : userRole === 'company' ? (
           <CompanyNotificationDropdown />
+        ) : userRole === 'mentor' ? (
+          <MentorNotificationDropdown />
         ) : userRole === 'student' ? (
           <StudentNotificationDropdown />
         ) : (

@@ -12,7 +12,7 @@ import resumeModel from '../models/resumeModel.js';
 import sessionModel from '../models/sessionModel.js';
 import mentorModel from '../models/mentorModel.js';
 import bcrypt from 'bcryptjs';
-import { emitAdminNotification } from '../socket/socketHandlers.js';
+import { emitAdminNotification, emitMentorNotification } from '../socket/socketHandlers.js';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -577,6 +577,39 @@ const bookMentorSession = async (req, res) => {
       await student.save();
     }
     console.log('Session added to student');
+
+    // Create notification for mentor
+    try {
+      const mentorNotification = await notificationModel.create({
+        type: 'session_booked',
+        title: 'New Session Booking',
+        message: `${student.firstname || 'A student'} has booked a ${sessionTypeName} session with you for ${new Date(date).toLocaleDateString()} at ${startTime}`,
+        recipient: 'mentor',
+        entityId: newSession._id,
+        entityModel: 'Session'
+      });
+
+      console.log('Mentor notification created:', mentorNotification._id);
+
+      // Get the io instance from app locals or import it
+      const io = req.app.get('io');
+      if (io) {
+        // Emit real-time notification to mentor
+        emitMentorNotification(io, mentorId, {
+          _id: mentorNotification._id,
+          type: mentorNotification.type,
+          title: mentorNotification.title,
+          message: mentorNotification.message,
+          createdAt: mentorNotification.createdAt,
+          isRead: mentorNotification.isRead
+        });
+        console.log('Real-time notification sent to mentor');
+      }
+
+    } catch (notificationError) {
+      console.error('Error creating mentor notification:', notificationError);
+      // Don't fail the session booking if notification fails
+    }
 
     // Return success response
     res.status(201).json({

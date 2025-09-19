@@ -11,7 +11,8 @@ import {
   BookOpen,
   LogOut,
   Star,
-  ClipboardList
+  ClipboardList,
+  Bell
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
@@ -54,6 +55,11 @@ const navigationItems = [
     title: "Feedback",
     url: "/mentor/feedback",
     icon: MessageSquare,
+  },
+  {
+    title: "Notification",
+    url: "/mentor/notifications",
+    icon: Bell,
   },
 ]
 
