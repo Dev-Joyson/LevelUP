@@ -262,6 +262,7 @@ class SocketService {
       this.socket.emit('unsubscribe-mentor-notifications');
       this.mentorNotificationsSubscribed = false;
       this.mentorId = null;
+    }}
 
   // Subscribe to student notifications
   subscribeToStudentNotifications(): void {
@@ -276,7 +277,6 @@ class SocketService {
     if (this.socket?.connected && this.studentNotificationsSubscribed) {
       this.socket.emit('unsubscribe-student-notifications');
       this.studentNotificationsSubscribed = false;
-
     }
   }
 
@@ -345,16 +345,6 @@ class SocketService {
     }
   }
 
-  // Subscribe to student notifications (placeholder for future implementation)
-  subscribeToStudentNotifications(): void {
-    // TODO: Implement student notification subscription
-    console.log('Student notifications not yet implemented');
-  }
-
-  unsubscribeFromStudentNotifications(): void {
-    // TODO: Implement student notification unsubscription
-    console.log('Student notifications not yet implemented');
-  }
 
   // Ping server for connection health check
   ping(): void {

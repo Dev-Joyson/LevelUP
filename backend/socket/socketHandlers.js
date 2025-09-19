@@ -76,7 +76,10 @@ export const emitMentorNotification = (io, mentorId, notification) => {
     }
   } catch (error) {
     console.error('Error emitting mentor notification:', error);
-    
+    return false;
+  }
+};
+
 // Function to emit notification to a specific student
 export const emitStudentNotification = (io, studentId, notification) => {
   try {
@@ -130,6 +133,8 @@ export const setupSocketHandlers = (io) => {
       }
       activeMentors.get(socket.mentorId).add(socket.id);
       console.log(`Mentor user connected: ${socket.userEmail}, mentorId: ${socket.mentorId}`);
+    }
+    
     // If this is a student user, track them for notifications
     if (socket.userRole === 'student' && socket.studentId) {
       if (!activeStudents.has(socket.studentId)) {
@@ -412,6 +417,8 @@ export const setupSocketHandlers = (io) => {
           }
           
           console.log(`Mentor user disconnected: ${socket.userEmail}, mentorId: ${socket.mentorId}`);
+        }
+      }
           
       // If student, remove from active students tracking
       if (socket.userRole === 'student' && socket.studentId) {
@@ -524,6 +531,8 @@ export const setupSocketHandlers = (io) => {
             activeMentors.delete(socket.mentorId);
           }
         }
+      }
+    });
 
     // Subscribe to student notification channel
     socket.on('subscribe-student-notifications', () => {
@@ -540,7 +549,6 @@ export const setupSocketHandlers = (io) => {
       if (socket.userRole === 'student' && socket.studentId) {
         socket.leave(`student-${socket.studentId}`);
         console.log(`Student user ${socket.userEmail} unsubscribed from student notifications`);
-
       }
     });
   });
