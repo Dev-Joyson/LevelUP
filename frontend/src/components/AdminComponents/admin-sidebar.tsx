@@ -1,7 +1,7 @@
 "use client"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home, LogOut } from "lucide-react"
+import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home, LogOut, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
@@ -31,6 +31,11 @@ const navigationItems = [
     title: "Jobs",
     url: "/admin/jobs",
     icon: Briefcase,
+  },
+  {
+    title: "Notifications",
+    url: "/admin/notifications",
+    icon: Bell,
   },
   {
     title: "Feedback",
