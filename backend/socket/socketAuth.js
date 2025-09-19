@@ -32,6 +32,10 @@ export const authenticateSocket = async (socket, next) => {
         const mentor = await mentorModel.findOne({ userId: user._id });
         // Try name field first, then firstname, finally email
         userName = mentor ? (mentor.name || mentor.firstname || user.email) : user.email;
+        if (mentor) {
+          // Store mentor ID on the socket
+          socket.mentorId = mentor._id.toString();
+        }
       } else if (user.role === 'company') {
         const company = await companyModel.findOne({ userId: user._id });
         userName = company ? company.companyName || user.email : user.email;

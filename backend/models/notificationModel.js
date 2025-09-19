@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['company_registration', 'mentor_registration', 'application_submitted', 'system'],
+    enum: ['company_registration', 'mentor_registration', 'application_submitted', 'session_booked', 'system'],
     required: true
   },
   title: {
@@ -26,7 +26,7 @@ const notificationSchema = new mongoose.Schema({
   },
   entityModel: {
     type: String,
-    enum: ['Company', 'Mentor', 'Student', 'User', 'Application'],
+    enum: ['Company', 'Mentor', 'Student', 'User', 'Application', 'Session'],
     required: false
   },
   isRead: {
