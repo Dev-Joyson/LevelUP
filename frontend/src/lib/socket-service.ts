@@ -53,7 +53,7 @@ interface SessionTime {
 // Admin notification interface
 export interface Notification {
   _id: string;
-  type: 'company_registration' | 'mentor_registration' | 'application_submitted' | 'session_booked' | 'system';
+  type: 'company_registration' | 'mentor_registration' | 'application_submitted' | 'application_approved' | 'application_rejected' | 'system' | 'session_booked';
   title: string;
   message: string;
   entityId?: string;
@@ -86,6 +86,9 @@ export interface SocketEvents {
   // Company notifications
   'company-notification': (notification: Notification) => void;
 
+  // Student notifications
+  'student-notification': (notification: Notification) => void;
+
   // Connection health
   'pong': () => void;
 }
@@ -97,6 +100,7 @@ class SocketService {
   private adminNotificationsSubscribed: boolean = false;
   private companyNotificationsSubscribed: boolean = false;
   private mentorNotificationsSubscribed: boolean = false;
+  private studentNotificationsSubscribed: boolean = false;
   private companyId: string | null = null;
   private mentorId: string | null = null;
 
@@ -258,6 +262,21 @@ class SocketService {
       this.socket.emit('unsubscribe-mentor-notifications');
       this.mentorNotificationsSubscribed = false;
       this.mentorId = null;
+
+  // Subscribe to student notifications
+  subscribeToStudentNotifications(): void {
+    if (this.socket?.connected && !this.studentNotificationsSubscribed) {
+      this.socket.emit('subscribe-student-notifications');
+      this.studentNotificationsSubscribed = true;
+    }
+  }
+
+  // Unsubscribe from student notifications
+  unsubscribeFromStudentNotifications(): void {
+    if (this.socket?.connected && this.studentNotificationsSubscribed) {
+      this.socket.emit('unsubscribe-student-notifications');
+      this.studentNotificationsSubscribed = false;
+
     }
   }
 
@@ -279,6 +298,11 @@ class SocketService {
   // Get company notifications subscription status
   get isCompanyNotificationsSubscribed(): boolean {
     return this.companyNotificationsSubscribed;
+  }
+
+  // Get student notifications subscription status
+  get isStudentNotificationsSubscribed(): boolean {
+    return this.studentNotificationsSubscribed;
   }
   
   // Get company ID

@@ -22,7 +22,7 @@ const app = express();
 const server = createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001","https://level-up-five.vercel.app"], // Frontend URLs
+    origin: ["http://localhost:3000", "http://localhost:3001","https://level-up-five.vercel.app","http://192.168.8.112:3000"], // Frontend URLs
     methods: ["GET", "POST"],
     credentials: true
   }

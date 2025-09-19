@@ -51,6 +51,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (!notification.isRead) {
       setUnreadCount(prev => prev + 1)
     }
+
   }
 
   // Mark notification as read
@@ -63,6 +64,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       })
+
 
       if (response.ok) {
         setNotifications(prev => 
@@ -82,17 +84,19 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   // Mark all notifications as read
   const markAllAsRead = async () => {
     if (!token || !user) return
-
+    
     try {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
-      const response = await fetch(`${API_BASE_URL}/api/notifications/mark-all-read`, {
+      const response = await fetch(`${API_BASE_URL}/api/notifications/read-all/${user.role}`, {
         method: 'PUT',
         headers: { Authorization: `Bearer ${token}` }
       })
-
+      
       if (response.ok) {
+        // Update local state
         setNotifications(prev => 
-          prev.map(notif => ({ ...notif, isRead: true }))
+          prev.map(notification => ({ ...notification, isRead: true }))
+
         )
         setUnreadCount(0)
       }

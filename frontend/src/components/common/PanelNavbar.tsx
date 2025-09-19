@@ -19,6 +19,8 @@ import axios from "axios"
 import { NotificationDropdown } from "@/components/AdminComponents/notification-dropdown"
 import { CompanyNotificationDropdown } from "@/components/CompanyComponents/notification-dropdown"
 import { MentorNotificationDropdown } from "@/components/MentorComponents/notification-dropdown"
+import { StudentNotificationDropdown } from "@/components/StudentComponents/notification-dropdown"
+
     
 interface PanelNavbarProps {
   title?: string
@@ -162,6 +164,8 @@ export function PanelNavbar({
           <CompanyNotificationDropdown />
         ) : userRole === 'mentor' ? (
           <MentorNotificationDropdown />
+        ) : userRole === 'student' ? (
+          <StudentNotificationDropdown />
         ) : (
           <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5" />
