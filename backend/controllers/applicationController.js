@@ -1,6 +1,8 @@
 import applicationModel from '../models/applicationModel.js';
 import studentModel from '../models/studentModel.js';
 import companyModel from '../models/companyModel.js';
+import { createNotification } from './notificationController.js';
+import { emitStudentNotification } from '../socket/socketHandlers.js';
 
 // Get applications for a student
 const getStudentApplications = async (req, res) => {
@@ -278,6 +280,49 @@ const updateApplicationStatus = async (req, res) => {
     
     if (!updatedApplication) {
       return res.status(404).json({ message: 'Application not found' });
+    }
+
+    // Create notification and emit websocket event for application status changes
+    if (status && ['accepted', 'rejected'].includes(status) && updatedApplication.studentId) {
+      try {
+        // Create notification data
+        const notificationType = status === 'accepted' ? 'application_approved' : 'application_rejected';
+        const notificationTitle = status === 'accepted' 
+          ? 'Application Approved!' 
+          : 'Application Update';
+        
+        const notificationMessage = status === 'accepted'
+          ? `Congratulations! Your application for "${updatedApplication.internshipId?.title || 'the internship'}" has been approved.`
+          : `Your application for "${updatedApplication.internshipId?.title || 'the internship'}" has been reviewed.`;
+
+        const notificationData = {
+          type: notificationType,
+          title: notificationTitle,
+          message: notificationMessage,
+          recipient: 'student',
+          entityId: updatedApplication._id,
+          entityModel: 'Application'
+        };
+
+        // Create notification in database
+        const notification = await createNotification(notificationData);
+        
+        // Emit real-time notification to the student
+        if (global.io && updatedApplication.studentId._id) {
+          emitStudentNotification(global.io, updatedApplication.studentId._id.toString(), {
+            ...notification.toObject(),
+            applicationData: {
+              internshipTitle: updatedApplication.internshipId?.title,
+              status: status
+            }
+          });
+        }
+
+        console.log(`Notification sent to student ${updatedApplication.studentId._id} for application ${notificationType}`);
+      } catch (notificationError) {
+        console.error('Error creating/sending notification:', notificationError);
+        // Don't fail the main operation if notification fails
+      }
     }
     
     res.status(200).json({
