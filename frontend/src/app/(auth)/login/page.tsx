@@ -24,6 +24,17 @@ export default function Login() {
     }
   }
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    handleLogin()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLogin()
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-2 sm:px-0">
       <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8">
@@ -34,7 +45,7 @@ export default function Login() {
         </div>
 
         {/* Form content */}
-        <div>
+        <form onSubmit={handleSubmit}>
           <h2 className="text-base sm:text-xl font-semibold mb-4 sm:mb-6">Sign in to your account</h2>
 
           <div className="space-y-4">
@@ -45,7 +56,9 @@ export default function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="mt-1"
+                autoComplete="email"
               />
             </div>
 
@@ -56,7 +69,9 @@ export default function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
                 className="mt-1"
+                autoComplete="current-password"
               />
               <div className="flex justify-end mt-1">
                 <Link href="/forgot-password" className="text-xs sm:text-sm text-blue-600 hover:underline">
@@ -67,7 +82,7 @@ export default function Login() {
           </div>
 
           <Button 
-            onClick={handleLogin} 
+            type="submit"
             className="w-full mt-6 bg-primary hover:bg-white hover:text-primary hover:border-1 hover:border-primary text-white py-2 rounded text-sm sm:text-base"
             disabled={loading}
           >
@@ -96,7 +111,7 @@ export default function Login() {
               apply.
             </p>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   )

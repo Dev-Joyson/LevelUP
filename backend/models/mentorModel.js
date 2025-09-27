@@ -14,6 +14,7 @@ const mentorSchema = new mongoose.Schema({
   lastname: { type: String, default: '' },
   title: { type: String, default: '' }, // Job title
   company: { type: String, default: '' }, // Company name
+  verified: { type: Boolean, default: false }, // Verification status
   profileImage: { type: String, default: '' }, // Profile image URL
   bio: { type: String, default: '' }, // Short description
   about: { type: String, default: '' }, // Detailed about section
