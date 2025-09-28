@@ -71,7 +71,7 @@ const studentSchema = new mongoose.Schema({
     graduationYear: { type: String, required: true },
     profileImageUrl: { type: String, default: '' },
     profileImagePublicId: { type: String, default: '' },
-})
+}, { timestamps: true })
 
 const studentModel = mongoose.models.student || mongoose.model('student', studentSchema)
 export default studentModel
