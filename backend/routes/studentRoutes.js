@@ -25,7 +25,10 @@ import {
   getLatestInterviewSession,
   getStudentInterviewStats,
   downloadInterviewReport,
-  getStudentMockInterviewReports
+  getStudentMockInterviewReports,
+  bookmarkInternship,
+  unbookmarkInternship,
+  getSavedInternships
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -53,6 +56,11 @@ studentRouter.get("/interview-sessions/:sessionId", authenticateUser, authorizeR
 studentRouter.get("/interview-stats", authenticateUser, authorizeRoles("student"), getStudentInterviewStats);
 studentRouter.get("/interview-report/:sessionId/download", authenticateUser, authorizeRoles("student"), downloadInterviewReport);
 studentRouter.get("/mock-interview-reports", authenticateUser, authorizeRoles("student"), getStudentMockInterviewReports);
+
+// ============= BOOKMARK ROUTES =============
+studentRouter.post("/bookmark/:internshipId", authenticateUser, authorizeRoles("student"), bookmarkInternship);
+studentRouter.delete("/bookmark/:internshipId", authenticateUser, authorizeRoles("student"), unbookmarkInternship);
+studentRouter.get("/saved-internships", authenticateUser, authorizeRoles("student"), getSavedInternships);
 
 // Note: Application routes moved to applicationRoutes.js
 

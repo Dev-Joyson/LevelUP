@@ -1305,6 +1305,100 @@ const getStudentMockInterviewReports = async (req, res) => {
   }
 };
 
+// Bookmark/Save Internship
+const bookmarkInternship = async (req, res) => {
+  try {
+    const { internshipId } = req.params;
+    const studentId = req.user.userId;
+
+    // Find student
+    const student = await studentModel.findOne({ userId: studentId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Check if internship exists
+    const internship = await internshipModel.findById(internshipId);
+    if (!internship) {
+      return res.status(404).json({ message: 'Internship not found' });
+    }
+
+    // Check if already bookmarked
+    if (student.savedInternships.includes(internshipId)) {
+      return res.status(400).json({ message: 'Internship already bookmarked' });
+    }
+
+    // Add to saved internships
+    student.savedInternships.push(internshipId);
+    await student.save();
+
+    res.status(200).json({ message: 'Internship bookmarked successfully' });
+  } catch (error) {
+    console.error('Error bookmarking internship:', error);
+    res.status(500).json({ message: 'Failed to bookmark internship' });
+  }
+};
+
+// Remove bookmark from Internship
+const unbookmarkInternship = async (req, res) => {
+  try {
+    const { internshipId } = req.params;
+    const studentId = req.user.userId;
+
+    // Find student
+    const student = await studentModel.findOne({ userId: studentId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Remove from saved internships
+    student.savedInternships = student.savedInternships.filter(
+      id => id.toString() !== internshipId
+    );
+    await student.save();
+
+    res.status(200).json({ message: 'Internship bookmark removed successfully' });
+  } catch (error) {
+    console.error('Error removing bookmark:', error);
+    res.status(500).json({ message: 'Failed to remove bookmark' });
+  }
+};
+
+// Get saved/bookmarked internships
+const getSavedInternships = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+
+    // Find student and populate saved internships
+    const student = await studentModel
+      .findOne({ userId: studentId })
+      .populate({
+        path: 'savedInternships',
+        populate: [
+          {
+            path: 'companyId',
+            model: 'company',
+            select: 'name logo'
+          },
+          {
+            path: 'company',
+            model: 'company', 
+            select: 'name logo'
+          }
+        ]
+      });
+
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    res.status(200).json(student.savedInternships || []);
+  } catch (error) {
+    console.error('Error getting saved internships:', error);
+    res.status(500).json({ message: 'Failed to get saved internships' });
+  }
+};
+
 export { 
   studentDashboard, 
   uploadResume, 
@@ -1327,5 +1421,8 @@ export {
   getLatestInterviewSession,
   getStudentInterviewStats,
   downloadInterviewReport,
-  getStudentMockInterviewReports
+  getStudentMockInterviewReports,
+  bookmarkInternship,
+  unbookmarkInternship,
+  getSavedInternships
 }

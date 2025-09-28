@@ -1,8 +1,9 @@
 import { notFound } from "next/navigation";
-import { Bookmark, Briefcase, Check, X, MapPin, Clock, DollarSign, Building } from "lucide-react";
+import { Briefcase, Check, X, MapPin, Clock, DollarSign, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { InternshipDetail } from "@/types/job";
 import ApplyButtonWrapper from "./ApplyButtonWrapper";
+import BookmarkButton from "./BookmarkButton";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
 
@@ -82,9 +83,7 @@ export default async function InternshipDetailPage({
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <Bookmark className="h-7 w-7" />
-          </Button>
+          <BookmarkButton internshipId={job._id} />
           {/* Use the ApplyButton component */}
           <div className="client-only">
             <ApplyButtonWrapper internshipId={job._id} title={job.title} companyName={companyName} />
