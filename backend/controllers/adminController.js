@@ -1208,6 +1208,8 @@ const updateUserVerification = async (req, res) => {
       message: 'Error updating user verification',
       error: error.message
     });
+  }
+};
 
 // ============= MOCK INTERVIEW MANAGEMENT =============
 
@@ -1675,7 +1677,6 @@ const deleteMockInterview = async (req, res) => {
   } catch (error) {
     console.error('Error deleting mock interview:', error);
     res.status(500).json({ message: 'Error deleting mock interview' });
-
   }
 };
 
@@ -1712,5 +1713,4 @@ export {
   publishMockInterview,
   getInterviewAnalytics,
   deleteMockInterview
-
 };
