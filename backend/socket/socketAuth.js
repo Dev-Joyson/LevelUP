@@ -16,8 +16,20 @@ export const authenticateSocket = async (socket, next) => {
     // Verify the token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user details
-    const user = await userModel.findById(decoded.userId).select('-password');
+    // Handle admin authentication (admin tokens might not have userId)
+    if (decoded.role === 'admin' || decoded.id === 'admin') {
+      // Admin authentication - create a mock user object for socket
+      socket.userId = 'admin';
+      socket.userEmail = 'admin@levelup.com';
+      socket.userName = 'Admin';
+      socket.userRole = 'admin';
+      
+      console.log('Admin authenticated for socket connection');
+      return next();
+    }
+    
+    // Get user details for regular users
+    const user = await userModel.findById(decoded.userId || decoded.id).select('-password');
     if (!user) {
       return next(new Error('User not found'));
     }

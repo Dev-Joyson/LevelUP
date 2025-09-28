@@ -1,7 +1,7 @@
 "use client"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home, LogOut, Bell } from "lucide-react"
+import { Building2, Users, UserCheck, Briefcase, MessageSquare, LayoutDashboard, Home, LogOut, Bell, FileQuestion } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
@@ -31,6 +31,11 @@ const navigationItems = [
     title: "Jobs",
     url: "/admin/jobs",
     icon: Briefcase,
+  },
+  {
+    title: "Mock Interviews",
+    url: "/admin/mock-interviews",
+    icon: FileQuestion,
   },
   {
     title: "Notifications",
@@ -63,7 +68,7 @@ export function AdminSidebar() {
         </div> */}
         <div className="flex pl-3 items-center pt-7 pb-9">
 
-        <Image src="/LogoLevelUP.png" height={60} width={130} alt="" className="h-auto w-[130px]"/>
+        <Image src="/LogoLevelUP.png" height={60} width={130} alt="LevelUP Logo" className="h-auto" style={{width: '130px'}}/>
         </div>
         <nav className="space-y-1">
           {navigationItems.map((item, index) => {

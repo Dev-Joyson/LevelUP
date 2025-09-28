@@ -14,7 +14,18 @@ import {
   getUnverifiedMentors,
   rejectMentor,
   deleteMentor,
-  getAllStudents
+  getAllStudents,
+  // Mock Interview Functions
+  createMockInterview,
+  getAllMockInterviews,
+  generateQuestionsForInterview,
+  getInterviewQuestions,
+  approveQuestion,
+  bulkApproveQuestions,
+  editQuestion,
+  publishMockInterview,
+  getInterviewAnalytics,
+  deleteMockInterview
 } from "../controllers/adminController.js"
 
 
@@ -43,5 +54,23 @@ adminRouter.delete('/mentors/:mentorId', authenticateUser, authorizeRoles("admin
 // Mentor management routes
 adminRouter.get('/mentors', authenticateUser, authorizeRoles("admin"), getAllMentors)
 adminRouter.get('/mentors/unverified', authenticateUser, authorizeRoles("admin"), getUnverifiedMentors)
+
+// ============= MOCK INTERVIEW ROUTES =============
+
+// Interview management
+adminRouter.post('/interviews/create', authenticateUser, authorizeRoles("admin"), createMockInterview)
+adminRouter.get('/interviews', authenticateUser, authorizeRoles("admin"), getAllMockInterviews)
+adminRouter.get('/interviews/analytics', authenticateUser, authorizeRoles("admin"), getInterviewAnalytics)
+adminRouter.delete('/interviews/:interviewId', authenticateUser, authorizeRoles("admin"), deleteMockInterview)
+
+// Question generation and management
+adminRouter.post('/interviews/:interviewId/generate-questions', authenticateUser, authorizeRoles("admin"), generateQuestionsForInterview)
+adminRouter.get('/interviews/:interviewId/questions', authenticateUser, authorizeRoles("admin"), getInterviewQuestions)
+adminRouter.put('/questions/:questionId/approve', authenticateUser, authorizeRoles("admin"), approveQuestion)
+adminRouter.put('/interviews/:interviewId/bulk-approve', authenticateUser, authorizeRoles("admin"), bulkApproveQuestions)
+adminRouter.put('/questions/:questionId/edit', authenticateUser, authorizeRoles("admin"), editQuestion)
+
+// Publishing
+adminRouter.put('/interviews/:interviewId/publish', authenticateUser, authorizeRoles("admin"), publishMockInterview)
 
 export default adminRouter
