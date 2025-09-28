@@ -7,12 +7,14 @@ import { Bookmark, Briefcase, LucideBookMarked } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Job } from "@/types/job"
 import { useFilters, useInternships } from "./ExploreInternships"
+import { useBookmarks } from "@/context/BookmarkContext"
+import { toast } from "react-toastify"
 
 export function InternshipSidebar() {
   const pathname = usePathname()
   const { filters } = useFilters()
   const { internships } = useInternships()
-  const [savedJobs, setSavedJobs] = useState<Record<string, boolean>>({})
+  const { bookmarkedJobs, toggleBookmark, isLoading } = useBookmarks()
   const [loading, setLoading] = useState(true)
 
   // Filter and sort internships based on current filters
@@ -127,32 +129,28 @@ export function InternshipSidebar() {
 
 
 
-  // Fetch internships
+  // Set loading to false once internships are available
   useEffect(() => {
-    // Set loading to false once internships are available
     if (internships.length > 0) {
       setLoading(false)
     }
   }, [internships])
 
-  // Load saved jobs from localStorage on component mount
-  useEffect(() => {
-    const saved = localStorage.getItem("savedJobs")
-    if (saved) {
-      setSavedJobs(JSON.parse(saved))
+  const handleToggleBookmark = async (jobId: string) => {
+    try {
+      const wasBookmarked = bookmarkedJobs[jobId] || false
+      await toggleBookmark(jobId)
+      
+      // Show toast notification
+      if (wasBookmarked) {
+        toast.success('Bookmark removed successfully')
+      } else {
+        toast.success('Internship bookmarked successfully')
+      }
+    } catch (error) {
+      console.error('Error toggling bookmark:', error)
+      toast.error('Please log in to bookmark internships')
     }
-  }, [])
-
-  // Save to localStorage when savedJobs changes
-  useEffect(() => {
-    localStorage.setItem("savedJobs", JSON.stringify(savedJobs))
-  }, [savedJobs])
-
-  const toggleSaveJob = (jobId: string) => {
-    setSavedJobs((prev) => ({
-      ...prev,
-      [jobId]: !prev[jobId],
-    }))
   }
 
   if (loading) {
@@ -189,7 +187,8 @@ export function InternshipSidebar() {
             </div>
             {filteredInternships.map((job) => {
               const isActive = pathname === `/internship/${job._id}`
-              const isSaved = savedJobs[job._id]
+              const isSaved = bookmarkedJobs[job._id] || false
+              const isBookmarkingInProgress = isLoading(job._id)
 
               return (
                 <Link
@@ -235,12 +234,19 @@ export function InternshipSidebar() {
                       onClick={(e) => {
                         e.preventDefault()
                         e.stopPropagation()
-                        toggleSaveJob(job._id)
+                        handleToggleBookmark(job._id)
                       }}
-                      className="text-gray-500 hover:text-black"
+                      disabled={isBookmarkingInProgress}
+                      className={`text-gray-500 hover:text-black transition-colors ${isBookmarkingInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
                       aria-label={isSaved ? "Unsave job" : "Save job"}
                     >
-                      {isSaved ? <LucideBookMarked className="h-5 w-5 text-primary" /> : <Bookmark className="h-5 w-5" />}
+                      {isBookmarkingInProgress ? (
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
+                      ) : isSaved ? (
+                        <LucideBookMarked className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Bookmark className="h-5 w-5" />
+                      )}
                     </button>
                   </div>
                 </Link>

@@ -1,7 +1,7 @@
 "use client"
 import { usePathname } from "next/navigation"
 import Link from "next/link"
-import { User, FileText, Briefcase, Users, Bell, Home, LogOut } from "lucide-react"
+import { User, FileText, Briefcase, Users, Bell, Home, LogOut, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Image from "next/image"
 
@@ -31,6 +31,11 @@ const sidebarItems: SidebarItem[] = [
     icon: Briefcase,
     label: "Applied Internships",
     href: "/student/applications",
+  },
+  {
+    icon: Bookmark,
+    label: "Saved Internships",
+    href: "/student/saved-internships",
   },
   {
     icon: Users,

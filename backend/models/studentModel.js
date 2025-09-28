@@ -10,6 +10,7 @@ const studentSchema = new mongoose.Schema({
     resumeUrl: String,
     resumePublicId: String,
     appliedInternships: [{ type: mongoose.Schema.Types.ObjectId, ref: 'internship'}],
+    savedInternships: [{ type: mongoose.Schema.Types.ObjectId, ref: 'internship'}],
     
     // Mock Interview Reports - stores complete interview summary and PDF links
     mockInterviewReports: [{
