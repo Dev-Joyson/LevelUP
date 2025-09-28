@@ -6,6 +6,7 @@ import {
   getAllPublicMentors, 
   getMentorById,
   getCurrentMentorProfile,
+  updateMentorProfile,
   getMentorAvailability,
   saveMentorAvailability,
   testMentorData,
@@ -25,6 +26,7 @@ const mentorRouter = express.Router()
 // Protected routes - require mentor authentication
 mentorRouter.get('/dashboard', authenticateUser, authorizeRoles("mentor"), mentorDashboard)
 mentorRouter.get('/me', authenticateUser, authorizeRoles("mentor"), getCurrentMentorProfile)
+mentorRouter.put('/me', authenticateUser, authorizeRoles("mentor"), updateMentorProfile)
 mentorRouter.put('/change-password', authenticateUser, authorizeRoles("mentor"), changePassword)
 mentorRouter.get('/sessions', authenticateUser, authorizeRoles("mentor"), getMentorSessions)
 mentorRouter.delete('/sessions/:sessionId', authenticateUser, authorizeRoles("mentor"), cancelSession)
