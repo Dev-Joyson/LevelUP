@@ -1399,6 +1399,193 @@ const getSavedInternships = async (req, res) => {
   }
 };
 
+// Get Student Dashboard Statistics
+const getStudentDashboardStats = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+    console.log('Dashboard Stats - User ID:', studentId);
+
+    // Find student
+    const student = await studentModel.findOne({ userId: studentId }).populate('userId');
+    if (!student) {
+      console.log('Student not found for userId:', studentId);
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    console.log('Student found:', student._id, 'Name:', student.firstname, student.lastname);
+
+    // Get applications count and status breakdown
+    const applications = await applicationModel.find({ studentId: student._id });
+    console.log('Applications found:', applications.length);
+    
+    const applicationStats = {
+      total: applications.length,
+      pending: applications.filter(app => app.status === 'pending').length,
+      reviewed: applications.filter(app => app.status === 'reviewed').length,
+      shortlisted: applications.filter(app => app.status === 'shortlisted').length,
+      accepted: applications.filter(app => app.status === 'accepted').length,
+      rejected: applications.filter(app => app.status === 'rejected').length
+    };
+
+    // Calculate average match score
+    const avgMatchScore = applications.length > 0 
+      ? applications.reduce((sum, app) => sum + (app.matchScore?.totalScore || 0), 0) / applications.length
+      : 0;
+
+    // Get saved internships count
+    const savedInternshipsCount = student.savedInternships ? student.savedInternships.length : 0;
+    console.log('Saved internships count:', savedInternshipsCount);
+
+    // Get mentor sessions count
+    const mentorSessions = await sessionModel.find({ studentId: student._id });
+    console.log('Mentor sessions found:', mentorSessions.length);
+    
+    const sessionStats = {
+      total: mentorSessions.length,
+      completed: mentorSessions.filter(session => session.status === 'completed').length,
+      upcoming: mentorSessions.filter(session => session.status === 'scheduled').length,
+      cancelled: mentorSessions.filter(session => session.status === 'cancelled').length
+    };
+
+    // Get mock interview stats
+    const mockInterviewReports = student.mockInterviewReports || [];
+    console.log('Mock interview reports found:', mockInterviewReports.length);
+    
+    const interviewStats = {
+      total: mockInterviewReports.length,
+      averageScore: mockInterviewReports.length > 0
+        ? mockInterviewReports.reduce((sum, report) => sum + (report.summaryReport?.overallScore || 0), 0) / mockInterviewReports.length
+        : 0,
+      lastAttempted: mockInterviewReports.length > 0 
+        ? mockInterviewReports[mockInterviewReports.length - 1].completedAt
+        : null
+    };
+
+    // Get recent applications (last 5)
+    const recentApplications = await applicationModel
+      .find({ studentId: student._id })
+      .populate('internshipId', 'title domain')
+      .populate('companyId', 'name')
+      .sort({ appliedAt: -1 })
+      .limit(5);
+
+    // Profile completion percentage
+    let profileCompletion = 0;
+    const fields = ['firstname', 'lastname', 'education', 'university', 'graduationYear'];
+    fields.forEach(field => {
+      if (student[field]) profileCompletion += 20;
+    });
+    if (student.skills && student.skills.length > 0) profileCompletion += 20;
+    if (student.resumeUrl) profileCompletion += 20;
+    if (student.profileImageUrl) profileCompletion += 10;
+    if (student.phoneNumber) profileCompletion += 10;
+
+    // Application success rate
+    const successfulApplications = applications.filter(app => 
+      app.status === 'accepted' || app.status === 'shortlisted'
+    ).length;
+    const successRate = applications.length > 0 
+      ? (successfulApplications / applications.length) * 100 
+      : 0;
+
+    const dashboardData = {
+      profile: {
+        name: `${student.firstname} ${student.lastname}`,
+        email: student.userId.email,
+        university: student.university,
+        graduationYear: student.graduationYear,
+        profileImageUrl: student.profileImageUrl,
+        completionPercentage: Math.min(profileCompletion, 100)
+      },
+      statistics: {
+        applications: applicationStats,
+        averageMatchScore: Math.round(avgMatchScore * 10) / 10,
+        successRate: Math.round(successRate * 10) / 10,
+        savedInternships: savedInternshipsCount,
+        mentorSessions: sessionStats,
+        mockInterviews: interviewStats
+      },
+      recentActivity: {
+        applications: recentApplications.map(app => ({
+          id: app._id,
+          internshipTitle: app.internshipId?.title || 'Unknown',
+          companyName: app.companyId?.name || 'Unknown',
+          domain: app.internshipId?.domain || 'General',
+          status: app.status,
+          appliedAt: app.appliedAt,
+          matchScore: app.matchScore?.totalScore || 0
+        }))
+      }
+    };
+
+    console.log('Dashboard data compiled:', {
+      profileComplete: dashboardData.profile.completionPercentage,
+      totalApps: dashboardData.statistics.applications.total,
+      savedInternships: dashboardData.statistics.savedInternships,
+      mentorSessions: dashboardData.statistics.mentorSessions.total,
+      mockInterviews: dashboardData.statistics.mockInterviews.total
+    });
+
+    res.status(200).json(dashboardData);
+  } catch (error) {
+    console.error('Error fetching student dashboard stats:', error);
+    res.status(500).json({ message: 'Failed to fetch dashboard statistics' });
+  }
+};
+
+// Get Student Application Trends (for charts)
+const getStudentApplicationTrends = async (req, res) => {
+  try {
+    const studentId = req.user.userId;
+
+    // Find student first to get the correct studentId
+    const student = await studentModel.findOne({ userId: studentId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Get applications from last 6 months
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const applications = await applicationModel.find({
+      studentId: student._id,
+      appliedAt: { $gte: sixMonthsAgo }
+    }).sort({ appliedAt: 1 });
+
+    // Group by month
+    const monthlyData = {};
+    applications.forEach(app => {
+      const month = new Date(app.appliedAt).toISOString().slice(0, 7); // YYYY-MM format
+      if (!monthlyData[month]) {
+        monthlyData[month] = {
+          month,
+          applications: 0,
+          accepted: 0,
+          rejected: 0,
+          pending: 0,
+          totalMatchScore: 0
+        };
+      }
+      monthlyData[month].applications += 1;
+      monthlyData[month][app.status] = (monthlyData[month][app.status] || 0) + 1;
+      monthlyData[month].totalMatchScore += app.matchScore?.totalScore || 0;
+    });
+
+    // Convert to array and calculate averages
+    const trendsData = Object.values(monthlyData).map(month => ({
+      ...month,
+      averageMatchScore: month.applications > 0 
+        ? Math.round((month.totalMatchScore / month.applications) * 10) / 10
+        : 0
+    }));
+
+    res.status(200).json(trendsData);
+  } catch (error) {
+    console.error('Error fetching application trends:', error);
+    res.status(500).json({ message: 'Failed to fetch application trends' });
+  }
+};
+
 export { 
   studentDashboard, 
   uploadResume, 
@@ -1424,5 +1611,7 @@ export {
   getStudentMockInterviewReports,
   bookmarkInternship,
   unbookmarkInternship,
-  getSavedInternships
+  getSavedInternships,
+  getStudentDashboardStats,
+  getStudentApplicationTrends
 }
