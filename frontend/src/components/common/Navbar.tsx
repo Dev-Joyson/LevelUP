@@ -149,11 +149,11 @@ export function Navbar() {
                       Sessions
                     </Link>
                   )}
-                  {/* {(!user || user.role === "student") && (
+                  {(!user || user.role === "student") && (
                     <Link href="/mock-interviews" className="text-base font-medium transition-colors hover:text-primary">
                       Mock Interviews
                     </Link>
-                  )} */}
+                  )}
                   {user && user.role === "company" && (
                     <>
                       <Link href="/company/jobs" className="text-base font-medium transition-colors hover:text-primary">
@@ -228,11 +228,11 @@ export function Navbar() {
               </Link>
             )}
             {/* Show mock interviews for students */}
-            {/* {(!user || user.role === "student") && (
+            {(!user || user.role === "student") && (
               <Link href="/mock-interviews" className="text-gray-600 transition-colors hover:text-primary">
                 Mock Interviews
               </Link>
-            )} */}
+            )}
             {/* Show company-specific links */}
             {user && user.role === "company" && (
               <>

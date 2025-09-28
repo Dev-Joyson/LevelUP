@@ -7,6 +7,10 @@ import resumeModel from '../models/resumeModel.js'
 import notificationModel from '../models/notificationModel.js'
 import { sendEmail } from '../utils/emailService.js'
 import { emitAdminNotification } from '../socket/socketHandlers.js'
+import mockInterviewModel from '../models/mockInterviewModel.js'
+import questionModel from '../models/questionModel.js'
+import interviewSessionModel from '../models/interviewSessionModel.js'
+import openaiService from '../utils/openaiService.js'
 
 const adminLogin = (req, res) => {
   const { email, password } = req.body;
@@ -430,6 +434,475 @@ const verifyMentor = async (req, res) => {
   }
 };
 
+// ============= MOCK INTERVIEW MANAGEMENT =============
+
+// Create a new mock interview template
+const createMockInterview = async (req, res) => {
+  try {
+    const { title, domain, difficulty, numberOfQuestions, duration, description, tags } = req.body;
+    
+    // Validate required fields
+    if (!title || !domain || !difficulty || !numberOfQuestions || !duration) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: title, domain, difficulty, numberOfQuestions, duration' 
+      });
+    }
+
+    // Validate difficulty
+    if (!['Easy', 'Medium', 'Hard'].includes(difficulty)) {
+      return res.status(400).json({ message: 'Invalid difficulty level' });
+    }
+
+    // Validate domain
+    const validDomains = ['Web Development', 'Data Structures & Algorithms', 'System Design', 'Machine Learning', 'Mobile Development', 'DevOps', 'Database Design', 'Other'];
+    if (!validDomains.includes(domain)) {
+      return res.status(400).json({ message: 'Invalid domain' });
+    }
+
+    // Handle admin user ID (which is string "admin", not ObjectId)
+    let createdBy = null;
+    if (req.user.id !== "admin") {
+      createdBy = req.user.id;
+    }
+
+    const mockInterview = await mockInterviewModel.create({
+      title: title.trim(),
+      domain,
+      difficulty,
+      numberOfQuestions,
+      duration,
+      description: description?.trim(),
+      tags: tags || [],
+      createdBy: createdBy, // null for admin, ObjectId for other users
+      isActive: false, // Starts inactive until questions are approved
+      isPublished: false
+    });
+
+    res.status(201).json({
+      message: 'Mock interview created successfully',
+      mockInterview: {
+        id: mockInterview._id,
+        title: mockInterview.title,
+        domain: mockInterview.domain,
+        difficulty: mockInterview.difficulty,
+        numberOfQuestions: mockInterview.numberOfQuestions,
+        duration: mockInterview.duration,
+        status: 'draft'
+      }
+    });
+  } catch (error) {
+    console.error('Error creating mock interview:', error);
+    res.status(500).json({ message: 'Error creating mock interview' });
+  }
+};
+
+// Get all mock interviews for admin dashboard
+const getAllMockInterviews = async (req, res) => {
+  try {
+    const { status, domain, difficulty } = req.query;
+    
+    // Build filter object
+    const filter = {};
+    if (status) {
+      if (status === 'draft') {
+        filter.isActive = false;
+        filter.isPublished = false;
+      } else if (status === 'active') {
+        filter.isActive = true;
+        filter.isPublished = true;
+      } else if (status === 'inactive') {
+        filter.isActive = false;
+        filter.isPublished = true;
+      }
+    }
+    if (domain) filter.domain = domain;
+    if (difficulty) filter.difficulty = difficulty;
+
+    const mockInterviews = await mockInterviewModel.find(filter)
+      .populate('createdBy', 'email')
+      .sort({ createdAt: -1 });
+
+    // Get question counts for each interview
+    const interviewsWithCounts = await Promise.all(
+      mockInterviews.map(async (interview) => {
+        const totalQuestions = await questionModel.countDocuments({ 
+          mockInterviewId: interview._id 
+        });
+        const approvedQuestions = await questionModel.countDocuments({ 
+          mockInterviewId: interview._id, 
+          isApproved: true 
+        });
+
+        return {
+          ...interview.toObject(),
+          questionsGenerated: totalQuestions,
+          questionsApproved: approvedQuestions,
+          readyToPublish: approvedQuestions === interview.numberOfQuestions
+        };
+      })
+    );
+
+    res.status(200).json({
+      message: 'Mock interviews fetched successfully',
+      mockInterviews: interviewsWithCounts
+    });
+  } catch (error) {
+    console.error('Error fetching mock interviews:', error);
+    res.status(500).json({ message: 'Error fetching mock interviews' });
+  }
+};
+
+// Generate questions for a mock interview using OpenAI
+const generateQuestionsForInterview = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+    const { regenerate = false } = req.body;
+
+    const mockInterview = await mockInterviewModel.findById(interviewId);
+    if (!mockInterview) {
+      return res.status(404).json({ message: 'Mock interview not found' });
+    }
+
+    // Check if questions already exist
+    const existingQuestions = await questionModel.countDocuments({ 
+      mockInterviewId: interviewId 
+    });
+    
+    if (existingQuestions > 0 && !regenerate) {
+      return res.status(400).json({ 
+        message: 'Questions already exist for this interview. Set regenerate=true to replace them.' 
+      });
+    }
+
+    // Delete existing questions if regenerating
+    if (regenerate && existingQuestions > 0) {
+      await questionModel.deleteMany({ mockInterviewId: interviewId });
+    }
+
+    // Generate questions using OpenAI
+    const result = await openaiService.generateQuestions(
+      mockInterview.domain,
+      mockInterview.difficulty,
+      mockInterview.numberOfQuestions,
+      mockInterview.title
+    );
+
+    if (!result.success) {
+      return res.status(500).json({ 
+        message: 'Failed to generate questions', 
+        error: result.error 
+      });
+    }
+
+    // Save questions to database
+    const savedQuestions = [];
+    for (let i = 0; i < result.questions.length; i++) {
+      const questionData = result.questions[i];
+      
+      const question = await questionModel.create({
+        mockInterviewId: interviewId,
+        questionText: questionData.questionText,
+        questionNumber: i + 1,
+        difficulty: questionData.difficulty || mockInterview.difficulty,
+        expectedAnswer: questionData.expectedAnswer,
+        keyPoints: questionData.keyPoints || [],
+        category: questionData.category || 'Technical',
+        estimatedTime: questionData.estimatedTime || 5,
+        generatedPrompt: result.metadata.prompt,
+        aiMetadata: {
+          model: result.metadata.model,
+          generatedAt: result.metadata.generatedAt,
+          tokens: Math.floor(result.metadata.tokens / result.questions.length)
+        }
+      });
+
+      savedQuestions.push(question);
+    }
+
+    res.status(201).json({
+      message: `Successfully generated ${savedQuestions.length} questions`,
+      questions: savedQuestions.map(q => ({
+        id: q._id,
+        questionNumber: q.questionNumber,
+        questionText: q.questionText,
+        difficulty: q.difficulty,
+        category: q.category,
+        isApproved: q.isApproved
+      })),
+      metadata: result.metadata
+    });
+  } catch (error) {
+    console.error('Error generating questions:', error);
+    res.status(500).json({ message: 'Error generating questions' });
+  }
+};
+
+// Get questions for a specific mock interview
+const getInterviewQuestions = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+    const { approved_only = false } = req.query;
+
+    const filter = { mockInterviewId: interviewId };
+    if (approved_only === 'true') {
+      filter.isApproved = true;
+    }
+
+    const questions = await questionModel.find(filter)
+      .sort({ questionNumber: 1 })
+      .populate('approvedBy', 'email');
+
+    res.status(200).json({
+      message: 'Questions fetched successfully',
+      questions
+    });
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+    res.status(500).json({ message: 'Error fetching questions' });
+  }
+};
+
+// Approve a question
+const approveQuestion = async (req, res) => {
+  try {
+    const { questionId } = req.params;
+
+    const question = await questionModel.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Handle admin user ID (admin string vs ObjectId)
+    const adminId = req.user.id !== "admin" ? req.user.id : null;
+    await question.approve(adminId);
+
+    res.status(200).json({
+      message: 'Question approved successfully',
+      question: {
+        id: question._id,
+        questionNumber: question.questionNumber,
+        isApproved: true,
+        approvedAt: question.approvedAt
+      }
+    });
+  } catch (error) {
+    console.error('Error approving question:', error);
+    res.status(500).json({ message: 'Error approving question' });
+  }
+};
+
+// Bulk approve all questions for an interview
+const bulkApproveQuestions = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    // Handle admin user ID (admin string vs ObjectId)
+    const adminId = req.user.id !== "admin" ? req.user.id : null;
+    
+    const result = await questionModel.updateMany(
+      { mockInterviewId: interviewId, isApproved: false },
+      { 
+        isApproved: true, 
+        approvedBy: adminId, 
+        approvedAt: new Date() 
+      }
+    );
+
+    res.status(200).json({
+      message: `Successfully approved ${result.modifiedCount} questions`,
+      approvedCount: result.modifiedCount
+    });
+  } catch (error) {
+    console.error('Error bulk approving questions:', error);
+    res.status(500).json({ message: 'Error bulk approving questions' });
+  }
+};
+
+// Edit a question
+const editQuestion = async (req, res) => {
+  try {
+    const { questionId } = req.params;
+    const { questionText, expectedAnswer, keyPoints, category, estimatedTime } = req.body;
+
+    const question = await questionModel.findById(questionId);
+    if (!question) {
+      return res.status(404).json({ message: 'Question not found' });
+    }
+
+    // Update fields if provided
+    if (questionText) question.questionText = questionText;
+    if (expectedAnswer) question.expectedAnswer = expectedAnswer;
+    if (keyPoints) question.keyPoints = keyPoints;
+    if (category) question.category = category;
+    if (estimatedTime) question.estimatedTime = estimatedTime;
+    
+    // Reset approval if content changed
+    if (questionText || expectedAnswer) {
+      question.isApproved = false;
+      question.approvedBy = null;
+      question.approvedAt = null;
+    }
+
+    await question.save();
+
+    res.status(200).json({
+      message: 'Question updated successfully',
+      question
+    });
+  } catch (error) {
+    console.error('Error updating question:', error);
+    res.status(500).json({ message: 'Error updating question' });
+  }
+};
+
+// Publish mock interview (make it available to students)
+const publishMockInterview = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    const mockInterview = await mockInterviewModel.findById(interviewId);
+    if (!mockInterview) {
+      return res.status(404).json({ message: 'Mock interview not found' });
+    }
+
+    // Check if all questions are approved
+    const approvedQuestions = await questionModel.countDocuments({ 
+      mockInterviewId: interviewId, 
+      isApproved: true 
+    });
+
+    if (approvedQuestions < mockInterview.numberOfQuestions) {
+      return res.status(400).json({ 
+        message: `Cannot publish: Only ${approvedQuestions}/${mockInterview.numberOfQuestions} questions are approved` 
+      });
+    }
+
+    mockInterview.isActive = true;
+    mockInterview.isPublished = true;
+    await mockInterview.save();
+
+    res.status(200).json({
+      message: 'Mock interview published successfully',
+      mockInterview: {
+        id: mockInterview._id,
+        title: mockInterview.title,
+        status: 'published',
+        publishedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Error publishing mock interview:', error);
+    res.status(500).json({ message: 'Error publishing mock interview' });
+  }
+};
+
+// Get interview statistics and analytics
+const getInterviewAnalytics = async (req, res) => {
+  try {
+    // Total interviews
+    const totalInterviews = await mockInterviewModel.countDocuments({});
+    const activeInterviews = await mockInterviewModel.countDocuments({ 
+      isActive: true, 
+      isPublished: true 
+    });
+    const draftInterviews = await mockInterviewModel.countDocuments({ 
+      isActive: false, 
+      isPublished: false 
+    });
+
+    // Total sessions and attempts
+    const totalSessions = await interviewSessionModel.countDocuments({});
+    const completedSessions = await interviewSessionModel.countDocuments({ 
+      status: 'completed' 
+    });
+    const inProgressSessions = await interviewSessionModel.countDocuments({ 
+      status: 'in_progress' 
+    });
+
+    // Popular domains
+    const domainStats = await mockInterviewModel.aggregate([
+      { $match: { isActive: true, isPublished: true } },
+      { $group: { _id: '$domain', count: { $sum: 1 }, avgScore: { $avg: '$averageScore' } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Difficulty distribution
+    const difficultyStats = await mockInterviewModel.aggregate([
+      { $match: { isActive: true, isPublished: true } },
+      { $group: { _id: '$difficulty', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
+
+    // Recent activity (last 7 days)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentSessions = await interviewSessionModel.countDocuments({
+      createdAt: { $gte: sevenDaysAgo }
+    });
+
+    res.status(200).json({
+      message: 'Analytics fetched successfully',
+      analytics: {
+        overview: {
+          totalInterviews,
+          activeInterviews,
+          draftInterviews,
+          totalSessions,
+          completedSessions,
+          inProgressSessions,
+          recentSessions
+        },
+        domainStats,
+        difficultyStats,
+        completionRate: totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({ message: 'Error fetching analytics' });
+  }
+};
+
+// Delete mock interview
+const deleteMockInterview = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    // Check if interview exists
+    const mockInterview = await mockInterviewModel.findById(interviewId);
+    if (!mockInterview) {
+      return res.status(404).json({ message: 'Mock interview not found' });
+    }
+
+    // Check if interview has been attempted by students
+    const hasAttempts = mockInterview.totalAttempts > 0;
+    if (hasAttempts) {
+      return res.status(400).json({ 
+        message: 'Cannot delete interview that has been attempted by students. Consider unpublishing instead.' 
+      });
+    }
+
+    // Delete all associated questions first
+    await questionModel.deleteMany({ mockInterviewId: interviewId });
+
+    // Delete all associated interview sessions if any
+    const interviewSessionModel = (await import('../models/interviewSessionModel.js')).default;
+    await interviewSessionModel.deleteMany({ mockInterviewId: interviewId });
+
+    // Delete the mock interview
+    await mockInterviewModel.findByIdAndDelete(interviewId);
+
+    res.json({ 
+      message: 'Mock interview deleted successfully',
+      deletedInterview: mockInterview
+    });
+  } catch (error) {
+    console.error('Error deleting mock interview:', error);
+    res.status(500).json({ message: 'Error deleting mock interview' });
+  }
+};
+
 export { 
   adminDashboard, 
   adminLogin, 
@@ -443,5 +916,16 @@ export {
   getUnverifiedMentors,
   inviteMentor,
   rejectMentor,
-  verifyMentor
+  verifyMentor,
+  // Mock Interview Functions
+  createMockInterview,
+  getAllMockInterviews,
+  generateQuestionsForInterview,
+  getInterviewQuestions,
+  approveQuestion,
+  bulkApproveQuestions,
+  editQuestion,
+  publishMockInterview,
+  getInterviewAnalytics,
+  deleteMockInterview
 };
