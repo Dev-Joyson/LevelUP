@@ -1,11 +1,174 @@
 "use client"
 
-import { Search, ChevronDown } from "lucide-react"
+import { useState, createContext, useContext, useEffect } from "react"
+import { Search, ChevronDown, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
+
+// Filter types
+export interface FilterState {
+  searchTerm: string
+  domain: string[]
+  skills: string[]
+  salaryRange: string[]
+  location: string[]
+  workMode: string[]
+  sortBy: string
+}
+
+// Context for sharing filter state
+const FilterContext = createContext<{
+  filters: FilterState
+  setFilters: (filters: FilterState) => void
+  internships: any[]
+  setInternships: (internships: any[]) => void
+} | null>(null)
+
+export const useFilters = () => {
+  const context = useContext(FilterContext)
+  if (!context) {
+    throw new Error('useFilters must be used within FilterProvider')
+  }
+  return context
+}
+
+export const useInternships = () => {
+  const context = useContext(FilterContext)
+  if (!context) {
+    throw new Error('useInternships must be used within FilterProvider')
+  }
+  return { internships: context.internships, setInternships: context.setInternships }
+}
+
+export function FilterProvider({ children }: { children: React.ReactNode }) {
+  const [filters, setFilters] = useState<FilterState>({
+    searchTerm: '',
+    domain: [],
+    skills: [],
+    salaryRange: [],
+    location: [],
+    workMode: [],
+    sortBy: 'Most Recent'
+  })
+
+  const [internships, setInternships] = useState<any[]>([])
+
+  // Fetch internships once when the provider mounts
+  useEffect(() => {
+    const fetchInternships = async () => {
+      try {
+        const token = localStorage.getItem('token') || ''
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+        
+        const res = await fetch(`${API_BASE_URL}/api/student/internships`, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          }
+        })
+        
+        if (!res.ok) throw new Error('Failed to fetch internships')
+        
+        const data = await res.json()
+        console.log('Fetched internships for filters:', data)
+        setInternships(data)
+      } catch (error) {
+        console.error('Error fetching internships for filters:', error)
+      }
+    }
+
+    fetchInternships()
+  }, [])
+
+  return (
+    <FilterContext.Provider value={{ filters, setFilters, internships, setInternships }}>
+      {children}
+    </FilterContext.Provider>
+  )
+}
 
 export function ExploreInternships() {
+  const { filters, setFilters, internships } = useFilters()
+
+  // Get unique domains from internships
+  const getUniqueDomains = () => {
+    const domains = internships
+      .map((job: any) => job.domain)
+      .filter((domain: string) => domain && domain.trim() !== '')
+      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index)
+      .sort()
+    return domains
+  }
+
+  // Get unique skills from internships
+  const getUniqueSkills = () => {
+    const allSkills = internships
+      .flatMap((job: any) => job.preferredSkills || [])
+      .filter((skill: string) => skill && skill.trim() !== '')
+      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index)
+      .sort()
+    return allSkills
+  }
+
+  // Get unique locations from internships
+  const getUniqueLocations = () => {
+    const locations = internships
+      .map((job: any) => job.location)
+      .filter((location: string) => location && location.trim() !== '')
+      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index)
+      .sort()
+    
+    // Add "Remote" option if any job has remote work mode
+    const hasRemoteJobs = internships.some((job: any) => 
+      job.workMode === 'remote' || 
+      job.location?.toLowerCase().includes('remote')
+    )
+    
+    if (hasRemoteJobs && !locations.includes('Remote')) {
+      locations.unshift('Remote')
+    }
+    
+    return locations
+  }
+
+  const handleSearchChange = (value: string) => {
+    setFilters({ ...filters, searchTerm: value })
+  }
+
+  const handleFilterChange = (filterType: keyof Omit<FilterState, 'searchTerm' | 'sortBy'>, value: string) => {
+    const currentValues = filters[filterType] as string[]
+    const newValues = currentValues.includes(value)
+      ? currentValues.filter(v => v !== value)
+      : [...currentValues, value]
+    
+    setFilters({ ...filters, [filterType]: newValues })
+  }
+
+  const handleSortChange = (value: string) => {
+    setFilters({ ...filters, sortBy: value })
+  }
+
+  const clearFilters = () => {
+    setFilters({
+      searchTerm: '',
+      domain: [],
+      skills: [],
+      salaryRange: [],
+      location: [],
+      workMode: [],
+      sortBy: 'Most Recent'
+    })
+  }
+
+  const hasActiveFilters = filters.searchTerm || 
+    filters.domain.length > 0 || 
+    filters.skills.length > 0 || 
+    filters.salaryRange.length > 0 || 
+    filters.location.length > 0 || 
+    filters.workMode.length > 0
+
   return (
     <section className="container py-6 sm:py-8 ">
       <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Explore Internships</h1>
@@ -20,15 +183,57 @@ export function ExploreInternships() {
           type="search"
           placeholder="Search by keywords (e.g., 'Software Engineering', 'Data Analysis')"
           className="pl-10 h-12"
+          value={filters.searchTerm}
+          onChange={(e) => handleSearchChange(e.target.value)}
         />
       </div>
 
-      <div className="flex flex-wrap gap-2 sm:gap-3">
-        <FilterDropdown label="Domain" options={["Technology", "Finance", "Healthcare", "Marketing", "Design"]} />
-        <FilterDropdown label="Skills" options={["JavaScript", "Python", "React", "Data Analysis", "UI/UX"]} />
-        <FilterDropdown label="Salary" options={["$0-$20/hr", "$20-$40/hr", "$40-$60/hr", "$60+/hr"]} />
-        <FilterDropdown label="Location" options={["Remote", "New York", "San Francisco", "London", "Toronto"]} />
-        <FilterDropdown label="Sort By" options={["Most Recent", "Highest Paid", "Best Match", "Company Rating"]} />
+      <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+        <FilterDropdown 
+          label="Domain" 
+          options={getUniqueDomains()} 
+          selectedValues={filters.domain}
+          onSelectionChange={(value) => handleFilterChange('domain', value)}
+        />
+        <FilterDropdown 
+          label="Skills" 
+          options={getUniqueSkills()} 
+          selectedValues={filters.skills}
+          onSelectionChange={(value) => handleFilterChange('skills', value)}
+        />
+        <FilterDropdown 
+          label="Salary Range" 
+          options={["LKR 0-25,000", "LKR 25,000-50,000", "LKR 50,000-75,000", "LKR 75,000-100,000", "LKR 100,000+"]} 
+          selectedValues={filters.salaryRange}
+          onSelectionChange={(value) => handleFilterChange('salaryRange', value)}
+        />
+        <FilterDropdown 
+          label="Location" 
+          options={getUniqueLocations()} 
+          selectedValues={filters.location}
+          onSelectionChange={(value) => handleFilterChange('location', value)}
+        />
+        <FilterDropdown 
+          label="Work Mode" 
+          options={["Remote", "Onsite", "Hybrid"]} 
+          selectedValues={filters.workMode}
+          onSelectionChange={(value) => handleFilterChange('workMode', value)}
+        />
+        <SortDropdown 
+          selectedValue={filters.sortBy}
+          onSelectionChange={handleSortChange}
+        />
+        
+        {hasActiveFilters && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={clearFilters}
+            className="h-9 sm:h-10 text-xs sm:text-sm text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+          >
+            Clear All
+          </Button>
+        )}
       </div>
     </section>
   )
@@ -37,21 +242,83 @@ export function ExploreInternships() {
 interface FilterDropdownProps {
   label: string
   options: string[]
+  selectedValues: string[]
+  onSelectionChange: (value: string) => void
 }
 
-function FilterDropdown({ label, options }: FilterDropdownProps) {
+function FilterDropdown({ label, options, selectedValues, onSelectionChange }: FilterDropdownProps) {
+  const hasSelections = selectedValues.length > 0
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button 
+          variant="outline" 
+          className={cn(
+            "h-9 sm:h-10 text-xs sm:text-sm gap-1",
+            hasSelections && "border-primary bg-primary/5 text-primary"
+          )}
+        >
+          {label}
+          {hasSelections && (
+            <span className="ml-1 rounded-full bg-primary text-primary-foreground px-1.5 py-0.5 text-xs">
+              {selectedValues.length}
+            </span>
+          )}
+          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48 max-h-64 overflow-y-auto">
+        {options.map((option) => {
+          const isSelected = selectedValues.includes(option)
+          return (
+            <DropdownMenuItem 
+              key={option} 
+              className="flex items-center gap-2 cursor-pointer"
+              onClick={() => onSelectionChange(option)}
+            >
+              <div className={cn(
+                "h-4 w-4 rounded-sm border flex items-center justify-center",
+                isSelected && "bg-primary border-primary"
+              )}>
+                {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+              </div>
+              {option}
+            </DropdownMenuItem>
+          )
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+interface SortDropdownProps {
+  selectedValue: string
+  onSelectionChange: (value: string) => void
+}
+
+function SortDropdown({ selectedValue, onSelectionChange }: SortDropdownProps) {
+  const sortOptions = ["Most Recent", "Highest Paid", "Lowest Paid", "Best Match", "Title A-Z", "Title Z-A"]
+  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="h-9 sm:h-10 text-xs sm:text-sm gap-1">
-          {label} <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+          Sort: {selectedValue} <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-48">
-        {options.map((option) => (
-          <DropdownMenuItem key={option} className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded-sm border flex items-center justify-center">
-              {/* Uncomment to show selected: <Check className="h-3 w-3" /> */}
+        {sortOptions.map((option) => (
+          <DropdownMenuItem 
+            key={option} 
+            className="flex items-center gap-2 cursor-pointer"
+            onClick={() => onSelectionChange(option)}
+          >
+            <div className={cn(
+              "h-4 w-4 rounded-full border flex items-center justify-center",
+              selectedValue === option && "bg-primary border-primary"
+            )}>
+              {selectedValue === option && <div className="h-2 w-2 rounded-full bg-primary-foreground" />}
             </div>
             {option}
           </DropdownMenuItem>
