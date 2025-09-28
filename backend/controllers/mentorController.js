@@ -489,14 +489,79 @@ const getAllPublicMentors = async (req, res) => {
       about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`
     }));
 
+    // Generate dynamic filter options based on the mapped mentor data (after fallbacks applied)
+    const filterOptions = generateFilterOptions(mappedMentors);
+
     res.status(200).json({
       message: 'Mentors fetched successfully',
-      mentors: mappedMentors
+      mentors: mappedMentors,
+      filterOptions: filterOptions
     });
   } catch (error) {
     console.error('Error fetching public mentors:', error);
     res.status(500).json({ message: 'Error fetching mentors' });
   }
+};
+
+// Helper function to generate dynamic filter options from mentor data
+const generateFilterOptions = (mentors) => {
+  const categoryMap = new Map();
+  const companyMap = new Map();
+  let minPrice = Infinity;
+  let maxPrice = 0;
+
+  mentors.forEach(mentor => {
+    // Count categories (use 'category' field from mapped data)
+    if (mentor.category && mentor.category.length > 0) {
+      mentor.category.forEach(category => {
+        if (category && category.trim()) {
+          const cleanCategory = category.trim();
+          categoryMap.set(cleanCategory, (categoryMap.get(cleanCategory) || 0) + 1);
+        }
+      });
+    }
+
+    // Count companies (include all companies, even LevelUP)
+    if (mentor.company && mentor.company.trim()) {
+      const cleanCompany = mentor.company.trim();
+      // Only exclude completely empty or default placeholder companies
+      if (cleanCompany !== '' && cleanCompany !== 'Company' && cleanCompany !== 'N/A') {
+        companyMap.set(cleanCompany, (companyMap.get(cleanCompany) || 0) + 1);
+      }
+    }
+
+    // Track price range
+    const price = mentor.pricePerMonth || 3000;
+    minPrice = Math.min(minPrice, price);
+    maxPrice = Math.max(maxPrice, price);
+  });
+
+  // Convert maps to arrays and sort by count (descending)
+  const categories = Array.from(categoryMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const companies = Array.from(companyMap.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Debug logging to see what companies were found
+  console.log('Generated filter options:');
+  console.log('Categories:', categories.length, categories.map(c => c.name));
+  console.log('Companies:', companies.length, companies.map(c => c.name));
+
+  // Ensure we have reasonable price bounds
+  if (minPrice === Infinity) minPrice = 0;
+  if (maxPrice === 0) maxPrice = 15000;
+
+  return {
+    categories,
+    companies,
+    priceRange: {
+      min: 0, // Always start from 0
+      max: 10000 // Fixed max range for consistent UI
+    }
+  };
 };
 
 // Get a specific mentor by ID for the mentorship detail page
