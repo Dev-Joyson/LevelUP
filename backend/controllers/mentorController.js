@@ -843,11 +843,81 @@ const changePassword = async (req, res) => {
   }
 };
 
+const updateMentorProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const {
+      firstname,
+      lastname,
+      title,
+      company,
+      bio,
+      about,
+      expertise,
+      skills,
+      experience,
+      location,
+      languages,
+      pricePerMonth,
+      certifications,
+      availability
+    } = req.body;
+
+    console.log('Updating mentor profile for user:', userId);
+    console.log('Update data:', req.body);
+
+    // Find and update mentor profile
+    const updatedMentor = await mentorModel.findOneAndUpdate(
+      { userId },
+      {
+        firstname: firstname || '',
+        lastname: lastname || '',
+        title: title || '',
+        company: company || '',
+        bio: bio || '',
+        about: about || '',
+        expertise: Array.isArray(expertise) ? expertise : [],
+        skills: Array.isArray(skills) ? skills : [],
+        experience: experience || '',
+        location: location || '',
+        languages: Array.isArray(languages) ? languages : [],
+        pricePerMonth: Number(pricePerMonth) || 0,
+        certifications: Array.isArray(certifications) ? certifications : [],
+        availability: Array.isArray(availability) ? availability : []
+      },
+      { 
+        new: true, 
+        runValidators: true,
+        upsert: true  // Create if doesn't exist
+      }
+    ).populate({
+      path: 'userId',
+      select: 'email isVerified',
+    });
+
+    console.log('Profile updated successfully:', updatedMentor._id);
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: formatMentorProfile(updatedMentor)
+    });
+  } catch (error) {
+    console.error('Error updating mentor profile:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating mentor profile',
+      error: error.message
+    });
+  }
+};
+
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
   getMentorById,
   getCurrentMentorProfile,
+  updateMentorProfile,
   getMentorAvailability,
   saveMentorAvailability,
   testMentorData,
