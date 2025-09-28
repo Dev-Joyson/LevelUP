@@ -13,6 +13,11 @@ import sessionModel from '../models/sessionModel.js';
 import mentorModel from '../models/mentorModel.js';
 import bcrypt from 'bcryptjs';
 import { emitAdminNotification, emitMentorNotification } from '../socket/socketHandlers.js';
+import mockInterviewModel from '../models/mockInterviewModel.js';
+import interviewSessionModel from '../models/interviewSessionModel.js';
+import pdfService from '../utils/pdfService.js';
+import path from 'path';
+import fs from 'fs/promises';
 
 const studentDashboard = (req,res) => {
     res.json({ message: "Welcome to Student Dashboard", user: req.user })
@@ -824,6 +829,481 @@ const uploadProfileImage = async (req, res) => {
   }
 };
 
+// ============= MOCK INTERVIEW FUNCTIONS =============
+
+// Get all available mock interviews for students
+const getAvailableMockInterviews = async (req, res) => {
+  try {
+    const { domain, difficulty, search } = req.query;
+    
+    // Build filter for active and published interviews
+    const filter = {
+      isActive: true,
+      isPublished: true
+    };
+    
+    if (domain) filter.domain = domain;
+    if (difficulty) filter.difficulty = difficulty;
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { tags: { $in: [new RegExp(search, 'i')] } }
+      ];
+    }
+
+    const mockInterviews = await mockInterviewModel.find(filter)
+      .select('-createdBy')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: 'Available mock interviews fetched successfully',
+      interviews: mockInterviews.map(interview => ({
+        id: interview._id,
+        title: interview.title,
+        domain: interview.domain,
+        difficulty: interview.difficulty,
+        numberOfQuestions: interview.numberOfQuestions,
+        duration: interview.duration,
+        description: interview.description,
+        tags: interview.tags,
+        totalAttempts: interview.totalAttempts,
+        averageScore: interview.averageScore,
+        estimatedScore: interview.estimatedScore
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching available mock interviews:', error);
+    res.status(500).json({ message: 'Error fetching available mock interviews' });
+  }
+};
+
+// Get mock interview details by ID
+const getMockInterviewDetails = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+
+    const mockInterview = await mockInterviewModel.findOne({
+      _id: interviewId,
+      isActive: true,
+      isPublished: true
+    });
+
+    if (!mockInterview) {
+      return res.status(404).json({ message: 'Mock interview not found or not available' });
+    }
+
+    // Check if student has already completed this interview
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    const studentId = student._id;
+    
+    const completedSession = await interviewSessionModel.findOne({
+      studentId: studentId,
+      mockInterviewId: interviewId,
+      status: 'completed'
+    });
+
+    // Check if student has an active session for this interview
+    const activeSession = await interviewSessionModel.findOne({
+      studentId: studentId,
+      mockInterviewId: interviewId,
+      status: { $in: ['waiting', 'in_progress'] }
+    });
+
+    res.status(200).json({
+      message: 'Mock interview details fetched successfully',
+      interview: {
+        id: mockInterview._id,
+        title: mockInterview.title,
+        domain: mockInterview.domain,
+        difficulty: mockInterview.difficulty,
+        numberOfQuestions: mockInterview.numberOfQuestions,
+        duration: mockInterview.duration,
+        description: mockInterview.description,
+        tags: mockInterview.tags,
+        totalAttempts: mockInterview.totalAttempts,
+        averageScore: mockInterview.averageScore,
+        estimatedScore: mockInterview.estimatedScore
+      },
+      studentStatus: {
+        hasCompleted: !!completedSession,
+        hasActiveSession: !!activeSession,
+        activeSessionId: activeSession?.sessionId || null,
+        completedScore: completedSession?.finalReport?.overallScore || null,
+        completedAt: completedSession?.endedAt || null
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching mock interview details:', error);
+    res.status(500).json({ message: 'Error fetching mock interview details' });
+  }
+};
+
+// Get student's interview history
+const getStudentInterviewHistory = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    const studentId = student._id;
+    const { status, limit = 10, page = 1 } = req.query;
+
+    const filter = { studentId };
+    if (status) filter.status = status;
+
+    const skip = (page - 1) * limit;
+
+    const sessions = await interviewSessionModel.find(filter)
+      .populate('mockInterviewId', 'title domain difficulty numberOfQuestions duration')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await interviewSessionModel.countDocuments(filter);
+
+    res.status(200).json({
+      message: 'Interview history fetched successfully',
+      sessions: sessions.map(session => ({
+        sessionId: session.sessionId,
+        mockInterview: session.mockInterviewId,
+        status: session.status,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        currentQuestionNumber: session.currentQuestionNumber,
+        totalQuestions: session.totalQuestions,
+        questionsAttempted: session.questionsAttempted,
+        totalTimeSpent: session.totalTimeSpent,
+        finalReport: session.finalReport,
+        createdAt: session.createdAt
+      })),
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages: Math.ceil(total / limit),
+        totalSessions: total,
+        hasMore: (page * limit) < total
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student interview history:', error);
+    res.status(500).json({ message: 'Error fetching interview history' });
+  }
+};
+
+// Get specific interview session details
+const getInterviewSessionDetails = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    const studentId = student._id;
+
+    const session = await interviewSessionModel.findOne({
+      sessionId: sessionId,
+      studentId: studentId
+    }).populate('mockInterviewId', 'title domain difficulty');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Interview session not found' });
+    }
+
+    res.status(200).json({
+      message: 'Interview session details fetched successfully',
+      session: {
+        sessionId: session.sessionId,
+        mockInterview: session.mockInterviewId,
+        status: session.status,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        currentQuestionNumber: session.currentQuestionNumber,
+        totalQuestions: session.totalQuestions,
+        questionsAttempted: session.questionsAttempted,
+        timeRemaining: session.timeRemaining,
+        totalTimeSpent: session.totalTimeSpent,
+        answers: session.answers,
+        finalReport: session.finalReport,
+        connectionLogs: session.connectionLogs
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching interview session details:', error);
+    res.status(500).json({ message: 'Error fetching session details' });
+  }
+};
+
+// Get latest session for a specific mock interview
+const getLatestInterviewSession = async (req, res) => {
+  try {
+    const { interviewId } = req.params;
+    
+    // First find the student record using userId from JWT
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    const studentId = student._id;
+
+    console.log('🔍 Searching for interview session with:');
+    console.log('   interviewId:', interviewId);
+    console.log('   studentId:', studentId);
+    console.log('   userId from JWT:', req.user.userId);
+
+    // First, let's see what sessions exist for this student
+    const allStudentSessions = await interviewSessionModel.find({ studentId: studentId })
+      .select('sessionId mockInterviewId status createdAt')
+      .sort({ createdAt: -1 })
+      .limit(5);
+    
+    console.log('📊 Recent sessions for this student:');
+    allStudentSessions.forEach(session => {
+      console.log(`   Session: ${session.sessionId}, MockInterview: ${session.mockInterviewId}, Status: ${session.status}`);
+    });
+
+    // Find the most recent session for this mock interview (prioritize completed sessions)
+    const session = await interviewSessionModel.findOne({
+      studentId: studentId,
+      mockInterviewId: interviewId
+    })
+    .populate('mockInterviewId', 'title domain difficulty numberOfQuestions duration')
+    .sort({ 
+      createdAt: -1 // Most recent first
+    });
+
+    if (!session) {
+      console.log('❌ No session found with the exact criteria');
+      return res.status(404).json({ message: 'No interview session found for this mock interview' });
+    }
+
+    console.log('✅ Found session:', session.sessionId);
+
+    res.status(200).json({
+      message: 'Latest interview session fetched successfully',
+      session: {
+        sessionId: session.sessionId,
+        mockInterview: session.mockInterviewId,
+        status: session.status,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        currentQuestionNumber: session.currentQuestionNumber,
+        totalQuestions: session.totalQuestions,
+        questionsAttempted: session.questionsAttempted,
+        timeRemaining: session.timeRemaining,
+        totalTimeSpent: session.totalTimeSpent,
+        answers: session.answers,
+        finalReport: session.finalReport,
+        connectionLogs: session.connectionLogs,
+        createdAt: session.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching latest interview session:', error);
+    res.status(500).json({ message: 'Error fetching latest interview session' });
+  }
+};
+
+// Get student's interview statistics
+const getStudentInterviewStats = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    const studentId = student._id;
+
+    // Total sessions
+    const totalSessions = await interviewSessionModel.countDocuments({ studentId });
+    const completedSessions = await interviewSessionModel.countDocuments({ 
+      studentId, 
+      status: 'completed' 
+    });
+    const terminatedSessions = await interviewSessionModel.countDocuments({ 
+      studentId, 
+      status: 'terminated' 
+    });
+
+    // Average score from completed sessions
+    const completedSessionsWithScores = await interviewSessionModel.find({
+      studentId,
+      status: 'completed',
+      'finalReport.overallScore': { $exists: true, $ne: null }
+    });
+
+    let averageScore = 0;
+    if (completedSessionsWithScores.length > 0) {
+      const totalScore = completedSessionsWithScores.reduce(
+        (sum, session) => sum + (session.finalReport?.overallScore || 0), 
+        0
+      );
+      averageScore = Math.round((totalScore / completedSessionsWithScores.length) * 100) / 100;
+    }
+
+    // Domain performance
+    const domainStats = await interviewSessionModel.aggregate([
+      { $match: { studentId, status: 'completed' } },
+      { $lookup: { from: 'mockinterviews', localField: 'mockInterviewId', foreignField: '_id', as: 'interview' } },
+      { $unwind: '$interview' },
+      { $group: { 
+          _id: '$interview.domain', 
+          attempts: { $sum: 1 }, 
+          avgScore: { $avg: '$finalReport.overallScore' } 
+        } 
+      },
+      { $sort: { attempts: -1 } }
+    ]);
+
+    res.status(200).json({
+      message: 'Student interview statistics fetched successfully',
+      stats: {
+        overview: {
+          totalSessions,
+          completedSessions,
+          terminatedSessions,
+          completionRate: totalSessions > 0 ? Math.round((completedSessions / totalSessions) * 100) : 0,
+          averageScore
+        },
+        domainPerformance: domainStats.map(stat => ({
+          domain: stat._id,
+          attempts: stat.attempts,
+          averageScore: Math.round((stat.avgScore || 0) * 100) / 100
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching student interview statistics:', error);
+    res.status(500).json({ message: 'Error fetching interview statistics' });
+  }
+};
+
+// Download interview PDF report from student's mockInterviewReports
+const downloadInterviewReport = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Find the interview report in student's mockInterviewReports array
+    const interviewReport = student.mockInterviewReports.find(
+      report => report.sessionId === sessionId
+    );
+
+    if (!interviewReport) {
+      return res.status(404).json({ message: 'Interview report not found' });
+    }
+
+    // Check if PDF exists in Cloudinary
+    if (interviewReport.pdfReport?.cloudinaryUrl) {
+      console.log(`Redirecting to Cloudinary URL: ${interviewReport.pdfReport.cloudinaryUrl}`);
+      
+      // Redirect to Cloudinary URL for download
+      return res.redirect(interviewReport.pdfReport.cloudinaryUrl);
+    }
+
+    // If no PDF exists, generate one (fallback for older reports)
+    console.log('No PDF found in student record, generating new one...');
+
+    // Get session data for PDF generation (fallback)
+    const session = await interviewSessionModel.findOne({
+      sessionId: sessionId,
+      studentId: student._id,
+      status: 'completed'
+    }).populate('mockInterviewId', 'title domain difficulty');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Interview session not found' });
+    }
+
+    const studentInfo = {
+      name: `${student.firstname} ${student.lastname}`,
+      email: req.user.email || 'unknown@email.com'
+    };
+
+    const reportData = {
+      sessionId: session.sessionId,
+      studentId: student._id,
+      studentInfo,
+      mockInterview: session.mockInterviewId,
+      finalReport: session.finalReport,
+      answers: session.answers,
+      totalTimeSpent: session.totalTimeSpent,
+      completedAt: session.endedAt
+    };
+
+    const pdfResult = await pdfService.generateInterviewReport(reportData);
+
+    if (pdfResult.success) {
+      // Update the student's mockInterviewReports with the new PDF data
+      const reportIndex = student.mockInterviewReports.findIndex(
+        report => report.sessionId === sessionId
+      );
+      
+      if (reportIndex !== -1) {
+        student.mockInterviewReports[reportIndex].pdfReport = {
+          cloudinaryUrl: pdfResult.cloudinaryUrl,
+          publicId: pdfResult.publicId,
+          uploadedAt: pdfResult.uploadedAt
+        };
+        await student.save();
+      }
+
+      // Redirect to new Cloudinary URL
+      return res.redirect(pdfResult.cloudinaryUrl);
+    } else {
+      res.status(500).json({ 
+        message: 'Failed to generate PDF report',
+        error: pdfResult.error 
+      });
+    }
+  } catch (error) {
+    console.error('Error downloading interview report:', error);
+    res.status(500).json({ message: 'Error downloading interview report' });
+  }
+};
+
+// Get student's mock interview reports (stored in student model)
+const getStudentMockInterviewReports = async (req, res) => {
+  try {
+    const student = await studentModel.findOne({ userId: req.user.userId })
+      .populate('mockInterviewReports.mockInterviewId', 'title domain difficulty');
+    
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // Sort reports by completion date (newest first)
+    const sortedReports = student.mockInterviewReports
+      .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+      .map(report => ({
+        sessionId: report.sessionId,
+        mockInterview: report.mockInterviewId,
+        interviewTitle: report.interviewTitle,
+        interviewDomain: report.interviewDomain,
+        difficulty: report.difficulty,
+        completedAt: report.completedAt,
+        duration: report.duration,
+        summaryReport: report.summaryReport,
+        pdfAvailable: !!report.pdfReport?.cloudinaryUrl,
+        pdfUrl: report.pdfReport?.cloudinaryUrl || null
+      }));
+
+    res.status(200).json({
+      message: 'Mock interview reports fetched successfully',
+      reports: sortedReports,
+      totalReports: sortedReports.length
+    });
+
+  } catch (error) {
+    console.error('Error fetching student mock interview reports:', error);
+    res.status(500).json({ message: 'Error fetching interview reports' });
+  }
+};
 
 export { 
   studentDashboard, 
@@ -838,5 +1318,14 @@ export {
   getStudentSessions,
   changePassword,
   uploadProfileImage,
-  syncPhoneFromResume
+  syncPhoneFromResume,
+  // Mock Interview Functions
+  getAvailableMockInterviews,
+  getMockInterviewDetails,
+  getStudentInterviewHistory,
+  getInterviewSessionDetails,
+  getLatestInterviewSession,
+  getStudentInterviewStats,
+  downloadInterviewReport,
+  getStudentMockInterviewReports
 }

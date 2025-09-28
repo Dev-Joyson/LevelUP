@@ -2,6 +2,13 @@ import { authenticateSocket, verifySessionAccess } from './socketAuth.js';
 import chatModel from '../models/chatModel.js';
 import sessionModel from '../models/sessionModel.js';
 import notificationModel from '../models/notificationModel.js';
+import mockInterviewModel from '../models/mockInterviewModel.js';
+import questionModel from '../models/questionModel.js';
+import interviewSessionModel from '../models/interviewSessionModel.js';
+import interviewChatModel from '../models/interviewChatModel.js';
+import openaiService from '../utils/openaiService.js';
+import pdfService from '../utils/pdfService.js';
+import studentModel from '../models/studentModel.js';
 
 // Store active users per session
 const activeUsers = new Map(); // sessionId -> Set of user objects
@@ -101,6 +108,184 @@ export const emitStudentNotification = (io, studentId, notification) => {
     console.error('Error emitting student notification:', error);
 
     return false;
+  }
+};
+
+// ============= INTERVIEW HELPER FUNCTIONS =============
+
+// Generate PDF report for completed interview and save to student model
+const generatePDFReport = async (interviewSession, mockInterview, finalReport) => {
+  try {
+    // Get student information - we need to populate this
+    const populatedSession = await interviewSessionModel.findById(interviewSession._id)
+      .populate('studentId', 'firstname lastname email');
+    
+    const studentInfo = {
+      name: populatedSession.studentId 
+        ? `${populatedSession.studentId.firstname} ${populatedSession.studentId.lastname}` 
+        : 'Student',
+      email: populatedSession.studentId?.email || 'unknown@email.com'
+    };
+
+    const reportData = {
+      sessionId: interviewSession.sessionId,
+      studentId: populatedSession.studentId._id, // Add studentId for Cloudinary upload
+      studentInfo,
+      mockInterview: {
+        title: mockInterview.title,
+        domain: mockInterview.domain,
+        difficulty: mockInterview.difficulty
+      },
+      finalReport,
+      answers: interviewSession.answers || [],
+      totalTimeSpent: interviewSession.totalTimeSpent,
+      completedAt: interviewSession.endedAt || new Date()
+    };
+
+    const pdfResult = await pdfService.generateInterviewReport(reportData);
+
+    if (pdfResult.success) {
+      // Update session with PDF path (keep for backward compatibility)
+      interviewSession.finalReport.pdfPath = pdfResult.cloudinaryUrl;
+      await interviewSession.save();
+
+      // Save interview report to student model
+      const student = await studentModel.findById(populatedSession.studentId._id);
+      if (student) {
+        const interviewReport = {
+          sessionId: interviewSession.sessionId,
+          mockInterviewId: mockInterview._id,
+          interviewTitle: mockInterview.title,
+          interviewDomain: mockInterview.domain,
+          difficulty: mockInterview.difficulty,
+          completedAt: interviewSession.endedAt || new Date(),
+          duration: Math.round(interviewSession.totalTimeSpent / 60), // Convert to minutes
+          summaryReport: {
+            overallScore: finalReport.overallScore,
+            categoryScores: finalReport.categoryScores,
+            strengths: finalReport.strengths,
+            weaknesses: finalReport.weaknesses,
+            improvementSuggestions: finalReport.improvementSuggestions,
+            summary: finalReport.summary,
+            recommendation: finalReport.recommendation,
+            questionsAttempted: interviewSession.questionsAttempted,
+            totalQuestions: interviewSession.totalQuestions,
+            totalTimeSpent: interviewSession.totalTimeSpent
+          },
+          pdfReport: {
+            cloudinaryUrl: pdfResult.cloudinaryUrl,
+            publicId: pdfResult.publicId,
+            uploadedAt: pdfResult.uploadedAt
+          }
+        };
+
+        student.mockInterviewReports.push(interviewReport);
+        await student.save();
+
+        console.log(`PDF report generated and saved to student model for session ${interviewSession.sessionId}`);
+        console.log(`Cloudinary URL: ${pdfResult.cloudinaryUrl}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error generating PDF report:', error);
+  }
+};
+
+// Handle interview completion and generate summary
+const handleInterviewCompletion = async (socket, interviewSession) => {
+  try {
+    // Complete the interview session
+    await interviewSession.completeInterview();
+
+    // Get mock interview details
+    const mockInterview = await mockInterviewModel.findById(interviewSession.mockInterviewId);
+    
+    // Prepare session data for summary generation
+    const sessionData = {
+      mockInterview: {
+        domain: mockInterview.domain,
+        difficulty: mockInterview.difficulty,
+        numberOfQuestions: mockInterview.numberOfQuestions
+      },
+      answers: interviewSession.answers,
+      totalTimeSpent: interviewSession.totalTimeSpent,
+      questionsAttempted: interviewSession.questionsAttempted
+    };
+
+    // Generate AI summary
+    const summaryResult = await openaiService.generateInterviewSummary(sessionData);
+    
+    if (summaryResult.success) {
+      // Save final report to session
+      interviewSession.finalReport = summaryResult.summary;
+      await interviewSession.save();
+
+      // Create summary message in chat (simple, no score details)
+      const summaryMessage = await interviewChatModel.create({
+        sessionId: interviewSession.sessionId,
+        messageType: 'ai_summary',
+        content: `Thank you for completing this mock interview! Your detailed report is being generated and will be available for download shortly.`,
+        metadata: {
+          eventType: 'interview_completed',
+          finalReport: summaryResult.summary
+        }
+      });
+
+      // Send completion event
+      socket.emit('interview-completed', {
+        sessionId: interviewSession.sessionId,
+        finalReport: summaryResult.summary,
+        questionsCompleted: interviewSession.questionsAttempted,
+        totalQuestions: interviewSession.totalQuestions,
+        timeSpent: Math.round(interviewSession.totalTimeSpent / 60), // Convert to minutes
+        summaryMessage: summaryMessage
+      });
+
+      // Update mock interview statistics
+      await updateMockInterviewStats(mockInterview._id, summaryResult.summary.overallScore);
+
+      // Generate PDF report asynchronously (don't wait for it)
+      generatePDFReport(interviewSession, mockInterview, summaryResult.summary)
+        .catch(error => console.error('PDF generation error:', error));
+
+      console.log(`Interview ${interviewSession.sessionId} completed with score ${summaryResult.summary.overallScore}`);
+    } else {
+      // Fallback if summary generation fails
+      socket.emit('interview-completed', {
+        sessionId: interviewSession.sessionId,
+        finalReport: {
+          overallScore: 0,
+          summary: 'Interview completed but summary generation failed. Please contact support.'
+        },
+        questionsCompleted: interviewSession.questionsAttempted,
+        totalQuestions: interviewSession.totalQuestions,
+        error: 'Summary generation failed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Interview completion error:', error);
+    socket.emit('interview-error', { 
+      message: 'Error completing interview',
+      details: error.message 
+    });
+  }
+};
+
+// Update mock interview statistics
+const updateMockInterviewStats = async (mockInterviewId, score) => {
+  try {
+    const mockInterview = await mockInterviewModel.findById(mockInterviewId);
+    if (mockInterview) {
+      const totalAttempts = mockInterview.totalAttempts + 1;
+      const newAverage = ((mockInterview.averageScore * mockInterview.totalAttempts) + score) / totalAttempts;
+      
+      mockInterview.totalAttempts = totalAttempts;
+      mockInterview.averageScore = Math.round(newAverage * 100) / 100; // Round to 2 decimal places
+      await mockInterview.save();
+    }
+  } catch (error) {
+    console.error('Error updating mock interview stats:', error);
   }
 };
 
@@ -360,6 +545,45 @@ export const setupSocketHandlers = (io) => {
 
     // Handle disconnection
     socket.on('disconnect', () => {
+      // Clean up admin tracking
+      if (socket.userRole === 'admin') {
+        activeAdmins.delete(socket.id);
+        console.log(`Admin user disconnected: ${socket.userEmail}, total admins online: ${activeAdmins.size}`);
+      }
+
+      // Clean up company tracking
+      if (socket.userRole === 'company' && socket.companyId) {
+        if (activeCompanies.has(socket.companyId)) {
+          activeCompanies.get(socket.companyId).delete(socket.id);
+          if (activeCompanies.get(socket.companyId).size === 0) {
+            activeCompanies.delete(socket.companyId);
+          }
+        }
+        console.log(`Company user disconnected: ${socket.userEmail}`);
+      }
+
+      // Clean up mentor tracking
+      if (socket.userRole === 'mentor' && socket.mentorId) {
+        if (activeMentors.has(socket.mentorId)) {
+          activeMentors.get(socket.mentorId).delete(socket.id);
+          if (activeMentors.get(socket.mentorId).size === 0) {
+            activeMentors.delete(socket.mentorId);
+          }
+        }
+        console.log(`Mentor user disconnected: ${socket.userEmail}`);
+      }
+
+      // Clean up student tracking
+      if (socket.userRole === 'student' && socket.studentId) {
+        if (activeStudents.has(socket.studentId)) {
+          activeStudents.get(socket.studentId).delete(socket.id);
+          if (activeStudents.get(socket.studentId).size === 0) {
+            activeStudents.delete(socket.studentId);
+          }
+        }
+        console.log(`Student user disconnected: ${socket.userEmail}`);
+      }
+      
       const sessionId = socket.currentSessionId;
       if (sessionId) {
         // Remove user from active users
@@ -383,6 +607,26 @@ export const setupSocketHandlers = (io) => {
           email: socket.userEmail,
           name: socket.userName
         });
+      }
+
+      // Handle interview session cleanup
+      const interviewSessionId = socket.currentInterviewSession;
+      if (interviewSessionId) {
+        // Log disconnection in interview session
+        interviewChatModel.create({
+          sessionId: interviewSessionId,
+          messageType: 'system_message',
+          content: `Student disconnected during interview`,
+          metadata: {
+            eventType: 'student_disconnected',
+            disconnectTime: new Date()
+          }
+        }).catch(err => console.error('Error logging interview disconnect:', err));
+
+        // Leave interview room
+        socket.leave(`interview_${interviewSessionId}`);
+        
+        console.log(`Student ${socket.userEmail} disconnected from interview ${interviewSessionId}`);
       }
       
       // If admin, remove from active admins tracking
@@ -440,6 +684,411 @@ export const setupSocketHandlers = (io) => {
     // Handle ping/pong for connection health
     socket.on('ping', () => {
       socket.emit('pong');
+    });
+
+    // ============= MOCK INTERVIEW SOCKET HANDLERS =============
+
+    // Start a mock interview session
+    socket.on('start-interview', async (data) => {
+      try {
+        const { mockInterviewId } = data;
+        
+        if (!mockInterviewId) {
+          socket.emit('interview-error', { message: 'Mock interview ID is required' });
+          return;
+        }
+
+        // Verify user is student
+        if (socket.userRole !== 'student') {
+          socket.emit('interview-error', { message: 'Only students can start interviews' });
+          return;
+        }
+
+        // Get mock interview details
+        const mockInterview = await mockInterviewModel.findById(mockInterviewId);
+        if (!mockInterview || !mockInterview.canStartInterview()) {
+          socket.emit('interview-error', { message: 'Interview not available' });
+          return;
+        }
+
+        // Check if student already has an active session for this interview
+        const existingSession = await interviewSessionModel.findOne({
+          studentId: socket.studentId,
+          mockInterviewId: mockInterviewId,
+          status: { $in: ['waiting', 'in_progress'] }
+        });
+
+        if (existingSession) {
+          console.log(`Resuming existing interview session ${existingSession.sessionId} for student ${socket.studentId}`);
+          
+          // Check if session has been idle for too long (15 minutes)
+          const idleTime = Date.now() - (existingSession.lastActivity || existingSession.startedAt);
+          const maxIdleTime = 15 * 60 * 1000; // 15 minutes
+          
+          if (idleTime > maxIdleTime) {
+            console.log(`Session ${existingSession.sessionId} has been idle too long, terminating...`);
+            existingSession.status = 'terminated';
+            existingSession.endedAt = new Date();
+            existingSession.totalTimeSpent = Math.floor((existingSession.endedAt - existingSession.startedAt) / 1000);
+            await existingSession.save();
+            
+            // Create a system message about termination
+            await interviewChatModel.create({
+              sessionId: existingSession.sessionId,
+              messageType: 'system_message',
+              content: 'Interview session was automatically terminated due to inactivity.',
+              metadata: {
+                eventType: 'session_timeout',
+                idleTime: Math.floor(idleTime / 1000)
+              }
+            });
+            
+            // Don't resume, allow creation of new session
+          } else {
+            // Update last activity timestamp
+            existingSession.lastActivity = new Date();
+            await existingSession.save();
+            
+            // Join the existing interview room
+            const roomName = `interview_${existingSession.sessionId}`;
+            socket.join(roomName);
+            socket.currentInterviewSession = existingSession.sessionId;
+
+            // Get existing messages for this session
+            const existingMessages = await interviewChatModel.find({
+              sessionId: existingSession.sessionId
+            }).sort({ createdAt: 1 });
+
+            // Send existing session data
+            socket.emit('interview-started', {
+              sessionId: existingSession.sessionId,
+              mockInterview: {
+                title: mockInterview.title,
+                domain: mockInterview.domain,
+                difficulty: mockInterview.difficulty,
+                duration: mockInterview.duration
+              },
+              totalQuestions: existingSession.totalQuestions,
+              currentQuestion: existingSession.questionsAttempted + 1,
+              timeRemaining: existingSession.timeRemaining,
+              messages: existingMessages
+            });
+
+            return;
+          }
+        }
+
+        // Get approved questions for this interview
+        const questions = await questionModel.find({
+          mockInterviewId: mockInterviewId,
+          isApproved: true
+        }).sort({ questionNumber: 1 });
+
+        if (questions.length === 0) {
+          socket.emit('interview-error', { message: 'No questions available for this interview' });
+          return;
+        }
+
+        // Create new interview session
+        const interviewSession = await interviewSessionModel.create({
+          studentId: socket.studentId,
+          mockInterviewId: mockInterviewId,
+          totalQuestions: questions.length,
+          timeRemaining: mockInterview.duration * 60 // Convert minutes to seconds
+        });
+
+        // Start the interview
+        await interviewSession.startInterview();
+        
+        // Join the interview room
+        const roomName = `interview_${interviewSession.sessionId}`;
+        socket.join(roomName);
+        socket.currentInterviewSession = interviewSession.sessionId;
+
+        // Send welcome message
+        const welcomeMessage = await interviewChatModel.create({
+          sessionId: interviewSession.sessionId,
+          messageType: 'ai_greeting',
+          content: `Welcome to your mock interview! I'm Sarah, and I'll be asking you questions today. Let's start with an easy one: Tell me about yourself.`,
+          metadata: {
+            eventType: 'interview_started'
+          }
+        });
+
+        // Send first question - use "Tell me about yourself" as a standard first question
+        const firstQuestion = questions[0];
+        const questionMessage = await interviewChatModel.create({
+          sessionId: interviewSession.sessionId,
+          messageType: 'ai_question',
+          content: firstQuestion.questionText, // Just the question, no prefix
+          questionNumber: 1,
+          metadata: {
+            questionId: firstQuestion._id,
+            estimatedTime: firstQuestion.estimatedTime,
+            difficulty: firstQuestion.difficulty
+          }
+        });
+
+        socket.emit('interview-started', {
+          sessionId: interviewSession.sessionId,
+          mockInterview: {
+            title: mockInterview.title,
+            domain: mockInterview.domain,
+            difficulty: mockInterview.difficulty,
+            duration: mockInterview.duration
+          },
+          totalQuestions: questions.length,
+          currentQuestion: 1,
+          timeRemaining: interviewSession.timeRemaining,
+          messages: [welcomeMessage, questionMessage]
+        });
+
+        console.log(`Student ${socket.userEmail} started interview ${interviewSession.sessionId}`);
+      } catch (error) {
+        console.error('Start interview error:', error);
+        socket.emit('interview-error', { message: 'Failed to start interview' });
+      }
+    });
+
+    // Handle student answers
+    socket.on('student-answer', async (data) => {
+      try {
+        const { sessionId, answer, questionNumber } = data;
+        
+        if (!sessionId || !answer || !questionNumber) {
+          socket.emit('interview-error', { message: 'Session ID, answer, and question number are required' });
+          return;
+        }
+
+        // Verify this is the student's session
+        const interviewSession = await interviewSessionModel.findOne({ 
+          sessionId, 
+          studentId: socket.studentId,
+          status: 'in_progress'
+        });
+
+        if (!interviewSession) {
+          socket.emit('interview-error', { message: 'Interview session not found or not active' });
+          return;
+        }
+
+        // Get the current question
+        const question = await questionModel.findOne({
+          mockInterviewId: interviewSession.mockInterviewId,
+          questionNumber: questionNumber,
+          isApproved: true
+        });
+
+        if (!question) {
+          socket.emit('interview-error', { message: 'Question not found' });
+          return;
+        }
+
+        // Save student answer
+        const answerMessage = await interviewChatModel.create({
+          sessionId: sessionId,
+          messageType: 'student_answer',
+          content: answer.trim(),
+          questionNumber: questionNumber,
+          metadata: {
+            questionId: question._id,
+            wordCount: answer.trim().split(' ').length,
+            typingTime: data.typingTime || 0
+          }
+        });
+
+        // Show typing indicator for AI evaluation
+        socket.emit('ai-typing', { message: 'AI is evaluating your answer...' });
+
+        // Evaluate answer using OpenAI
+        const evaluation = await openaiService.evaluateAnswer(
+          question.questionText,
+          answer,
+          question.expectedAnswer,
+          question.keyPoints
+        );
+
+        if (evaluation.success) {
+          // Update last activity timestamp to prevent session timeout
+          interviewSession.lastActivity = new Date();
+          
+          // Save evaluation to session (keep for final report)
+          await interviewSession.addAnswer(
+            questionNumber,
+            question._id,
+            answer,
+            evaluation.evaluation
+          );
+
+          // Send contextually appropriate acknowledgment message
+          let contextualResponse;
+          const answerLength = answer.trim().split(' ').length;
+          const answerLower = answer.toLowerCase();
+          
+          // Handle very short/generic responses
+          if (answerLength <= 3 || answerLower === 'hi' || answerLower === 'hello' || answerLower === 'yes' || answerLower === 'no') {
+            contextualResponse = "I'd appreciate a more detailed answer. Could you elaborate on that? But for now, let's move to the next question.";
+          }
+          // Handle good detailed responses  
+          else if (answerLength > 20) {
+            const goodResponses = [
+              "Great detailed explanation! Let's continue with the next question.",
+              "That's a comprehensive answer. Moving on to the next question.",
+              "Excellent! Your detailed response shows good understanding. Next question:",
+              "Perfect! I can see you've thought this through well. Let's continue."
+            ];
+            contextualResponse = goodResponses[Math.floor(Math.random() * goodResponses.length)];
+          }
+          // Handle moderate responses
+          else {
+            const moderateResponses = [
+              "Thank you for that. Let's move to the next question.",
+              "I see. Let's continue with the next question.",
+              "Alright, moving on to the next question.",
+              "Got it. Here's the next question:"
+            ];
+            contextualResponse = moderateResponses[Math.floor(Math.random() * moderateResponses.length)];
+          }
+          
+          const feedbackMessage = await interviewChatModel.create({
+            sessionId: sessionId,
+            messageType: 'ai_feedback',
+            content: contextualResponse,
+            questionNumber: questionNumber,
+            metadata: {
+              model: evaluation.evaluation.model,
+              responseTime: Date.now() - answerMessage.timestamp,
+              // Store detailed evaluation for final report but don't send to frontend
+              storedEvaluation: evaluation.evaluation
+            }
+          });
+
+          socket.emit('ai-feedback', {
+            questionNumber: questionNumber,
+            feedback: contextualResponse,
+            message: feedbackMessage
+          });
+
+          // Move to next question or end interview
+          if (questionNumber < interviewSession.totalQuestions) {
+            await interviewSession.nextQuestion();
+            
+            // Get next question
+            const nextQuestion = await questionModel.findOne({
+              mockInterviewId: interviewSession.mockInterviewId,
+              questionNumber: questionNumber + 1,
+              isApproved: true
+            });
+
+            if (nextQuestion) {
+              const nextQuestionMessage = await interviewChatModel.create({
+                sessionId: sessionId,
+                messageType: 'ai_question',
+                content: nextQuestion.questionText, // Just the question, no "Question X:" prefix
+                questionNumber: questionNumber + 1,
+                metadata: {
+                  questionId: nextQuestion._id,
+                  estimatedTime: nextQuestion.estimatedTime,
+                  difficulty: nextQuestion.difficulty
+                }
+              });
+
+              socket.emit('next-question', {
+                questionNumber: questionNumber + 1,
+                question: nextQuestion.questionText, // Send just the question text
+                totalQuestions: interviewSession.totalQuestions
+              });
+            }
+          } else {
+            // Interview completed - trigger summary generation
+            socket.emit('generating-summary', { message: 'Generating your interview report...' });
+            await handleInterviewCompletion(socket, interviewSession);
+          }
+        } else {
+          // AI evaluation failed - send error feedback
+          socket.emit('interview-error', { 
+            message: 'Failed to evaluate answer. Please try again.' 
+          });
+        }
+
+      } catch (error) {
+        console.error('Student answer error:', error);
+        socket.emit('interview-error', { message: 'Error processing answer' });
+      }
+    });
+
+    // Handle interview termination
+    socket.on('terminate-interview', async (data) => {
+      try {
+        const { sessionId, reason } = data;
+
+        const interviewSession = await interviewSessionModel.findOne({ 
+          sessionId, 
+          studentId: socket.studentId,
+          status: { $in: ['waiting', 'in_progress'] }
+        });
+
+        if (interviewSession) {
+          interviewSession.status = 'terminated';
+          interviewSession.endedAt = new Date();
+          interviewSession.totalTimeSpent = Math.floor((interviewSession.endedAt - interviewSession.startedAt) / 1000);
+          await interviewSession.save();
+
+          // Log termination
+          await interviewChatModel.create({
+            sessionId: sessionId,
+            messageType: 'system_message',
+            content: `Interview terminated: ${reason || 'Student ended session'}`,
+            metadata: {
+              eventType: 'interview_terminated',
+              reason: reason
+            }
+          });
+
+          socket.emit('interview-terminated', {
+            sessionId: sessionId,
+            reason: reason,
+            questionsCompleted: interviewSession.questionsAttempted,
+            totalQuestions: interviewSession.totalQuestions
+          });
+
+          // Leave room
+          socket.leave(`interview_${sessionId}`);
+          socket.currentInterviewSession = null;
+        }
+      } catch (error) {
+        console.error('Terminate interview error:', error);
+        socket.emit('interview-error', { message: 'Error terminating interview' });
+      }
+    });
+
+    // Get interview chat history
+    socket.on('get-interview-history', async (data) => {
+      try {
+        const { sessionId } = data;
+
+        // Verify access
+        const interviewSession = await interviewSessionModel.findOne({ 
+          sessionId, 
+          studentId: socket.studentId 
+        });
+
+        if (!interviewSession) {
+          socket.emit('interview-error', { message: 'Interview session not found' });
+          return;
+        }
+
+        const messages = await interviewChatModel.getChatHistory(sessionId);
+
+        socket.emit('interview-history', {
+          sessionId: sessionId,
+          messages: messages,
+          sessionStatus: interviewSession.status
+        });
+      } catch (error) {
+        console.error('Get interview history error:', error);
+        socket.emit('interview-error', { message: 'Error fetching interview history' });
+      }
     });
     
     // Subscribe to admin notification channel

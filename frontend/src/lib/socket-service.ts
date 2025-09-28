@@ -89,6 +89,16 @@ export interface SocketEvents {
   // Student notifications
   'student-notification': (notification: Notification) => void;
 
+  // Mock Interview events
+  'interview-started': (data: any) => void;
+  'interview-error': (data: { message: string }) => void;
+  'ai-typing': (data: { message: string }) => void;
+  'ai-feedback': (data: any) => void;
+  'next-question': (data: any) => void;
+  'generating-summary': (data: { message: string }) => void;
+  'interview-completed': (data: any) => void;
+  'interview-terminated': (data: any) => void;
+
   // Connection health
   'pong': () => void;
 }
@@ -107,13 +117,24 @@ class SocketService {
   // Initialize socket connection
   connect(token: string): Promise<Socket> {
     return new Promise((resolve, reject) => {
-      if (this.socket?.connected) {
+      // If already connected with same token, return existing socket
+      if (this.socket?.connected && this.token === token) {
+        console.log('Socket already connected, reusing connection');
         resolve(this.socket);
         return;
       }
 
+      // Disconnect existing socket if token changed
+      if (this.socket && this.token !== token) {
+        console.log('Token changed, disconnecting old socket');
+        this.socket.disconnect();
+        this.socket = null;
+      }
+
       this.token = token;
       const serverUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+
+      console.log('Creating new socket connection to:', serverUrl);
 
       this.socket = io(serverUrl, {
         auth: {
@@ -122,8 +143,10 @@ class SocketService {
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
-        reconnectionAttempts: 5,
-        timeout: 20000
+        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10,
+        timeout: 10000,
+        forceNew: false // Allow reusing connections
       });
 
       this.socket.on('connect', () => {
@@ -133,12 +156,31 @@ class SocketService {
 
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
-        reject(error);
+        reject(new Error(`Connection failed: ${error.message || error}`));
       });
 
       this.socket.on('disconnect', (reason) => {
         console.log('Socket disconnected:', reason);
+        if (reason === 'io server disconnect') {
+          // Server disconnected, try to reconnect
+          this.socket?.connect();
+        }
       });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log('Socket reconnected after', attemptNumber, 'attempts');
+      });
+
+      this.socket.on('reconnect_error', (error) => {
+        console.error('Socket reconnection error:', error);
+      });
+
+      // Set timeout for initial connection
+      setTimeout(() => {
+        if (!this.socket?.connected) {
+          reject(new Error('Connection timeout'));
+        }
+      }, 15000);
     });
   }
 
@@ -352,8 +394,53 @@ class SocketService {
       this.socket.emit('ping');
     }
   }
+
+  // Mock Interview methods
+  startInterview(mockInterviewId: string): void {
+    if (!this.socket?.connected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('start-interview', { mockInterviewId });
+  }
+
+  submitAnswer(sessionId: string, answer: string, questionNumber: number, typingTime?: number): void {
+    if (!this.socket?.connected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('student-answer', { 
+      sessionId, 
+      answer, 
+      questionNumber, 
+      typingTime: typingTime || 0 
+    });
+  }
+
+  terminateInterview(sessionId: string, reason: string): void {
+    if (!this.socket?.connected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('terminate-interview', { sessionId, reason });
+  }
+
+  getInterviewHistory(sessionId: string): void {
+    if (!this.socket?.connected) {
+      throw new Error('Socket not connected');
+    }
+    this.socket.emit('get-interview-history', { sessionId });
+  }
+
+  // Get socket instance for direct access
+  get socketInstance(): Socket | null {
+    return this.socket;
+  }
 }
 
 // Export singleton instance
 export const socketService = new SocketService();
+
+// Make it globally accessible for debugging and force reconnection
+if (typeof window !== 'undefined') {
+  (window as any).socketService = socketService;
+}
+
 export default socketService;

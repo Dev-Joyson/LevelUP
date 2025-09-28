@@ -23,7 +23,17 @@ import {
   updateCompanyVerification,
   updateMentorVerification,
   migrateMentorVerification,
-  updateUserVerification
+  updateUserVerification,
+  createMockInterview,
+  getAllMockInterviews,
+  generateQuestionsForInterview,
+  getInterviewQuestions,
+  approveQuestion,
+  bulkApproveQuestions,
+  editQuestion,
+  publishMockInterview,
+  getInterviewAnalytics,
+  deleteMockInterview
 } from "../controllers/adminController.js"
 
 
@@ -64,5 +74,23 @@ adminRouter.post('/mentors/migrate-verification', authenticateUser, authorizeRol
 
 // User verification routes (for both companies and mentors)
 adminRouter.put('/users/verification', authenticateUser, authorizeRoles("admin"), updateUserVerification)
+
+// ============= MOCK INTERVIEW ROUTES =============
+
+// Interview management
+adminRouter.post('/interviews/create', authenticateUser, authorizeRoles("admin"), createMockInterview)
+adminRouter.get('/interviews', authenticateUser, authorizeRoles("admin"), getAllMockInterviews)
+adminRouter.get('/interviews/analytics', authenticateUser, authorizeRoles("admin"), getInterviewAnalytics)
+adminRouter.delete('/interviews/:interviewId', authenticateUser, authorizeRoles("admin"), deleteMockInterview)
+
+// Question generation and management
+adminRouter.post('/interviews/:interviewId/generate-questions', authenticateUser, authorizeRoles("admin"), generateQuestionsForInterview)
+adminRouter.get('/interviews/:interviewId/questions', authenticateUser, authorizeRoles("admin"), getInterviewQuestions)
+adminRouter.put('/questions/:questionId/approve', authenticateUser, authorizeRoles("admin"), approveQuestion)
+adminRouter.put('/interviews/:interviewId/bulk-approve', authenticateUser, authorizeRoles("admin"), bulkApproveQuestions)
+adminRouter.put('/questions/:questionId/edit', authenticateUser, authorizeRoles("admin"), editQuestion)
+
+// Publishing
+adminRouter.put('/interviews/:interviewId/publish', authenticateUser, authorizeRoles("admin"), publishMockInterview)
 
 export default adminRouter

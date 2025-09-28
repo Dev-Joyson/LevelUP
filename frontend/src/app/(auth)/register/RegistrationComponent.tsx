@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Loader2 } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -46,6 +47,7 @@ export default function RegistrationComponent() {
   const [registrationEmail, setRegistrationEmail] = useState("")
 
   const [step, setStep] = useState(1)
+  const [isLoading, setIsLoading] = useState(false)
   const totalSteps = 3
 
   const skillOptions = [
@@ -144,6 +146,7 @@ export default function RegistrationComponent() {
         formData.append("extra[description]", description)
         formData.append("registrationDocument", registrationDocument)
 
+        setIsLoading(true)
         try {
           const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
             method: "POST",
@@ -161,6 +164,8 @@ export default function RegistrationComponent() {
           }
         } catch (err) {
           toast.error("Server error. Please try again later.")
+        } finally {
+          setIsLoading(false)
         }
         return
       } else {
@@ -185,6 +190,7 @@ export default function RegistrationComponent() {
         extra.expertise = expertise
       }
 
+      setIsLoading(true)
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
           method: "POST",
@@ -203,15 +209,24 @@ export default function RegistrationComponent() {
         }
       } catch (err) {
         toast.error("Server error. Please try again later.")
+      } finally {
+        setIsLoading(false)
       }
     }
   }
 
   const progressPercentage = (step / totalSteps) * 100
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isLoading) {
+      e.preventDefault()
+      handleContinue()
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-white px-2 sm:px-0">
-      <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8">
+      <div className="w-full max-w-md bg-white rounded-lg border-1 border-gray-200 p-4 sm:p-8" onKeyDown={handleKeyDown}>
         <div>
           <p className="text-[#535c91] text-xl sm:text-2xl text-center font-bold">
             Level<span className="text-primary">UP</span>
@@ -418,34 +433,46 @@ export default function RegistrationComponent() {
           {step < 3 && (
             <Button
               onClick={handleContinue}
+              disabled={isLoading}
               className="w-full mt-6 bg-primary text-white py-2 rounded text-sm sm:text-base"
             >
-              {step === 2 ? "Sign Up" : "Continue"}
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {step === 2 ? "Signing Up..." : "Loading..."}
+                </>
+              ) : (
+                step === 2 ? "Sign Up" : "Continue"
+              )}
             </Button>
           )}
 
-          <div className="mt-4 text-center">
-            <p className="text-xs sm:text-sm text-gray-500">
-              Already have an account?{" "}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Login
-              </Link>
-            </p>
-          </div>
+          {step < 3 && (
+            <>
+              <div className="mt-4 text-center">
+                <p className="text-xs sm:text-sm text-gray-500">
+                  Already have an account?{" "}
+                  <Link href="/login" className="text-blue-600 hover:underline">
+                    Login
+                  </Link>
+                </p>
+              </div>
 
-          <div className="mt-6 text-center text-[10px] sm:text-xs text-gray-500">
-            <p>
-              This site is protected by reCAPTCHA and the Google{" "}
-              <Link href="#" className="text-blue-600 hover:underline">
-                Privacy Policy
-              </Link>{" "}
-              and{" "}
-              <Link href="#" className="text-blue-600 hover:underline">
-                Terms of Service
-              </Link>{" "}
-              apply.
-            </p>
-          </div>
+              <div className="mt-6 text-center text-[10px] sm:text-xs text-gray-500">
+                <p>
+                  This site is protected by reCAPTCHA and the Google{" "}
+                  <Link href="#" className="text-blue-600 hover:underline">
+                    Privacy Policy
+                  </Link>{" "}
+                  and{" "}
+                  <Link href="#" className="text-blue-600 hover:underline">
+                    Terms of Service
+                  </Link>{" "}
+                  apply.
+                </p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

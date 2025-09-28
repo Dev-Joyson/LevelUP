@@ -16,7 +16,16 @@ import {
   getStudentSessions,
   changePassword,
   uploadProfileImage,
-  syncPhoneFromResume
+  syncPhoneFromResume,
+  // Mock Interview Functions
+  getAvailableMockInterviews,
+  getMockInterviewDetails,
+  getStudentInterviewHistory,
+  getInterviewSessionDetails,
+  getLatestInterviewSession,
+  getStudentInterviewStats,
+  downloadInterviewReport,
+  getStudentMockInterviewReports
 } from '../controllers/studentController.js';
 
 const studentRouter = express.Router()
@@ -34,6 +43,17 @@ studentRouter.get("/sessions", authenticateUser, authorizeRoles("student"), getS
 studentRouter.get("/internships", getAllInternships);
 studentRouter.get("/internships/:id", getInternshipById);
 studentRouter.post("/upload-profile-image", authenticateUser, authorizeRoles("student"), imageUpload.single('profileImage'), uploadProfileImage);
+
+// ============= MOCK INTERVIEW ROUTES =============
+studentRouter.get("/mock-interviews", authenticateUser, authorizeRoles("student"), getAvailableMockInterviews);
+studentRouter.get("/mock-interviews/:interviewId/latest-session", authenticateUser, authorizeRoles("student"), getLatestInterviewSession);
+studentRouter.get("/mock-interviews/:interviewId", authenticateUser, authorizeRoles("student"), getMockInterviewDetails);
+studentRouter.get("/interview-history", authenticateUser, authorizeRoles("student"), getStudentInterviewHistory);
+studentRouter.get("/interview-sessions/:sessionId", authenticateUser, authorizeRoles("student"), getInterviewSessionDetails);
+studentRouter.get("/interview-stats", authenticateUser, authorizeRoles("student"), getStudentInterviewStats);
+studentRouter.get("/interview-report/:sessionId/download", authenticateUser, authorizeRoles("student"), downloadInterviewReport);
+studentRouter.get("/mock-interview-reports", authenticateUser, authorizeRoles("student"), getStudentMockInterviewReports);
+
 // Note: Application routes moved to applicationRoutes.js
 
 export default studentRouter

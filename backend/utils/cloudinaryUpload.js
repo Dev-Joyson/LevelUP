@@ -40,7 +40,46 @@ const uploadToCloudinary = async (file, userId, label, options = {}) => {
   }
 };
 
-export { uploadToCloudinary };
+/**
+ * Uploads interview PDF report to Cloudinary.
+ * @param {Buffer} pdfBuffer - The PDF file buffer.
+ * @param {String} studentId - The student ID.
+ * @param {String} sessionId - The interview session ID.
+ * @param {String} studentName - Student's name for folder organization.
+ */
+const uploadInterviewPDFToCloudinary = async (pdfBuffer, studentId, sessionId, studentName = 'student') => {
+  try {
+    const sanitizedName = studentName.replace(/[^a-zA-Z0-9]/g, '_');
+    const publicId = `interview_report_${studentId}_${sessionId}_${Date.now()}`.toLowerCase();
+
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'raw', // For PDFs
+          folder: `interview-reports/${sanitizedName}`, // Organized by student name
+          public_id: publicId,
+          format: 'pdf',
+          tags: ['interview-report', 'student-document'] // Tags for easy management
+        },
+        (error, result) => {
+          if (error) return reject(new Error(`Cloudinary PDF upload failed: ${error.message}`));
+          resolve({
+            url: result.secure_url,
+            publicId: result.public_id,
+            originalFilename: result.original_filename,
+            bytes: result.bytes,
+            uploadedAt: new Date()
+          });
+        }
+      );
+      stream.end(pdfBuffer);
+    });
+  } catch (error) {
+    throw new Error(`Cloudinary PDF upload failed: ${error.message}`);
+  }
+};
+
+export { uploadToCloudinary, uploadInterviewPDFToCloudinary };
 
 
 
