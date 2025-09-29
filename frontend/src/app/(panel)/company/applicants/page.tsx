@@ -12,7 +12,6 @@ import { toast } from "sonner"
 import { 
   Search, 
   Filter, 
-  Eye, 
   Download, 
   Mail, 
   Phone, 
@@ -202,17 +201,7 @@ export default function ApplicantsPage() {
     return "text-red-600"
   }
 
-  const getAllSkills = (skills: any) => {
-    if (!skills) return []
-    return [
-      ...(skills.programmingLanguages || []),
-      ...(skills.frameworks || []),
-      ...(skills.tools || []),
-      ...(skills.cloudPlatforms || []),
-      ...(skills.databases || []),
-      ...(skills.other || [])
-    ]
-  }
+
 
   if (loading) {
     return (
@@ -292,7 +281,6 @@ export default function ApplicantsPage() {
                         <TableHead className="font-semibold text-gray-900">Applicant</TableHead>
                         <TableHead className="font-semibold text-gray-900">Position</TableHead>
                         <TableHead className="font-semibold text-gray-900">Education</TableHead>
-                        <TableHead className="font-semibold text-gray-900">Skills</TableHead>
                         <TableHead className="font-semibold text-gray-900">Match Score</TableHead>
                         <TableHead className="font-semibold text-gray-900">Status</TableHead>
                         <TableHead className="font-semibold text-gray-900">Applied</TableHead>
@@ -333,32 +321,20 @@ export default function ApplicantsPage() {
 
                           <TableCell>
                             <div>
-                              {application.resumeData?.university && (
+                              {(application.student?.university || application.resumeData?.university) && (
                                 <div className="text-sm text-gray-900 flex items-center gap-1">
                                   <GraduationCap className="h-3 w-3" />
-                                  {application.resumeData.university}
+                                  {application.student?.university || application.resumeData?.university}
                                 </div>
                               )}
                               {application.resumeData?.degree && (
                                 <div className="text-sm text-gray-500">{application.resumeData.degree}</div>
                               )}
+                              {application.student?.graduationYear && (
+                                <div className="text-sm text-gray-500">Graduation: {application.student.graduationYear}</div>
+                              )}
                               {application.resumeData?.gpa && (
                                 <div className="text-sm text-gray-500">GPA: {application.resumeData.gpa}</div>
-                              )}
-                            </div>
-                          </TableCell>
-
-                          <TableCell>
-                            <div className="max-w-xs">
-                              {getAllSkills(application.resumeData?.skills).slice(0, 3).map((skill, idx) => (
-                                <Badge key={idx} variant="secondary" className="mr-1 mb-1 text-xs">
-                                  {skill}
-                                </Badge>
-                              ))}
-                              {getAllSkills(application.resumeData?.skills).length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{getAllSkills(application.resumeData?.skills).length - 3} more
-                                </Badge>
                               )}
                             </div>
                           </TableCell>
@@ -370,11 +346,6 @@ export default function ApplicantsPage() {
                                 {Math.round(application.matchScore.total)}%
                               </span>
                             </div>
-                            {application.matchScore.details.skillsMatched.length > 0 && (
-                              <div className="text-xs text-gray-500 mt-1">
-                                {application.matchScore.details.skillsMatched.length} skills matched
-                              </div>
-                            )}
                           </TableCell>
 
                           <TableCell>
@@ -400,15 +371,6 @@ export default function ApplicantsPage() {
 
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedApplication(application)}
-                                className="h-8 w-8 p-0 hover:bg-blue-50"
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4 text-blue-600" />
-                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"

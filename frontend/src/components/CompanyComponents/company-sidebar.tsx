@@ -22,11 +22,6 @@ const navigationItems = [
     url: "/company/applicants",
     icon: Users,
   },
-  {
-      title: "Settings",
-      url: "/company/settings",
-      icon: Settings,
-    },
     {
       title: "Profile",
       url: "/company/profile",
