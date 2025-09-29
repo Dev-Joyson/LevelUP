@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell, Search, LogOut, User, Settings, MessageSquare, Home } from "lucide-react"
+import { Bell, Search, LogOut, User, Settings, Home } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -50,6 +50,8 @@ export function PanelNavbar({
   useEffect(() => {
     if (user?.role === 'mentor' && token) {
       fetchMentorData()
+    } else if (user?.role === 'company' && token) {
+      fetchCompanyData()
     } else if (user?.role === 'student' && profileData && !profileLoading) {
       // Use student data from context
       setUserData({
@@ -82,6 +84,25 @@ export function PanelNavbar({
 
       return () => {
         window.removeEventListener('mentorProfileUpdated', handleProfileUpdate as EventListener);
+      };
+    }
+  }, [user?.role, token]);
+
+  // Listen for company profile updates
+  useEffect(() => {
+    if (user?.role === 'company') {
+      const handleCompanyProfileUpdate = (event: CustomEvent) => {
+        console.log('🏢 Navbar received company profile update event:', event.detail);
+        // Refresh company data to get latest profile
+        if (token) {
+          fetchCompanyData();
+        }
+      };
+
+      window.addEventListener('companyProfileUpdated', handleCompanyProfileUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('companyProfileUpdated', handleCompanyProfileUpdate as EventListener);
       };
     }
   }, [user?.role, token]);
@@ -142,6 +163,55 @@ export function PanelNavbar({
     }
   }
 
+  const fetchCompanyData = async () => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      console.log('🔍 Fetching company profile...')
+      console.log('🎫 User Context:', user)
+      console.log('🔑 Token exists:', !!token)
+      console.log('👤 User role:', user?.role)
+      
+      const response = await axios.get(`${API_BASE_URL}/api/company/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (response.data?.success && response.data?.data) {
+        const company = response.data.data
+        console.log('🏢 Company Profile Data:', company)
+        console.log('🖼️ Company Logo URL:', company.logoUrl)
+        
+        const companyEmail = company.userId?.email || user?.email || defaultUserEmail
+        
+        setUserData({
+          name: company.companyName || 'Company User',
+          email: companyEmail,
+          firstname: company.companyName || 'Company',
+          lastname: '',
+          profileImageUrl: company.logoUrl || ""
+        })
+        
+        console.log('✅ Navbar updated with real company data')
+      } else {
+        throw new Error('No company data received')
+      }
+      
+    } catch (error) {
+      console.error('❌ Error fetching company profile:', error)
+      // Fallback to user data from auth context
+      const emailName = user?.email?.split('@')[0] || 'Company'
+      setUserData({
+        name: emailName,
+        email: user?.email || defaultUserEmail,
+        firstname: emailName,
+        lastname: '',
+        profileImageUrl: ""
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const getRoleColor = () => {
     switch (userRole) {
       case "student":
@@ -184,11 +254,6 @@ export function PanelNavbar({
 
       <div className="flex items-center gap-1">
         {/* User greeting */}
-        
-
-        <Button variant="ghost" size="icon">
-          <MessageSquare className="h-5 w-5" />
-        </Button>
 
         {userRole === 'admin' ? (
           <NotificationDropdown />
@@ -240,7 +305,7 @@ export function PanelNavbar({
               <Home className="mr-2 h-4 w-4" />
               Home
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => {
+            {/* <DropdownMenuItem onClick={() => {
               if (user?.role === 'mentor') {
                 router.push('/mentor/profile')
               } else {
@@ -249,7 +314,7 @@ export function PanelNavbar({
             }}>
               <User className="mr-2 h-4 w-4" />
               Profile Settings
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />

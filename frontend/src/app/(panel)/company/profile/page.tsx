@@ -218,7 +218,7 @@ export default function ProfilePage() {
           setProfile(data.data)
           
           // Dispatch custom event to notify navbar to refresh company data
-          const companyUpdateEvent = new CustomEvent('companyLogoUpdated', {
+          const companyUpdateEvent = new CustomEvent('companyProfileUpdated', {
             detail: { 
               logoUrl: data.data.logoUrl,
               companyName: data.data.companyName
