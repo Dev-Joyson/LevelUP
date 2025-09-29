@@ -42,12 +42,12 @@ const QuickActionSection = () => {
 			</div>
 			<div className="relative flex justify-between">
 				{actions.map((action, idx) => (
-					<Link key={action.label} href={action.href} className="text-center flex flex-col items-center group">
-						<div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${action.bg} group-hover:scale-105 transition-transform`}>
+					<div key={action.label} className="text-center flex flex-col items-center">
+						<div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${action.bg}`}>
 							{action.icon}
 						</div>
-						<h3 className="font-semibold text-text-light dark:text-text-dark group-hover:text-primary transition-colors">{action.label}</h3>
-					</Link>
+						<h3 className="font-semibold text-text-light dark:text-text-dark">{action.label}</h3>
+					</div>
 				))}
 			</div>
 		</div>
