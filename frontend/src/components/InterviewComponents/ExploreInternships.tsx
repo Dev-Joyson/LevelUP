@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, createContext, useContext, useEffect } from "react"
-import { Search, ChevronDown, Check, Star } from "lucide-react"
+import { Search, ChevronDown, Check, Sparkles } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -248,28 +248,34 @@ export function ExploreInternships() {
       <div className="flex justify-center mb-6">
         <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
           <Button
-            variant={viewMode === 'forYou' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('forYou')}
             className={cn(
               "px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+              "active:scale-95",
+              "hover:bg-white",
+              "border-2 border-transparent",
+              "bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-border",
               viewMode === 'forYou' 
-                ? 'bg-white text-black shadow-sm' 
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-white text-black' 
+                : 'bg-transparent text-gray-600'
             )}
+            style={{
+              borderImage: 'linear-gradient(45deg, #3b82f6, #8b5cf6, #ec4899) 1'
+            }}
           >
-            <Star className="h-4 w-4" />
+            <Sparkles className="h-4 w-4" />
             For You
           </Button>
           <Button
-            variant={viewMode === 'search' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setViewMode('search')}
             className={cn(
               "px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+              "hover:bg-white",
               viewMode === 'search' 
                 ? 'bg-white text-black shadow-sm' 
-                : 'text-gray-600 hover:text-gray-900'
+                : 'bg-transparent text-gray-600'
             )}
           >
             <Search className="h-4 w-4" />
