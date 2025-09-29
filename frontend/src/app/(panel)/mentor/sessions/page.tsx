@@ -20,13 +20,14 @@ import {
   Clock, 
   Plus,
   Eye,
-  Edit,
   Video,
   CheckCircle,
   MessageCircle,
-  Trash2,
-  X
+  X,
+  Mail,
+  Timer
 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 
 interface Session {
   id: string
@@ -134,32 +135,14 @@ export default function SessionsPage() {
     router.push(`/chat/${sessionId}`)
   }
 
-  // Handle canceling/deleting a session
-  const handleCancelSession = async (sessionId: string, studentName: string) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to cancel the session with ${studentName}? This action cannot be undone and will also remove the session from the student's panel.`
-    )
-    
-    if (!confirmed) return
+  // Modal state for session details
+  const [selectedSession, setSelectedSession] = useState<Session | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
-      
-      const response = await axios.delete(`${API_BASE_URL}/api/mentor/sessions/${sessionId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-
-      if (response.data) {
-        toast.success(response.data.message || 'Session cancelled successfully')
-        
-        // Refresh sessions list
-        fetchSessions()
-      }
-    } catch (error: any) {
-      console.error('Error cancelling session:', error)
-      const errorMessage = error.response?.data?.message || 'Failed to cancel session'
-      toast.error(errorMessage)
-    }
+  // Handle viewing session details
+  const handleViewSession = (session: Session) => {
+    setSelectedSession(session)
+    setIsModalOpen(true)
   }
 
   // Fetch mentor sessions
@@ -361,7 +344,12 @@ export default function SessionsPage() {
                     </TableCell>
                     <TableCell className="py-4 px-6">
                       <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="gap-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1"
+                          onClick={() => handleViewSession(session)}
+                        >
                           <Eye className="h-3 w-3" />
                           View
                         </Button>
@@ -394,32 +382,10 @@ export default function SessionsPage() {
                           </>
                         )}
                         
-                        {session.status === "upcoming" && (
-                          <>
-                            <Button variant="outline" size="sm" className="gap-1">
-                              <Edit className="h-3 w-3" />
-                              Edit
-                            </Button>
-                            {session.meetingLink && (
-                              <Button variant="outline" size="sm" className="gap-1">
-                                <Video className="h-3 w-3" />
-                                Join
-                              </Button>
-                            )}
-                          </>
-                        )}
-                        
-                        {/* Cancel/Delete Button - Show for upcoming and in-progress sessions */}
-                        {(session.status === "upcoming" || session.status === "in-progress") && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            className="gap-1 text-red-600 border-red-300 hover:bg-red-50 hover:border-red-400"
-                            onClick={() => handleCancelSession(session.id, session.studentName)}
-                            title="Cancel this session"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Cancel
+                        {session.status === "upcoming" && session.meetingLink && (
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <Video className="h-3 w-3" />
+                            Join
                           </Button>
                         )}
                       </div>
@@ -445,6 +411,195 @@ export default function SessionsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Session Details Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Session Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information about this mentoring session
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedSession && (
+            <div className="space-y-6">
+              {/* Student Information */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Student Information
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={selectedSession.studentAvatar} alt={selectedSession.studentName} />
+                      <AvatarFallback>
+                        <User className="h-6 w-6 text-gray-600" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <div className="font-medium text-gray-900">{selectedSession.studentName}</div>
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        {selectedSession.studentEmail}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Session Information */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Session Information
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-gray-500">Topic</div>
+                      <div className="font-medium text-gray-900">{selectedSession.topic}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Type</div>
+                      <Badge variant="secondary" className={getTypeColor(selectedSession.type)}>
+                        {selectedSession.type.charAt(0).toUpperCase() + selectedSession.type.slice(1).replace('-', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-gray-500">Date</div>
+                      <div className="font-medium text-gray-900 flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(selectedSession.sessionDate).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Time</div>
+                      <div className="font-medium text-gray-900 flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {selectedSession.sessionTime}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-gray-500">Duration</div>
+                      <div className="font-medium text-gray-900 flex items-center gap-1">
+                        <Timer className="h-3 w-3" />
+                        {selectedSession.duration} minutes
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-500">Status</div>
+                      <Badge variant="secondary" className={getStatusColor(selectedSession.status)}>
+                        {selectedSession.status.charAt(0).toUpperCase() + selectedSession.status.slice(1).replace('-', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {selectedSession.meetingLink && (
+                    <div>
+                      <div className="text-sm text-gray-500">Meeting Link</div>
+                      <div className="font-medium text-blue-600 flex items-center gap-1">
+                        <Video className="h-3 w-3" />
+                        <a href={selectedSession.meetingLink} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {selectedSession.meetingLink}
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSession.notes && (
+                    <div>
+                      <div className="text-sm text-gray-500">Notes</div>
+                      <div className="font-medium text-gray-900">{selectedSession.notes}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Session Timing */}
+              <div className="space-y-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Session Timing
+                </h3>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="text-sm text-gray-500">Booked on</div>
+                  <div className="font-medium text-gray-900">
+                    {new Date(selectedSession.createdAt).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                {(selectedSession.status === "upcoming" || selectedSession.status === "in-progress") && (
+                  <>
+                    {isSessionActive(selectedSession.sessionDate, selectedSession.sessionTime, selectedSession.duration, selectedSession.status) ? (
+                      <Button 
+                        onClick={() => {
+                          handleJoinChat(selectedSession.id, selectedSession.sessionDate, selectedSession.sessionTime, selectedSession.duration, selectedSession.status)
+                          setIsModalOpen(false)
+                        }} 
+                        className="bg-green-600 hover:bg-green-700 gap-2"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Join Chat
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="outline"
+                        disabled
+                        className="text-gray-500 gap-2"
+                        title="Chat only available during session time"
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                        Chat Unavailable
+                      </Button>
+                    )}
+                  </>
+                )}
+                
+                {selectedSession.status === "upcoming" && selectedSession.meetingLink && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={() => window.open(selectedSession.meetingLink, '_blank')}
+                  >
+                    <Video className="h-4 w-4" />
+                    Join Meeting
+                  </Button>
+                )}
+                
+                <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

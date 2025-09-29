@@ -40,87 +40,35 @@ interface Mentee {
   joinedDate: string
 }
 
-// Mock data - Replace with actual API calls
-const mockMentees: Mentee[] = [
-  {
-    id: "1",
-    name: "Ethan Harper",
-    email: "ethan.harper@email.com",
-    major: "Computer Science",
-    year: "Senior",
-    progress: 75,
-    goalTitle: "Full-Stack Developer Role",
-    sessionsCompleted: 8,
-    totalSessions: 12,
-    lastSession: "Aug 10, 2024",
-    nextSession: "Aug 15, 10:00 AM",
-    status: "active",
-    rating: 4.8,
-    joinedDate: "Jan 15, 2024",
-  },
-  {
-    id: "2",
-    name: "Olivia Bennett",
-    email: "olivia.bennett@email.com",
-    major: "Business Administration",
-    year: "Junior",
-    progress: 60,
-    goalTitle: "Product Manager Transition",
-    sessionsCompleted: 6,
-    totalSessions: 10,
-    lastSession: "Aug 14, 2024",
-    nextSession: "Aug 18, 2:00 PM",
-    status: "active",
-    rating: 4.6,
-    joinedDate: "Feb 20, 2024",
-  },
-  {
-    id: "3",
-    name: "Noah Carter",
-    email: "noah.carter@email.com",
-    major: "Software Engineering",
-    year: "Graduate",
-    progress: 90,
-    goalTitle: "Senior Developer Position",
-    sessionsCompleted: 9,
-    totalSessions: 10,
-    lastSession: "Aug 13, 2024",
-    status: "active",
-    rating: 4.9,
-    joinedDate: "Mar 5, 2024",
-  },
-  {
-    id: "4",
-    name: "Emma Wilson",
-    email: "emma.wilson@email.com",
-    major: "Data Science",
-    year: "Senior",
-    progress: 45,
-    goalTitle: "Data Analyst Role",
-    sessionsCompleted: 4,
-    totalSessions: 8,
-    lastSession: "Aug 12, 2024",
-    nextSession: "Aug 16, 3:00 PM",
-    status: "active",
-    rating: 4.7,
-    joinedDate: "Apr 10, 2024",
-  },
-  {
-    id: "5",
-    name: "James Rodriguez",
-    email: "james.rodriguez@email.com",
-    major: "Information Systems",
-    year: "Sophomore",
-    progress: 100,
-    goalTitle: "Internship at Tech Company",
-    sessionsCompleted: 6,
-    totalSessions: 6,
-    lastSession: "Aug 5, 2024",
-    status: "completed",
-    rating: 5.0,
-    joinedDate: "May 1, 2024",
-  },
-]
+// API function to fetch mentees
+const fetchMentees = async (): Promise<{
+  mentees: Mentee[];
+  totalMentees: number;
+  activeMentees: number;
+  completedGoals: number;
+  averageRating: number;
+}> => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+  const response = await fetch(`${API_BASE_URL}/api/mentor/mentees`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data;
+};
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -140,14 +88,36 @@ export default function MenteesPage() {
   const [mentees, setMentees] = useState<Mentee[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [stats, setStats] = useState({
+    totalMentees: 0,
+    activeMentees: 0,
+    completedGoals: 0,
+    averageRating: 0
+  })
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Simulate loading and data fetching
-    const timer = setTimeout(() => {
-      setMentees(mockMentees)
-      setLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
+    const loadMentees = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const data = await fetchMentees()
+        setMentees(data.mentees || [])
+        setStats({
+          totalMentees: data.totalMentees || 0,
+          activeMentees: data.activeMentees || 0,
+          completedGoals: data.completedGoals || 0,
+          averageRating: data.averageRating || 0
+        })
+      } catch (error) {
+        console.error('Error fetching mentees:', error)
+        setError('Failed to load mentees. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadMentees()
   }, [])
 
   const filteredMentees = mentees.filter(mentee => {
@@ -159,6 +129,19 @@ export default function MenteesPage() {
   })
 
   if (loading) return <Loader />
+
+  if (error) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">{error}</div>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -186,7 +169,7 @@ export default function MenteesPage() {
                   </div>
                   <span className="text-sm font-medium text-gray-600">Total Mentees</span>
                 </div>
-                <div className="text-2xl font-bold text-gray-900">{mentees.length}</div>
+                <div className="text-2xl font-bold text-gray-900">{stats.totalMentees}</div>
               </div>
             </div>
           </CardContent>
@@ -203,7 +186,7 @@ export default function MenteesPage() {
                   <span className="text-sm font-medium text-gray-600">Active Mentees</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900">
-                  {mentees.filter(m => m.status === "active").length}
+                  {stats.activeMentees}
                 </div>
               </div>
             </div>
@@ -221,7 +204,7 @@ export default function MenteesPage() {
                   <span className="text-sm font-medium text-gray-600">Avg. Rating</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900">
-                  {(mentees.reduce((acc, m) => acc + m.rating, 0) / mentees.length).toFixed(1)}
+                  {stats.averageRating.toFixed(1)}
                 </div>
               </div>
             </div>
@@ -239,7 +222,7 @@ export default function MenteesPage() {
                   <span className="text-sm font-medium text-gray-600">Completed Goals</span>
                 </div>
                 <div className="text-2xl font-bold text-gray-900">
-                  {mentees.filter(m => m.status === "completed").length}
+                  {stats.completedGoals}
                 </div>
               </div>
             </div>
