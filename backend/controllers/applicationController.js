@@ -62,6 +62,7 @@ const getStudentApplications = async (req, res) => {
         status: app.status.charAt(0).toUpperCase() + app.status.slice(1), // Capitalize status
         matchScore: app.matchScore?.total || 0,
         internshipId: app.internshipId?._id || null,
+        companyId: app.internshipId?.companyId?._id || app.companyId || null, // Add explicit companyId
         coverLetter: app.coverLetter,
         resumeUrl: app.resumeUrl,
         // Include additional internship details
@@ -76,6 +77,7 @@ const getStudentApplications = async (req, res) => {
         } : null,
         // Include additional company details
         companyDetails: app.internshipId?.companyId ? {
+          _id: app.internshipId.companyId._id, // Add _id to companyDetails
           name: app.internshipId.companyId.name,
           logo: app.internshipId.companyId.logo,
           website: app.internshipId.companyId.website,

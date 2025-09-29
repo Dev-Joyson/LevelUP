@@ -15,7 +15,17 @@ const companySchema = new mongoose.Schema({
   foundedYear: { type: String },
   employees: { type: String },
   logoUrl: { type: String },
-  logoPublicId: { type: String }
+  logoPublicId: { type: String },
+  reviews: [{
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'student', required: true },
+    applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'application', required: true },
+    internshipId: { type: mongoose.Schema.Types.ObjectId, ref: 'internship', required: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    review: { type: String },
+    createdAt: { type: Date, default: Date.now }
+  }],
+  averageRating: { type: Number, default: 0 },
+  totalRatings: { type: Number, default: 0 }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },

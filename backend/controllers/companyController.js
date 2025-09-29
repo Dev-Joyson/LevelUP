@@ -753,6 +753,68 @@ const uploadLogo = async (req, res) => {
   }
 };
 
+// Get company reviews from company model
+const getCompanyReviews = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find the company with populated reviews
+    const company = await companyModel.findOne({ userId })
+      .populate({
+        path: 'reviews.studentId',
+        select: 'firstname lastname profileImageUrl'
+      })
+      .populate({
+        path: 'reviews.internshipId', 
+        select: 'title domain'
+      });
+
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Calculate rating distribution
+    const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    
+    company.reviews.forEach(review => {
+      if (review.rating >= 1 && review.rating <= 5) {
+        ratingDistribution[review.rating]++;
+      }
+    });
+
+    // Format reviews for response
+    const reviews = company.reviews.map(review => ({
+      _id: review._id,
+      studentId: {
+        _id: review.studentId._id,
+        firstname: review.studentId.firstname,
+        lastname: review.studentId.lastname,
+        profileImage: review.studentId.profileImageUrl
+      },
+      internshipId: {
+        _id: review.internshipId._id,
+        title: review.internshipId.title,
+        domain: review.internshipId.domain
+      },
+      rating: review.rating,
+      review: review.review,
+      createdAt: review.createdAt
+    })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.status(200).json({
+      reviews,
+      analytics: {
+        totalReviews: company.totalRatings || company.reviews.length,
+        averageRating: company.averageRating || 0,
+        ratingDistribution
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching company reviews:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export { 
   companyDashboard, 
   createInternship, 
@@ -763,7 +825,8 @@ export {
   updateCompanyProfile,
   getDashboardAnalytics,
   changePassword,
-  uploadLogo
+  uploadLogo,
+  getCompanyReviews
   // Note: Application-related functions moved to applicationController.js
 };
   
