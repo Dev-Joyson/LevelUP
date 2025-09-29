@@ -12,13 +12,25 @@ import { toast } from "react-toastify"
 
 export function InternshipSidebar() {
   const pathname = usePathname()
-  const { filters } = useFilters()
-  const { internships } = useInternships()
+  const { filters, viewMode } = useFilters()
+  const { internships, suggestedInternships, loading } = useInternships()
   const { bookmarkedJobs, toggleBookmark, isLoading } = useBookmarks()
-  const [loading, setLoading] = useState(true)
 
-  // Filter and sort internships based on current filters
+  // Choose the appropriate internships based on view mode
+  const getCurrentInternships = () => {
+    if (viewMode === 'forYou') {
+      return suggestedInternships
+    }
+    return internships
+  }
+
+  // Filter and sort internships based on current filters (only for search mode)
   const getFilteredAndSortedInternships = (jobs: Job[]) => {
+    // If we're in "For You" mode, don't apply filters as they're already personalized
+    if (viewMode === 'forYou') {
+      return jobs
+    }
+
     let filtered = [...jobs]
 
     // Apply search filter
@@ -125,16 +137,8 @@ export function InternshipSidebar() {
     return filtered
   }
 
-  const filteredInternships = getFilteredAndSortedInternships(internships)
-
-
-
-  // Set loading to false once internships are available
-  useEffect(() => {
-    if (internships.length > 0) {
-      setLoading(false)
-    }
-  }, [internships])
+  const currentInternships = getCurrentInternships()
+  const filteredInternships = getFilteredAndSortedInternships(currentInternships)
 
   const handleToggleBookmark = async (jobId: string) => {
     try {
@@ -164,7 +168,15 @@ export function InternshipSidebar() {
   return (
     <div className="w-full h-full overflow-auto sidebar-scrollbar">
       <div className="space-y-4 pr-4">
-        {filteredInternships.length === 0 && internships.length > 0 ? (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+            <h3 className="font-medium text-lg mb-2">
+              {viewMode === 'forYou' ? 'Finding personalized recommendations...' : 'Loading internships...'}
+            </h3>
+            <p className="text-sm text-gray-500">Please wait while we fetch the latest opportunities</p>
+          </div>
+        ) : filteredInternships.length === 0 && currentInternships.length > 0 ? (
           <div className="flex flex-col items-center justify-center p-8 text-center">
             <div className="text-gray-400 mb-4">
               <Briefcase className="h-12 w-12" />
@@ -177,18 +189,28 @@ export function InternshipSidebar() {
             <div className="text-gray-400 mb-4">
               <Briefcase className="h-12 w-12" />
             </div>
-            <h3 className="font-medium text-lg mb-2">No internships available</h3>
-            <p className="text-sm text-gray-500">Check back later for new opportunities</p>
+            <h3 className="font-medium text-lg mb-2">
+              {viewMode === 'forYou' ? 'No recommendations available' : 'No internships available'}
+            </h3>
+            <p className="text-sm text-gray-500">
+              {viewMode === 'forYou' 
+                ? 'Please upload your resume to get personalized recommendations'
+                : 'Check back later for new opportunities'
+              }
+            </p>
           </div>
         ) : (
           <>
             <div className="px-4 py-2 text-sm text-gray-600 border-b">
-              {filteredInternships.length} internship{filteredInternships.length !== 1 ? 's' : ''} found
+              {filteredInternships.length} 
+              {viewMode === 'forYou' ? ' recommended internship' : ' internship'}
+              {filteredInternships.length !== 1 ? 's' : ''} found
             </div>
             {filteredInternships.map((job) => {
               const isActive = pathname === `/internship/${job._id}`
               const isSaved = bookmarkedJobs[job._id] || false
               const isBookmarkingInProgress = isLoading(job._id)
+              const matchScore = viewMode === 'forYou' ? job.matchScore?.total : null
 
               return (
                 <Link
@@ -214,7 +236,7 @@ export function InternshipSidebar() {
                           </div>
                         )}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <div className="font-medium text-primary">{job.company?.name || job.companyId?.companyName || 'Unknown Company'}</div>
                         <h3 className="font-bold text-lg mt-1">{job.title}</h3>
                         <p className="text-sm text-gray-500 mt-1">{job.location}</p>
@@ -247,7 +269,7 @@ export function InternshipSidebar() {
                         handleToggleBookmark(job._id)
                       }}
                       disabled={isBookmarkingInProgress}
-                      className={`text-gray-500 hover:text-black transition-colors ${isBookmarkingInProgress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`text-gray-500 hover:text-black transition-colors ${isBookmarkingInProgress ? 'opacity-50 cursor-not-allowed' : ''} flex-shrink-0 ml-2`}
                       aria-label={isSaved ? "Unsave job" : "Save job"}
                     >
                       {isBookmarkingInProgress ? (

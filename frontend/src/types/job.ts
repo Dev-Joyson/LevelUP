@@ -37,6 +37,25 @@ export type Job = {
   isArchived?: boolean
   createdAt: string
   
+  // Match score for suggested internships
+  matchScore?: {
+    total: number
+    breakdown: {
+      skills: number
+      projects: number
+      experience: number
+      gpa: number
+      certifications: number
+    }
+    details: {
+      skillsMatched: string[]
+      projectsCount: number
+      experienceCount: number
+      gpaValue: number
+      certificationsCount: number
+    }
+  }
+  
   // For compatibility with existing components
   postedDays?: number
   isEasyApply?: boolean
