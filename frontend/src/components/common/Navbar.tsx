@@ -15,11 +15,109 @@ import {
 import { useAuth } from "@/context/AuthContext"
 import { useStudentContextSafe } from "@/context/StudentContext"
 import { Sheet, SheetTrigger, SheetContent, SheetTitle } from "@/components/ui/sheet"
+import { useState, useEffect } from "react"
+import axios from "axios"
 import Image from "next/image"
 
 export function Navbar() {
-  const { user, isAuthenticated, logout, loading } = useAuth()
+  const { user, isAuthenticated, logout, loading, token } = useAuth()
   const { profileData, profileLoading } = useStudentContextSafe()
+  const [mentorData, setMentorData] = useState<any>(null)
+  const [mentorLoading, setMentorLoading] = useState(false)
+  const [companyData, setCompanyData] = useState<any>(null)
+  const [companyLoading, setCompanyLoading] = useState(false)
+
+  // Fetch mentor data when user is a mentor
+  useEffect(() => {
+    if (user?.role === 'mentor' && token && !loading) {
+      fetchMentorData()
+    }
+  }, [user, token, loading])
+
+  // Fetch company data when user is a company
+  useEffect(() => {
+    if (user?.role === 'company' && token && !loading) {
+      fetchCompanyData()
+    }
+  }, [user, token, loading])
+
+  // Listen for mentor profile updates (from panel navbar)
+  useEffect(() => {
+    if (user?.role === 'mentor') {
+      const handleMentorProfileUpdate = (event: CustomEvent) => {
+        // Refresh mentor data when profile is updated
+        if (token) {
+          fetchMentorData()
+        }
+      }
+
+      window.addEventListener('mentorProfileUpdated', handleMentorProfileUpdate as EventListener)
+
+      return () => {
+        window.removeEventListener('mentorProfileUpdated', handleMentorProfileUpdate as EventListener)
+      }
+    }
+  }, [user?.role, token])
+
+  // Listen for company profile updates (from panel navbar)
+  useEffect(() => {
+    if (user?.role === 'company') {
+      const handleCompanyProfileUpdate = (event: CustomEvent) => {
+        // Refresh company data when profile is updated
+        if (token) {
+          fetchCompanyData()
+        }
+      }
+
+      window.addEventListener('companyProfileUpdated', handleCompanyProfileUpdate as EventListener)
+
+      return () => {
+        window.removeEventListener('companyProfileUpdated', handleCompanyProfileUpdate as EventListener)
+      }
+    }
+  }, [user?.role, token])
+
+  const fetchMentorData = async () => {
+    try {
+      setMentorLoading(true)
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      const response = await axios.get(`${API_BASE_URL}/api/mentor/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+      
+      if (response.data) {
+        setMentorData(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching mentor data for homepage navbar:', error)
+    } finally {
+      setMentorLoading(false)
+    }
+  }
+
+  const fetchCompanyData = async () => {
+    try {
+      setCompanyLoading(true)
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      const response = await axios.get(`${API_BASE_URL}/api/company/profile`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
+      if (response.data?.success && response.data?.data) {
+        setCompanyData(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching company data:', error)
+    } finally {
+      setCompanyLoading(false)
+    }
+  }
 
   const getUserInitials = () => {
     // For students, use actual name if available
@@ -31,6 +129,27 @@ export function Navbar() {
       }
       if (firstname) {
         return firstname.charAt(0).toUpperCase()
+      }
+    }
+    
+    // For mentors, use actual name if available
+    if (user?.role === "mentor" && mentorData) {
+      const firstname = mentorData.firstname || ""
+      const lastname = mentorData.lastname || ""
+      if (firstname && lastname) {
+        return `${firstname.charAt(0)}${lastname.charAt(0)}`.toUpperCase()
+      }
+      if (firstname) {
+        return firstname.charAt(0).toUpperCase()
+      }
+    }
+    
+    // For companies, use company name if available
+    if (user?.role === "company" && companyData) {
+      const companyName = companyData.companyName || ""
+      if (companyName) {
+        // Take first two letters of company name
+        return companyName.substring(0, 2).toUpperCase()
       }
     }
     
@@ -123,10 +242,27 @@ export function Navbar() {
                 {isAuthenticated && user && (
                   <div className="flex flex-col items-center gap-2 py-6 border-b">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src="/placeholder.svg" alt="User avatar" />
+                      <AvatarImage 
+                        src={
+                          user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : 
+                          user?.role === "mentor" && mentorData ? (mentorData.profileImage || mentorData.image || mentorData.avatar || "") :
+                          user?.role === "company" && companyData?.logoUrl ? companyData.logoUrl :
+                          "/placeholder.svg"
+                        } 
+                        alt="User avatar" 
+                      />
                       <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
                     </Avatar>
-                    <span className="font-semibold text-base">{user.email}</span>
+                    <span className="font-semibold text-base">
+                      {user?.role === "student" && profileData ? 
+                        `${profileData.firstname} ${profileData.lastname}`.trim() || user.email?.split("@")[0] || "User" :
+                        user?.role === "mentor" && mentorData ?
+                        `${mentorData.firstname} ${mentorData.lastname}`.trim() || user.email?.split("@")[0] || "User" :
+                        user?.role === "company" && companyData ?
+                        companyData.companyName || user.email?.split("@")[0] || "Company" :
+                        user.email?.split("@")[0] || "User"
+                      }
+                    </span>
                     <span className="text-xs text-gray-500">{getRoleDisplayName()}</span>
                   </div>
                 )}
@@ -134,22 +270,22 @@ export function Navbar() {
                   <Link href="/" className="text-base font-medium transition-colors text-gray-600 hover:text-primary">
                     Home
                   </Link>
-                  {(!user || user.role === "student" || user.role === "mentor") && (
+                  {(!user || user.role === "student") && (
                     <Link href="/internship" className="text-base font-medium transition-colors hover:text-primary">
                       Internships
                     </Link>
                   )}
-                  {(!user || user.role === "student") && (
+                  {(!user || user.role === "student" || user.role === "mentor" || user.role === "company") && (
                     <Link href="/mentorship" className="text-base font-medium transition-colors hover:text-primary">
                       Mentorship
                     </Link>
                   )}
-                  {(!user || user.role === "student") && (
+                  {(user && user.role === "student") && (
                     <Link href="/student/mentorship" className="text-base font-medium transition-colors hover:text-primary">
                       Sessions
                     </Link>
                   )}
-                  {(!user || user.role === "student") && (
+                  {(user && user.role === "student") && (
                     <Link href="/mock-interviews" className="text-base font-medium transition-colors hover:text-primary">
                       Mock Interviews
                     </Link>
@@ -172,18 +308,18 @@ export function Navbar() {
                   <div className="mt-4 border-t pt-4 flex flex-col gap-2">
                     {isAuthenticated && user ? (
                       <>
-                        <Link href={getDashboardLink()} className="text-base font-medium flex items-center gap-2 hover:text-primary">
-                          <User className="h-4 w-4" />
-                          {user.role === "admin" ? "Admin Panel" : "Dashboard"}
-                        </Link>
-                        <Link href="/student/profile" className="text-base font-medium flex items-center gap-2 hover:text-primary">
-                          <User className="h-4 w-4" />
-                          Profile
-                        </Link>
-                        <Link href="/settings" className="text-base font-medium flex items-center gap-2 hover:text-primary">
-                          <Settings className="h-4 w-4" />
-                          Settings
-                        </Link>
+                        {user.role !== "student" && (
+                          <Link href={getDashboardLink()} className="text-base font-medium flex items-center gap-2 hover:text-primary">
+                            <User className="h-4 w-4" />
+                            {user.role === "admin" ? "Admin Panel" : "Dashboard"}
+                          </Link>
+                        )}
+                        {user.role === "student" && (
+                          <Link href="/student/profile" className="text-base font-medium flex items-center gap-2 hover:text-primary">
+                            <User className="h-4 w-4" />
+                            Profile
+                          </Link>
+                        )}
                         <Button onClick={logout} variant="ghost" className="justify-start text-base font-medium flex items-center gap-2">
                           <LogOut className="h-4 w-4" /> Log out
                         </Button>
@@ -209,32 +345,32 @@ export function Navbar() {
             <Link href="/" className=" transition-colors text-gray-600 hover:text-primary">
               Home
             </Link>
-            {/* Show internships link for students and mentors */}
-            {(!user || user.role === "student" || user.role === "mentor") && (
+            {/* Show internships link for students and companies */}
+            {(!user || user.role === "student" || user.role === "company") && (
               <Link href="/internship" className="  text-gray-600 transition-colors hover:text-primary">
                 Internships
               </Link>
             )}
-            {/* Show mentorship link for students */}
-            {(!user || user.role === "student") && (
+            {/* Show mentorship link for students, mentors, and companies */}
+            {(!user || user.role === "student" || user.role === "mentor" || user.role === "company") && (
               <Link href="/mentorship" className="text-gray-600 transition-colors hover:text-primary">
                 Mentorship
               </Link>
             )}
-            {/* Show sessions link for students */}
-            {(!user || user.role === "student") && (
+            {/* Show sessions link for students only when logged in */}
+            {(user && user.role === "student") && (
               <Link href="/student/mentorship" className="text-gray-600 transition-colors hover:text-primary">
                 Sessions
               </Link>
             )}
-            {/* Show mock interviews for students */}
-            {(!user || user.role === "student") && (
+            {/* Show mock interviews for students only when logged in */}
+            {(user && user.role === "student") && (
               <Link href="/mock-interviews" className="text-gray-600 transition-colors hover:text-primary">
                 Mock Interviews
               </Link>
             )}
             {/* Show company-specific links */}
-            {user && user.role === "company" && (
+            {/* {user && user.role === "company" && (
               <>
                 <Link href="/company/jobs" className="text-sm font-medium transition-colors hover:text-primary">
                   Post Jobs
@@ -243,7 +379,7 @@ export function Navbar() {
                   Candidates
                 </Link>
               </>
-            )}
+            )} */}
             {/* Show admin links */}
             {user && user.role === "admin" && (
               <Link href="/admin" className="text-sm font-medium transition-colors hover:text-primary">
@@ -272,15 +408,20 @@ export function Navbar() {
                 )} */}
 
                 <div className="relative cursor-pointer">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-primary"></span>
+                  {/* <Bell className="h-5 w-5" /> */}
+                  {/* <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-primary"></span> */}
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Avatar className="h-8 w-8 cursor-pointer">
                       <AvatarImage 
-                        src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg"} 
+                        src={
+                          user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : 
+                          user?.role === "mentor" && mentorData ? (mentorData.profileImage || mentorData.image || mentorData.avatar || "") :
+                          user?.role === "company" && companyData?.logoUrl ? companyData.logoUrl :
+                          "/placeholder.svg"
+                        } 
                         alt="User avatar" 
                       />
                       <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
@@ -292,6 +433,10 @@ export function Navbar() {
                         <p className="font-medium">
                           {user?.role === "student" && profileData ? 
                             `${profileData.firstname} ${profileData.lastname}`.trim() || user.email?.split("@")[0] || "User" :
+                            user?.role === "mentor" && mentorData ?
+                            `${mentorData.firstname} ${mentorData.lastname}`.trim() || user.email?.split("@")[0] || "User" :
+                            user?.role === "company" && companyData ?
+                            companyData.companyName || user.email?.split("@")[0] || "Company" :
                             user.email?.split("@")[0] || "User"
                           }
                         </p>
@@ -300,24 +445,22 @@ export function Navbar() {
                       </div>
                     </div>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link href={getDashboardLink()} className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        {user.role === "admin" ? "Admin Panel" : "Dashboard"}
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/student/profile" className="cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/settings" className="cursor-pointer">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
+                    {user.role !== "student" && (
+                      <DropdownMenuItem asChild>
+                        <Link href={getDashboardLink()} className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          {user.role === "admin" ? "Admin Panel" : "Dashboard"}
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user.role === "student" && (
+                      <DropdownMenuItem asChild>
+                        <Link href="/student/profile" className="cursor-pointer">
+                          <User className="mr-2 h-4 w-4" />
+                          Profile
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout} className="cursor-pointer">
                       <LogOut className="mr-2 h-4 w-4" />
