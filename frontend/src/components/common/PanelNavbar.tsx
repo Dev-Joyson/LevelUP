@@ -42,7 +42,8 @@ export function PanelNavbar({
     name: defaultUserName,
     email: defaultUserEmail,
     firstname: "User",
-    lastname: ""
+    lastname: "",
+    profileImageUrl: ""
   })
   const [loading, setLoading] = useState(true)
 
@@ -55,7 +56,8 @@ export function PanelNavbar({
         name: `${profileData.firstname} ${profileData.lastname}`.trim() || 'Student User',
         email: profileData.email || user?.email || defaultUserEmail,
         firstname: profileData.firstname || 'Student',
-        lastname: profileData.lastname || 'User'
+        lastname: profileData.lastname || 'User',
+        profileImageUrl: profileData.profileImageUrl || ""
       })
       setLoading(false)
     } else if (user?.role === 'student' && !profileLoading) {
@@ -64,6 +66,25 @@ export function PanelNavbar({
       setLoading(false)
     }
   }, [user, token, profileData, profileLoading])
+
+  // Listen for mentor profile updates
+  useEffect(() => {
+    if (user?.role === 'mentor') {
+      const handleProfileUpdate = (event: CustomEvent) => {
+        console.log('📧 Navbar received profile update event:', event.detail);
+        // Refresh mentor data to get latest profile
+        if (token) {
+          fetchMentorData();
+        }
+      };
+
+      window.addEventListener('mentorProfileUpdated', handleProfileUpdate as EventListener);
+
+      return () => {
+        window.removeEventListener('mentorProfileUpdated', handleProfileUpdate as EventListener);
+      };
+    }
+  }, [user?.role, token]);
 
   const fetchMentorData = async () => {
     try {
@@ -82,12 +103,22 @@ export function PanelNavbar({
       if (response.data) {
         const mentor = response.data
         console.log('👤 Mentor Profile Data:', mentor)
+        console.log('🖼️ Profile Image Fields:', {
+          image: mentor.image,
+          avatar: mentor.avatar,
+          profileImage: mentor.profileImage,
+          profileImageUrl: mentor.profileImageUrl
+        })
+        
+        const profileImageUrl = mentor.image || mentor.avatar || mentor.profileImage || ""
+        console.log('📸 Selected Profile Image URL:', profileImageUrl)
         
         setUserData({
           name: mentor.name || 'Mentor User',
           email: mentor.email || user?.email || defaultUserEmail,
           firstname: mentor.firstname || 'Mentor',
-          lastname: mentor.lastname || 'User'
+          lastname: mentor.lastname || 'User',
+          profileImageUrl: profileImageUrl
         })
         
         console.log('✅ Navbar updated with real mentor data')
@@ -103,7 +134,8 @@ export function PanelNavbar({
         name: emailName,
         email: user?.email || defaultUserEmail,
         firstname: emailName,
-        lastname: ''
+        lastname: '',
+        profileImageUrl: ""
       })
     } finally {
       setLoading(false)
@@ -183,7 +215,7 @@ export function PanelNavbar({
         </div>
               <Avatar className="h-8 w-8">
                 <AvatarImage 
-                  src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg?height=32&width=32"} 
+                  src={userData.profileImageUrl || "/placeholder.svg?height=32&width=32"} 
                 />
                 <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>
               </Avatar>
@@ -193,7 +225,7 @@ export function PanelNavbar({
             <div className="flex items-center gap-2 p-2">
               <Avatar className="h-8 w-8">
                 <AvatarImage 
-                  src={user?.role === "student" && profileData?.profileImageUrl ? profileData.profileImageUrl : "/placeholder.svg"} 
+                  src={userData.profileImageUrl || "/placeholder.svg"} 
                   alt="User avatar" 
                 />
                 <AvatarFallback className={getRoleColor()}>{getUserInitials()}</AvatarFallback>

@@ -1,6 +1,7 @@
 import express from "express"
 import { authenticateUser } from "../middlewares/authMiddleware.js"
 import { authorizeRoles } from "../middlewares/roleMiddleware.js"
+import imageUpload from '../middlewares/multerImage.js'
 import { 
   mentorDashboard, 
   getAllPublicMentors, 
@@ -17,7 +18,8 @@ import {
   updateSessionType,
   getMentorSessions,
   changePassword,
-  cancelSession
+  cancelSession,
+  uploadProfileImage
 } from "../controllers/mentorController.js"
 
 
@@ -27,6 +29,7 @@ const mentorRouter = express.Router()
 mentorRouter.get('/dashboard', authenticateUser, authorizeRoles("mentor"), mentorDashboard)
 mentorRouter.get('/me', authenticateUser, authorizeRoles("mentor"), getCurrentMentorProfile)
 mentorRouter.put('/me', authenticateUser, authorizeRoles("mentor"), updateMentorProfile)
+mentorRouter.post("/upload-profile-image", authenticateUser, authorizeRoles("mentor"), imageUpload.single('profileImage'), uploadProfileImage)
 mentorRouter.put('/change-password', authenticateUser, authorizeRoles("mentor"), changePassword)
 mentorRouter.get('/sessions', authenticateUser, authorizeRoles("mentor"), getMentorSessions)
 mentorRouter.delete('/sessions/:sessionId', authenticateUser, authorizeRoles("mentor"), cancelSession)
