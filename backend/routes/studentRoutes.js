@@ -12,6 +12,7 @@ import {
   testScoring,
   getAllInternships,
   getInternshipById,
+  getSuggestedInternships,
   bookMentorSession,
   getStudentSessions,
   changePassword,
@@ -47,6 +48,7 @@ studentRouter.get("/test-scoring", authenticateUser, authorizeRoles("student"), 
 studentRouter.post("/book-mentor-session", authenticateUser, authorizeRoles("student"), bookMentorSession);
 studentRouter.get("/sessions", authenticateUser, authorizeRoles("student"), getStudentSessions);
 studentRouter.get("/internships", getAllInternships);
+studentRouter.get("/suggested-internships", authenticateUser, authorizeRoles("student"), getSuggestedInternships);
 studentRouter.get("/internships/:id", getInternshipById);
 studentRouter.post("/upload-profile-image", authenticateUser, authorizeRoles("student"), imageUpload.single('profileImage'), uploadProfileImage);
 

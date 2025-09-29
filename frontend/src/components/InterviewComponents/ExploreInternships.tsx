@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, createContext, useContext, useEffect } from "react"
-import { Search, ChevronDown, Check } from "lucide-react"
+import { Search, ChevronDown, Check, Star } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -18,12 +18,18 @@ export interface FilterState {
   sortBy: string
 }
 
-// Context for sharing filter state
+// Context for sharing filter state and view mode
 const FilterContext = createContext<{
   filters: FilterState
   setFilters: (filters: FilterState) => void
   internships: any[]
   setInternships: (internships: any[]) => void
+  viewMode: 'forYou' | 'search'
+  setViewMode: (mode: 'forYou' | 'search') => void
+  suggestedInternships: any[]
+  setSuggestedInternships: (internships: any[]) => void
+  loading: boolean
+  setLoading: (loading: boolean) => void
 } | null>(null)
 
 export const useFilters = () => {
@@ -39,7 +45,14 @@ export const useInternships = () => {
   if (!context) {
     throw new Error('useInternships must be used within FilterProvider')
   }
-  return { internships: context.internships, setInternships: context.setInternships }
+  return { 
+    internships: context.internships, 
+    setInternships: context.setInternships,
+    suggestedInternships: context.suggestedInternships,
+    setSuggestedInternships: context.setSuggestedInternships,
+    viewMode: context.viewMode,
+    loading: context.loading
+  }
 }
 
 export function FilterProvider({ children }: { children: React.ReactNode }) {
@@ -54,11 +67,15 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
   })
 
   const [internships, setInternships] = useState<any[]>([])
+  const [suggestedInternships, setSuggestedInternships] = useState<any[]>([])
+  const [viewMode, setViewMode] = useState<'forYou' | 'search'>('search')
+  const [loading, setLoading] = useState(false)
 
-  // Fetch internships once when the provider mounts
+  // Fetch regular internships for search mode
   useEffect(() => {
     const fetchInternships = async () => {
       try {
+        setLoading(true)
         const token = localStorage.getItem('token') || ''
         const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
         
@@ -76,21 +93,69 @@ export function FilterProvider({ children }: { children: React.ReactNode }) {
         setInternships(data)
       } catch (error) {
         console.error('Error fetching internships for filters:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
     fetchInternships()
   }, [])
 
+  // Fetch suggested internships when switching to "For You" mode
+  useEffect(() => {
+    if (viewMode === 'forYou') {
+      const fetchSuggestedInternships = async () => {
+        try {
+          setLoading(true)
+          const token = localStorage.getItem('token') || ''
+          const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL
+          
+          const res = await fetch(`${API_BASE_URL}/api/student/suggested-internships`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            }
+          })
+          
+          if (!res.ok) {
+            throw new Error('Failed to fetch suggested internships')
+          }
+          
+          const response = await res.json()
+          console.log('Fetched suggested internships:', response)
+          setSuggestedInternships(response.data || [])
+        } catch (error) {
+          console.error('Error fetching suggested internships:', error)
+          setSuggestedInternships([])
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      fetchSuggestedInternships()
+    }
+  }, [viewMode])
+
   return (
-    <FilterContext.Provider value={{ filters, setFilters, internships, setInternships }}>
+    <FilterContext.Provider value={{ 
+      filters, 
+      setFilters, 
+      internships, 
+      setInternships,
+      viewMode,
+      setViewMode,
+      suggestedInternships,
+      setSuggestedInternships,
+      loading,
+      setLoading
+    }}>
       {children}
     </FilterContext.Provider>
   )
 }
 
 export function ExploreInternships() {
-  const { filters, setFilters, internships } = useFilters()
+  const { filters, setFilters, internships, viewMode, setViewMode } = useFilters()
 
   // Get unique domains from internships
   const getUniqueDomains = () => {
@@ -173,68 +238,109 @@ export function ExploreInternships() {
     <section className="container py-6 sm:py-8 ">
       <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Explore Internships</h1>
       <p className="text-muted-foreground mt-2 mb-4 sm:mb-6 text-sm sm:text-base">
-        Find the perfect internship to kickstart your career. Use the search and filter options below to narrow down
-        your choices.
+        {viewMode === 'forYou' 
+          ? "Discover internships tailored to your skills and experience based on your resume."
+          : "Find the perfect internship to kickstart your career. Use the search and filter options below to narrow down your choices."
+        }
       </p>
 
-      <div className="relative mb-4 sm:mb-6">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Search by keywords (e.g., 'Software Engineering', 'Data Analysis')"
-          className="pl-10 h-12"
-          value={filters.searchTerm}
-          onChange={(e) => handleSearchChange(e.target.value)}
-        />
+      {/* Toggle Buttons */}
+      <div className="flex justify-center mb-6">
+        <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+          <Button
+            variant={viewMode === 'forYou' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('forYou')}
+            className={cn(
+              "px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+              viewMode === 'forYou' 
+                ? 'bg-white text-black shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            )}
+          >
+            <Star className="h-4 w-4" />
+            For You
+          </Button>
+          <Button
+            variant={viewMode === 'search' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setViewMode('search')}
+            className={cn(
+              "px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2",
+              viewMode === 'search' 
+                ? 'bg-white text-black shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            )}
+          >
+            <Search className="h-4 w-4" />
+            Search
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
-        <FilterDropdown 
-          label="Domain" 
-          options={getUniqueDomains()} 
-          selectedValues={filters.domain}
-          onSelectionChange={(value) => handleFilterChange('domain', value)}
-        />
-        <FilterDropdown 
-          label="Skills" 
-          options={getUniqueSkills()} 
-          selectedValues={filters.skills}
-          onSelectionChange={(value) => handleFilterChange('skills', value)}
-        />
-        <FilterDropdown 
-          label="Salary Range" 
-          options={["LKR 0-25,000", "LKR 25,000-50,000", "LKR 50,000-75,000", "LKR 75,000-100,000", "LKR 100,000+"]} 
-          selectedValues={filters.salaryRange}
-          onSelectionChange={(value) => handleFilterChange('salaryRange', value)}
-        />
-        <FilterDropdown 
-          label="Location" 
-          options={getUniqueLocations()} 
-          selectedValues={filters.location}
-          onSelectionChange={(value) => handleFilterChange('location', value)}
-        />
-        <FilterDropdown 
-          label="Work Mode" 
-          options={["Remote", "Onsite", "Hybrid"]} 
-          selectedValues={filters.workMode}
-          onSelectionChange={(value) => handleFilterChange('workMode', value)}
-        />
-        <SortDropdown 
-          selectedValue={filters.sortBy}
-          onSelectionChange={handleSortChange}
-        />
-        
-        {hasActiveFilters && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={clearFilters}
-            className="h-9 sm:h-10 text-xs sm:text-sm text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-          >
-            Clear All
-          </Button>
-        )}
-      </div>
+      {/* Search and Filters - Only show in Search mode */}
+      {viewMode === 'search' && (
+        <>
+          <div className="relative mb-4 sm:mb-6">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by keywords (e.g., 'Software Engineering', 'Data Analysis')"
+              className="pl-10 h-12"
+              value={filters.searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
+            <FilterDropdown 
+              label="Domain" 
+              options={getUniqueDomains()} 
+              selectedValues={filters.domain}
+              onSelectionChange={(value) => handleFilterChange('domain', value)}
+            />
+            <FilterDropdown 
+              label="Skills" 
+              options={getUniqueSkills()} 
+              selectedValues={filters.skills}
+              onSelectionChange={(value) => handleFilterChange('skills', value)}
+            />
+            <FilterDropdown 
+              label="Salary Range" 
+              options={["LKR 0-25,000", "LKR 25,000-50,000", "LKR 50,000-75,000", "LKR 75,000-100,000", "LKR 100,000+"]} 
+              selectedValues={filters.salaryRange}
+              onSelectionChange={(value) => handleFilterChange('salaryRange', value)}
+            />
+            <FilterDropdown 
+              label="Location" 
+              options={getUniqueLocations()} 
+              selectedValues={filters.location}
+              onSelectionChange={(value) => handleFilterChange('location', value)}
+            />
+            <FilterDropdown 
+              label="Work Mode" 
+              options={["Remote", "Onsite", "Hybrid"]} 
+              selectedValues={filters.workMode}
+              onSelectionChange={(value) => handleFilterChange('workMode', value)}
+            />
+            <SortDropdown 
+              selectedValue={filters.sortBy}
+              onSelectionChange={handleSortChange}
+            />
+            
+            {hasActiveFilters && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={clearFilters}
+                className="h-9 sm:h-10 text-xs sm:text-sm text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+              >
+                Clear All
+              </Button>
+            )}
+          </div>
+        </>
+      )}
     </section>
   )
 }

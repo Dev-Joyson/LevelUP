@@ -1708,6 +1708,126 @@ const rateCompany = async (req, res) => {
   }
 };
 
+// Get suggested internships based on student's resume data
+const getSuggestedInternships = async (req, res) => {
+  try {
+    console.log('=== GET SUGGESTED INTERNSHIPS FUNCTION STARTED ===');
+    
+    // Find the student
+    const student = await studentModel.findOne({ userId: req.user.userId });
+    if (!student) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    console.log('Student found:', student._id);
+
+    // Check if student has a resume
+    if (!student.resumeUrl) {
+      return res.status(400).json({ 
+        message: 'Please upload your resume to get personalized recommendations.'
+      });
+    }
+
+    // Get student's resume data
+    const resumeData = await resumeModel.findOne({ studentId: student._id })
+      .sort({ uploadedAt: -1 });
+    
+    if (!resumeData || !resumeData.parsedData) {
+      return res.status(400).json({ 
+        message: 'Resume data not found. Please re-upload your resume.'
+      });
+    }
+    console.log('Resume data found for student');
+
+    // Get all published internships
+    const internships = await internshipModel.find({ isPublished: true })
+      .populate('companyId', 'companyName logoUrl')
+      .select('-__v');
+    
+    console.log(`Found ${internships.length} published internships`);
+
+    // Calculate match scores for each internship
+    const internshipsWithScores = [];
+    
+    for (const internship of internships) {
+      try {
+        // Calculate match score using existing scoring algorithm
+        const matchScore = calculateMatchScore(resumeData.parsedData, internship);
+        
+        // Transform internship data to match frontend expectations
+        const internshipWithScore = {
+          _id: internship._id,
+          title: internship.title,
+          company: {
+            name: internship.companyId?.companyName || 'Unknown Company',
+            _id: internship.companyId?._id,
+            logoUrl: internship.companyId?.logoUrl
+          },
+          description: internship.description,
+          location: internship.location,
+          workMode: internship.workMode,
+          domain: internship.domain,
+          salary: {
+            min: internship.salary?.min || 0,
+            max: internship.salary?.max || 0,
+            display: internship.salary?.display || 'Not specified'
+          },
+          matchingCriteria: internship.matchingCriteria,
+          preferredSkills: internship.preferredSkills || [],
+          minimumGPA: internship.minimumGPA,
+          applicationDeadline: internship.applicationDeadline,
+          positions: internship.positions,
+          requirements: internship.requirements || [],
+          benefits: internship.benefits || [],
+          isPublished: internship.isPublished,
+          matchScore: matchScore // Add the calculated match score
+        };
+        
+        internshipsWithScores.push(internshipWithScore);
+      } catch (scoreError) {
+        console.error(`Error calculating score for internship ${internship._id}:`, scoreError);
+        // Include internship with 0 score if scoring fails
+        internshipsWithScores.push({
+          ...internship.toObject(),
+          company: {
+            name: internship.companyId?.companyName || 'Unknown Company',
+            _id: internship.companyId?._id,
+            logoUrl: internship.companyId?.logoUrl
+          },
+          matchScore: { total: 0, breakdown: {}, details: {} }
+        });
+      }
+    }
+
+    // Sort by match score (highest first)
+    const sortedInternships = internshipsWithScores.sort((a, b) => 
+      (b.matchScore?.total || 0) - (a.matchScore?.total || 0)
+    );
+
+    // Limit to top 10 suggestions for better performance
+    const suggestedInternships = sortedInternships.slice(0, 10);
+
+    console.log(`Returning ${suggestedInternships.length} suggested internships`);
+    console.log('Top 3 match scores:', suggestedInternships.slice(0, 3).map(i => ({
+      title: i.title,
+      score: i.matchScore?.total || 0
+    })));
+
+    res.status(200).json({
+      success: true,
+      data: suggestedInternships,
+      message: `Found ${suggestedInternships.length} recommended internships`,
+      resumeSkillsUsed: resumeData.parsedData.Skills || {}
+    });
+
+  } catch (error) {
+    console.error('Error getting suggested internships:', error);
+    res.status(500).json({ 
+      message: 'Failed to get suggested internships',
+      error: error.message 
+    });
+  }
+};
+
 export { 
   studentDashboard, 
   uploadResume, 
@@ -1717,6 +1837,7 @@ export {
   testScoring, 
   getAllInternships, 
   getInternshipById,
+  getSuggestedInternships,
   bookMentorSession, 
   getStudentSessions,
   changePassword,
