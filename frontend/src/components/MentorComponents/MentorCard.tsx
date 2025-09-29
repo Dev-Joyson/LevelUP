@@ -18,7 +18,8 @@ export interface Mentor {
   experience: string
   rating: number
   reviewCount: number
-  pricePerMonth: number
+  pricePerMonth: number // Keep for backward compatibility
+  priceRange?: { min: number; max: number } // New price range for session pricing
   category: string[]
   isQuickResponder?: boolean
   location?: string
@@ -108,8 +109,30 @@ export function MentorCard({ mentor, onViewProfile }: MentorCardProps) {
               {/* Price and Action */}
               <div className="flex flex-col items-end gap-3">
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">LKR {mentor.pricePerMonth}</div>
-                  <div className="text-sm text-gray-500">/ month</div>
+                  {mentor.priceRange ? (
+                    // Display session-based pricing
+                    mentor.priceRange.min === mentor.priceRange.max ? (
+                      <>
+                        <div className="text-2xl font-bold text-gray-900">
+                          {mentor.priceRange.min === 0 ? 'Free' : `LKR ${mentor.priceRange.min}`}
+                        </div>
+                        <div className="text-sm text-gray-500">/ session</div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="text-2xl font-bold text-gray-900">
+                          LKR {mentor.priceRange.min}-{mentor.priceRange.max}
+                        </div>
+                        <div className="text-sm text-gray-500">/ session</div>
+                      </>
+                    )
+                  ) : (
+                    // Fallback to monthly pricing for backward compatibility
+                    <>
+                      <div className="text-2xl font-bold text-gray-900">LKR {mentor.pricePerMonth}</div>
+                      <div className="text-sm text-gray-500">/ month</div>
+                    </>
+                  )}
                 </div>
                 <Button asChild className="bg-primary hover:bg-primary/90 px-6">
                   <Link href={`/mentorship/${mentor.id}`}>View Profile</Link>
