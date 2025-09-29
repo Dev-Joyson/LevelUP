@@ -28,7 +28,7 @@ export function InternshipSidebar() {
         job.title.toLowerCase().includes(searchTerm) ||
         job.description.toLowerCase().includes(searchTerm) ||
         job.domain?.toLowerCase().includes(searchTerm) ||
-        (job.company?.name || job.companyId?.name || '').toLowerCase().includes(searchTerm) ||
+        (job.company?.name || job.companyId?.companyName || '').toLowerCase().includes(searchTerm) ||
         job.preferredSkills?.some(skill => skill.toLowerCase().includes(searchTerm))
       )
     }
@@ -201,11 +201,21 @@ export function InternshipSidebar() {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex gap-3 justify-center">
-                      <div className="flex-shrink-0 text-gray-600">
-                        <Briefcase className="h-5 w-5 text-primary" />
+                      <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {(job.company?.logo || job.companyId?.logoUrl) ? (
+                          <img 
+                            src={job.company?.logo || job.companyId?.logoUrl} 
+                            alt={`${job.company?.name || job.companyId?.companyName || 'Company'} logo`}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <Briefcase className="h-5 w-5 text-gray-600" />
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <div className="font-medium text-primary">{job.company?.name || job.companyId?.name || 'Unknown Company'}</div>
+                        <div className="font-medium text-primary">{job.company?.name || job.companyId?.companyName || 'Unknown Company'}</div>
                         <h3 className="font-bold text-lg mt-1">{job.title}</h3>
                         <p className="text-sm text-gray-500 mt-1">{job.location}</p>
                         

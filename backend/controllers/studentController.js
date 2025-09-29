@@ -413,7 +413,7 @@ const syncPhoneFromResume = async (req, res) => {
 const getAllInternships = async (req, res) => {
   try {
     const internships = await internshipModel.find({})
-      .populate('companyId', 'name logo')
+      .populate('companyId', 'companyName logoUrl')
       .select('-__v');
     res.status(200).json(internships);
   } catch (error) {
@@ -428,7 +428,7 @@ const getInternshipById = async (req, res) => {
     const { id } = req.params;
     
     const internship = await internshipModel.findById(id)
-      .populate('companyId', 'name logo')
+      .populate('companyId', 'companyName logoUrl')
       .select('-__v');
     
     if (!internship) {

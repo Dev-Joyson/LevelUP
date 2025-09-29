@@ -16,8 +16,8 @@ interface SavedInternship {
     logo?: string
   }
   companyId?: {
-    name: string
-    logo?: string
+    companyName: string
+    logoUrl?: string
   }
   domain: string
   description: string
@@ -86,7 +86,7 @@ export default function SavedInternshipsPage() {
       const filtered = savedInternships.filter((internship) =>
         internship.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         internship.domain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (internship.company?.name || internship.companyId?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (internship.company?.name || internship.companyId?.companyName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         internship.description.toLowerCase().includes(searchTerm.toLowerCase())
       )
       setFilteredInternships(filtered)
@@ -194,9 +194,9 @@ export default function SavedInternshipsPage() {
               {/* Company Info */}
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  {(internship.company?.logo || internship.companyId?.logo) ? (
+                  {(internship.company?.logo || internship.companyId?.logoUrl) ? (
                     <Image
-                      src={internship.company?.logo || internship.companyId?.logo || ''}
+                      src={internship.company?.logo || internship.companyId?.logoUrl || ''}
                       alt="Company Logo"
                       width={40}
                       height={40}
@@ -205,13 +205,13 @@ export default function SavedInternshipsPage() {
                   ) : (
                     <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                       <span className="text-primary font-semibold">
-                        {(internship.company?.name || internship.companyId?.name || 'C')[0]}
+                        {(internship.company?.name || internship.companyId?.companyName || 'C')[0]}
                       </span>
                     </div>
                   )}
                   <div>
                     <h3 className="font-semibold text-gray-900">
-                      {internship.company?.name || internship.companyId?.name || 'Unknown Company'}
+                      {internship.company?.name || internship.companyId?.companyName || 'Unknown Company'}
                     </h3>
                   </div>
                 </div>

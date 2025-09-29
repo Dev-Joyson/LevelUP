@@ -13,7 +13,9 @@ const companySchema = new mongoose.Schema({
   industry: { type: String },
   location: { type: String },
   foundedYear: { type: String },
-  employees: { type: String }
+  employees: { type: String },
+  logoUrl: { type: String },
+  logoPublicId: { type: String }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
