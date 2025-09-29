@@ -139,27 +139,39 @@ export default function ApplicantsPage() {
         ...(statusFilter && { status: statusFilter })
       })
 
+      console.log("🔍 Fetching applications with params:", Object.fromEntries(params))
+
       const response = await fetch(`${API_BASE_URL}/api/applications/company?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
 
+      console.log("📡 API Response status:", response.status)
+
       if (response.ok) {
         const data = await response.json()
+        console.log("📦 API Response data:", data)
+        
         if (data.success) {
+          console.log("✅ Applications fetched:", data.data.applications.length)
           setApplications(data.data.applications)
           setPagination(prev => ({
             ...prev,
             ...data.data.pagination
           }))
+        } else {
+          console.error("❌ API returned success: false", data)
+          toast.error(data.message || "Failed to fetch applications")
         }
       } else {
-        toast.error("Failed to fetch applications")
+        const errorData = await response.text()
+        console.error("❌ API Error:", response.status, errorData)
+        toast.error(`Failed to fetch applications (${response.status})`)
       }
     } catch (error) {
-      console.error("Error fetching applications:", error)
-      toast.error("Error fetching applications")
+      console.error("💥 Error fetching applications:", error)
+      toast.error("Error fetching applications: " + (error instanceof Error ? error.message : 'Unknown error'))
     } finally {
       setLoading(false)
     }
@@ -194,6 +206,10 @@ export default function ApplicantsPage() {
     app.internshipId.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     app.student.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  // Debug: Log applications data
+  console.log("🎯 Current applications:", applications)
+  console.log("🔍 Filtered applications:", filteredApplications)
 
   const getMatchScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 font-bold"

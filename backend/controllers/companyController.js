@@ -616,8 +616,10 @@ const getDashboardAnalytics = async (req, res) => {
           title: 1,
           location: 1,
           jobType: 1,
+          workMode: 1,
           isActive: 1,
           createdAt: 1,
+          applicationDeadline: 1,
           applicationCount: { $size: '$applications' }
         }
       },
