@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, isAfter, addWeeks, startOfDay } from "date-fns"
 import { ChevronLeft, ChevronRight, Clock, Calendar, Info, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -61,6 +62,9 @@ interface BookingSlot {
 interface BookingCalendarProps {
   mentorId: string;
   mentorName: string;
+  mentorImage?: string;
+  mentorTitle?: string;
+  mentorCompany?: string;
   sessionTypes: {
     id: string;
     name: string;
@@ -80,12 +84,16 @@ interface BookingCalendarProps {
 export function BookingCalendar({
   mentorId,
   mentorName,
+  mentorImage,
+  mentorTitle,
+  mentorCompany,
   sessionTypes,
   selectedSessionType,
   availability,
   onSlotSelect,
   existingBookings = []
 }: BookingCalendarProps) {
+  const router = useRouter()
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
@@ -242,12 +250,19 @@ export function BookingCalendar({
     setSelectedTimeSlot(time);
   };
   
-  // Handle booking confirmation
+  // Handle booking confirmation - redirect to payment portal
   const handleConfirmBooking = async () => {
     if (!selectedDate || !selectedTimeSlot || !sessionType) return;
     
     try {
       setIsBooking(true);
+      
+      // Check if user is logged in
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error("Please log in to book a session");
+        return;
+      }
       
       // Calculate end time
       const [startHour, startMinute] = selectedTimeSlot.split(":").map(Number);
@@ -257,67 +272,28 @@ export function BookingCalendar({
       const endMinute = endMinutes % 60;
       const endTimeString = `${endHour.toString().padStart(2, "0")}:${endMinute.toString().padStart(2, "0")}`;
       
-      // Prepare booking data
-      const bookingData = {
+      // Create URL parameters for payment portal
+      const paymentParams = new URLSearchParams({
         mentorId: mentorId,
-        date: format(selectedDate, "yyyy-MM-dd"),
-        startTime: selectedTimeSlot,
-        endTime: endTimeString,
+        mentorName: mentorName,
+        mentorImage: mentorImage || '/placeholder.svg',
+        mentorTitle: mentorTitle || 'Professional Mentor',
+        mentorCompany: mentorCompany || 'LevelUP',
         sessionTypeId: sessionType.id,
         sessionTypeName: sessionType.name,
-        duration: sessionType.duration,
-        price: sessionType.price
-      };
+        sessionDuration: sessionType.duration.toString(),
+        sessionPrice: sessionType.price.toString(),
+        sessionDate: format(selectedDate, "yyyy-MM-dd"),
+        sessionTime: selectedTimeSlot,
+        endTime: endTimeString
+      });
       
-      console.log('Booking session with data:', bookingData);
-      
-      // Get token from localStorage
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error("Please log in to book a session");
-        return;
-      }
-      
-      // Make API call
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
-      const response = await axios.post(
-        `${API_BASE_URL}/api/student/book-mentor-session`,
-        bookingData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      console.log('Session booked successfully:', response.data);
-      
-      // Show success message
-      toast.success("Session booked successfully!");
-      setBookingSuccess(true);
-      
-      // Call the original onSlotSelect for any parent component handling
-      const bookingSlot: BookingSlot = {
-        date: selectedDate,
-        startTime: selectedTimeSlot,
-        endTime: endTimeString,
-        duration: sessionDuration
-      };
-      onSlotSelect(bookingSlot);
-      
-      // Reset selections
-      setSelectedDate(null);
-      setSelectedTimeSlot(null);
+      // Redirect to payment portal
+      router.push(`/payment/session?${paymentParams.toString()}`);
       
     } catch (error: any) {
-      console.error('Error booking session:', error);
-      
-      if (error.response?.data?.message) {
-        toast.error(error.response.data.message);
-      } else {
-        toast.error("Failed to book session. Please try again.");
-      }
+      console.error('Error preparing booking:', error);
+      toast.error("Failed to proceed to payment. Please try again.");
     } finally {
       setIsBooking(false);
     }
@@ -503,10 +479,10 @@ export function BookingCalendar({
           {isBooking ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Booking...
+              Processing...
             </>
           ) : (
-            "Confirm Booking"
+            "Proceed to Payment"
           )}
         </Button>
       </div>

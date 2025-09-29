@@ -93,7 +93,7 @@ export default function MentorshipPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState([0, 10000])
+  const [priceRange, setPriceRange] = useState([0, 5000]) // Updated for session pricing
   const [showFilters, setShowFilters] = useState(false)
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
