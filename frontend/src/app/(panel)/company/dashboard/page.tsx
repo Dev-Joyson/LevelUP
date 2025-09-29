@@ -310,26 +310,79 @@ export default function DashboardPage() {
               Status Breakdown
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <RechartsPieChart>
-                <Pie
-                  data={formatStatusData(dashboardData?.analytics.statusBreakdown || [])}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {formatStatusData(dashboardData?.analytics.statusBreakdown || []).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => [`${value} applications`, 'Applications']} />
-              </RechartsPieChart>
-            </ResponsiveContainer>
+          <CardContent className="p-6">
+            {dashboardData?.analytics.statusBreakdown && dashboardData.analytics.statusBreakdown.length > 0 ? (
+              <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
+                <div className="w-full flex justify-center">
+                  <div style={{ width: '280px', height: '280px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                        <Pie
+                          data={formatStatusData(dashboardData?.analytics.statusBreakdown || [])}
+                          cx="50%"
+                          cy="50%"
+                          startAngle={90}
+                          endAngle={450}
+                          labelLine={false}
+                          label={false}
+                          outerRadius={100}
+                          innerRadius={40}
+                          fill="#8884d8"
+                          dataKey="value"
+                          stroke="#ffffff"
+                          strokeWidth={3}
+                        >
+                          {formatStatusData(dashboardData?.analytics.statusBreakdown || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip 
+                          formatter={(value, name) => [`${value} applications`, name]}
+                          contentStyle={{
+                            backgroundColor: '#ffffff',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                          }}
+                        />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                
+                {/* Legend */}
+                <div className="flex flex-wrap justify-center gap-3 w-full">
+                  {formatStatusData(dashboardData?.analytics.statusBreakdown || []).map((entry, index, array) => {
+                    const totalApplications = array.reduce((sum, item) => sum + item.value, 0);
+                    const percentage = totalApplications > 0 ? ((entry.value / totalApplications) * 100).toFixed(1) : 0;
+                    
+                    return (
+                      <div key={index} className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0" 
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-700">
+                            {entry.name}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {entry.value} applications ({percentage}%)
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64 text-gray-500">
+                <div className="text-center">
+                  <PieChart className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p className="text-sm">No application data available</p>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
