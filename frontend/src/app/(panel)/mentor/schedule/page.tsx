@@ -23,11 +23,29 @@ interface DaySchedule {
   timeSlots: TimeSlot[];
 }
 
+interface SessionFromAPI {
+  id: string;
+  studentName: string;
+  studentEmail: string;
+  sessionDate: string;
+  sessionTime: string;
+  duration: number;
+  status: string;
+  topic: string;
+  type: string;
+}
+
 export default function MentorSchedulePage() {
   const { token, user } = useAuth();
   const [schedule, setSchedule] = useState<DaySchedule[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
+  const [sessionStats, setSessionStats] = useState({
+    totalSessions: 0,
+    upcomingSessions: 0,
+    completedSessions: 0,
+    cancelledSessions: 0
+  });
   const [isSessionTypeEditorOpen, setIsSessionTypeEditorOpen] = useState(false);
   const [sessionTypes, setSessionTypes] = useState<SessionType[]>([]);
   const [isFetchingSessionTypes, setIsFetchingSessionTypes] = useState(false);
@@ -39,35 +57,19 @@ export default function MentorSchedulePage() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Load schedule from localStorage
-        const savedSchedule = localStorage.getItem('mentor-schedule');
-        if (savedSchedule) {
-          setSchedule(JSON.parse(savedSchedule));
-        }
-        
-        // Mock upcoming sessions data
-        setUpcomingSessions([
-          {
-            id: "session-1",
-            studentName: "Alex Johnson",
-            date: "2024-05-20",
-            startTime: "14:00",
-            endTime: "15:00",
-            topic: "Career Guidance"
-          },
-          {
-            id: "session-2",
-            studentName: "Maria Garcia",
-            date: "2024-05-22",
-            startTime: "10:00",
-            endTime: "11:00",
-            topic: "Technical Interview Prep"
-          }
-        ]);
-        
-        // Fetch session types from API
+        // Fetch schedule from database first, fallback to localStorage
         if (token) {
-          await fetchSessionTypes();
+          await Promise.all([
+            fetchScheduleFromDatabase(),
+            fetchSessionTypes(),
+            fetchUpcomingSessions()
+          ]);
+        } else {
+          // If no token, try localStorage as fallback
+          const savedSchedule = localStorage.getItem('mentor-schedule');
+          if (savedSchedule) {
+            setSchedule(JSON.parse(savedSchedule));
+          }
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -79,6 +81,145 @@ export default function MentorSchedulePage() {
     
     loadData();
   }, [token]);
+  
+  // Fetch schedule from database
+  const fetchScheduleFromDatabase = async () => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      
+      console.log("🔄 Fetching schedule from database...");
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/mentor/availability`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("✅ Database response:", response.data);
+      
+      if (response.data && response.data.schedule) {
+        console.log("📅 Setting schedule from database:", response.data.schedule);
+        setSchedule(response.data.schedule);
+        
+        // Also update localStorage as backup
+        localStorage.setItem('mentor-schedule', JSON.stringify(response.data.schedule));
+        
+        toast.success("Schedule loaded from database");
+      } else {
+        console.log("📅 No schedule data in database, checking localStorage...");
+        // Fallback to localStorage if no database data
+        const savedSchedule = localStorage.getItem('mentor-schedule');
+        if (savedSchedule) {
+          console.log("📅 Loading from localStorage as fallback");
+          setSchedule(JSON.parse(savedSchedule));
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error fetching schedule from database:", error);
+      
+      // Fallback to localStorage on error
+      const savedSchedule = localStorage.getItem('mentor-schedule');
+      if (savedSchedule) {
+        console.log("📅 Loading from localStorage due to API error");
+        setSchedule(JSON.parse(savedSchedule));
+      }
+      
+      toast.error("Failed to load schedule from database, using local backup");
+    }
+  };
+  
+  // Fetch upcoming sessions from database
+  const fetchUpcomingSessions = async () => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
+      
+      console.log("🔄 Fetching upcoming sessions from database...");
+      
+      const response = await axios.get(
+        `${API_BASE_URL}/api/mentor/sessions`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      console.log("✅ Sessions response:", response.data);
+      
+      if (response.data && response.data.sessions) {
+        // Filter only upcoming sessions (status: 'upcoming')
+        const upcoming = response.data.sessions.filter((session: SessionFromAPI) => 
+          session.status === 'upcoming'
+        );
+        
+        // Sort by date (sessions are already sorted by date from backend)
+        const sortedUpcoming = upcoming.sort((a: SessionFromAPI, b: SessionFromAPI) => {
+          return new Date(a.sessionDate).getTime() - new Date(b.sessionDate).getTime();
+        });
+        
+        // Map to the format expected by the UI
+        const formattedSessions = sortedUpcoming.map((session: SessionFromAPI) => ({
+          id: session.id,
+          studentName: session.studentName,
+          date: session.sessionDate,
+          startTime: session.sessionTime, // This is already formatted (e.g., "2:00 PM")
+          endTime: calculateEndTimeFromFormatted(session.sessionTime, session.duration),
+          topic: session.topic,
+          duration: session.duration
+        }));
+        
+        console.log("📅 Setting upcoming sessions:", formattedSessions);
+        setUpcomingSessions(formattedSessions);
+        
+        // Update session stats
+        if (response.data.stats) {
+          setSessionStats({
+            totalSessions: response.data.stats.total || 0,
+            upcomingSessions: response.data.stats.upcoming || 0,
+            completedSessions: response.data.stats.completed || 0,
+            cancelledSessions: response.data.stats.cancelled || 0
+          });
+        } else {
+          // Fallback: calculate stats from sessions data
+          setSessionStats({
+            totalSessions: response.data.sessions.length,
+            upcomingSessions: response.data.sessions.filter((s: SessionFromAPI) => s.status === 'upcoming').length,
+            completedSessions: response.data.sessions.filter((s: SessionFromAPI) => s.status === 'completed').length,
+            cancelledSessions: response.data.sessions.filter((s: SessionFromAPI) => s.status === 'cancelled').length
+          });
+        }
+        
+        toast.success(`${formattedSessions.length} upcoming sessions loaded`);
+      } else {
+        console.log("📅 No upcoming sessions found");
+        setUpcomingSessions([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching upcoming sessions:", error);
+      setUpcomingSessions([]);
+      toast.error("Failed to load upcoming sessions");
+    }
+  };
+  
+  // Helper function to calculate end time from formatted start time and duration
+  const calculateEndTimeFromFormatted = (startTime: string, duration: number) => {
+    // startTime is formatted like "2:00 PM"
+    // Parse it to get 24-hour format
+    const [time, period] = startTime.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let hour24 = hours;
+    
+    if (period === 'PM' && hours !== 12) {
+      hour24 += 12;
+    } else if (period === 'AM' && hours === 12) {
+      hour24 = 0;
+    }
+    
+    const startMinutes = hour24 * 60 + minutes;
+    const endMinutes = startMinutes + duration;
+    const endHours = Math.floor(endMinutes / 60) % 24;
+    const endMins = endMinutes % 60;
+    
+    // Convert back to 12-hour format
+    const endPeriod = endHours >= 12 ? 'PM' : 'AM';
+    const displayHours = endHours % 12 || 12;
+    return `${displayHours}:${endMins.toString().padStart(2, '0')} ${endPeriod}`;
+  };
   
   // Fetch session types from API
   const fetchSessionTypes = async () => {
@@ -245,9 +386,9 @@ export default function MentorSchedulePage() {
       </div>
 
       {/* Profile Completion Card */}
-      <div className="mb-8">
+      {/* <div className="mb-8">
         <ProfileCompletionCard />
-      </div>
+      </div> */}
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <Card className="lg:col-span-2">
@@ -282,7 +423,7 @@ export default function MentorSchedulePage() {
                       <div>
                         <h3 className="font-medium">{session.studentName}</h3>
                         <p className="text-sm text-gray-500">
-                          {formatDateForDisplay(session.date)} • {formatTimeForDisplay(session.startTime)} - {formatTimeForDisplay(session.endTime)}
+                          {formatDateForDisplay(session.date)} • {session.startTime} - {session.endTime}
                         </p>
                         <p className="text-sm mt-1">
                           <span className="font-medium">Topic:</span> {session.topic}
@@ -316,17 +457,13 @@ export default function MentorSchedulePage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
-                <span className="text-gray-600">Upcoming Sessions</span>
-                <span className="font-bold">{upcomingSessions.length}</span>
-              </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+              <div className="flex justify-between items-center p-3 bg-purple-50 rounded-md">
                 <span className="text-gray-600">Available Days</span>
-                <span className="font-bold">{schedule.length}</span>
+                <span className="font-bold text-purple-600">{schedule.length}</span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+              <div className="flex justify-between items-center p-3 bg-orange-50 rounded-md">
                 <span className="text-gray-600">Available Time Slots</span>
-                <span className="font-bold">
+                <span className="font-bold text-orange-600">
                   {schedule.reduce((total, day) => total + day.timeSlots.length, 0)}
                 </span>
               </div>
@@ -334,9 +471,16 @@ export default function MentorSchedulePage() {
                 <span className="text-gray-600">Next Session</span>
                 <span className="font-bold">
                   {upcomingSessions.length > 0
-                    ? formatDateForDisplay(upcomingSessions[0].date).split(',')[0]
+                    ? new Date(upcomingSessions[0].date).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric'
+                      })
                     : "None"}
                 </span>
+              </div>
+              <div className="flex justify-between items-center p-3 bg-green-100 rounded-md">
+                <span className="text-gray-600">Completed Sessions</span>
+                <span className="font-bold text-green-700">{sessionStats.completedSessions}</span>
               </div>
             </div>
           </CardContent>

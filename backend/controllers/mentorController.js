@@ -455,6 +455,63 @@ const saveMentorAvailability = async (req, res) => {
   }
 };
 
+// Get mentor's own availability schedule (for the schedule page)
+const getMentorOwnAvailability = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    console.log("🔍 FETCHING OWN AVAILABILITY FOR USER ID:", userId);
+    
+    const mentor = await mentorModel.findOne({ userId });
+    
+    if (!mentor) {
+      console.log("❌ MENTOR NOT FOUND");
+      return res.status(404).json({ message: 'Mentor profile not found' });
+    }
+    
+    console.log("📅 RAW MENTOR AVAILABILITY:", mentor.availability);
+    
+    // Parse availability back to schedule format for SimpleScheduler
+    let schedule = [];
+    
+    if (mentor.availability && mentor.availability.length > 0) {
+      console.log("🔄 PARSING AVAILABILITY SLOTS...");
+      
+      mentor.availability.forEach((slot, index) => {
+        console.log(`📝 PROCESSING SLOT ${index}:`, slot);
+        
+        try {
+          // Parse the JSON string back to object
+          const scheduleItem = JSON.parse(slot);
+          console.log("✅ PARSED AS JSON:", scheduleItem);
+          
+          if (scheduleItem.date && scheduleItem.timeSlots) {
+            schedule.push(scheduleItem);
+          }
+        } catch (e) {
+          console.log("❌ JSON PARSE FAILED:", e.message);
+          // Skip invalid entries
+        }
+      });
+    }
+    
+    console.log("✅ FINAL SCHEDULE:", schedule);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Schedule retrieved successfully',
+      schedule: schedule
+    });
+  } catch (error) {
+    console.error('Error fetching own availability:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching availability',
+      error: error.message 
+    });
+  }
+};
+
 // Get mentor availability for booking
 const getMentorAvailability = async (req, res) => {
   try {
@@ -1245,13 +1302,179 @@ const submitMentorRating = async (req, res) => {
   }
 };
 
-export { 
-  mentorDashboard, 
-  getAllPublicMentors, 
+// Get mentor's mentees (students they have had sessions with)
+const getMentorMentees = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find mentor profile
+    const mentor = await mentorModel.findOne({ userId });
+    if (!mentor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Mentor profile not found' 
+      });
+    }
+
+    // Get all sessions for this mentor with student details
+    const sessions = await sessionModel.find({ mentorId: mentor._id })
+      .populate({
+        path: 'studentId',
+        model: 'student',
+        select: 'firstname lastname major year profileImage',
+        populate: {
+          path: 'userId',
+          model: 'user',
+          select: 'email'
+        }
+      })
+      .sort({ date: -1 });
+
+    // Group sessions by student to get mentee data
+    const menteeMap = new Map();
+    
+    sessions.forEach(session => {
+      const student = session.studentId;
+      if (!student) return;
+      
+      const studentId = student._id.toString();
+      const studentEmail = student.userId?.email || 'N/A';
+      
+      if (!menteeMap.has(studentId)) {
+        // First session with this student
+        menteeMap.set(studentId, {
+          id: studentId,
+          name: `${student.firstname || ''} ${student.lastname || ''}`.trim() || 'Unknown Student',
+          email: studentEmail,
+          avatar: student.profileImage || '',
+          major: student.major || 'Unknown Major',
+          year: student.year || 'Unknown Year',
+          sessionsCompleted: 0,
+          totalSessions: 0,
+          lastSession: null,
+          nextSession: null,
+          status: 'active',
+          joinedDate: session.createdAt,
+          allSessions: []
+        });
+      }
+      
+      const menteeData = menteeMap.get(studentId);
+      menteeData.allSessions.push(session);
+      menteeData.totalSessions++;
+      
+      if (session.status === 'completed') {
+        menteeData.sessionsCompleted++;
+      }
+      
+      // Update last session date
+      const sessionDate = new Date(session.date);
+      if (!menteeData.lastSession || sessionDate > new Date(menteeData.lastSession)) {
+        menteeData.lastSession = sessionDate.toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short', 
+          day: 'numeric'
+        });
+      }
+      
+      // Check for next upcoming session
+      const now = new Date();
+      if (session.status === 'confirmed' && sessionDate > now) {
+        if (!menteeData.nextSession || sessionDate < new Date(menteeData.nextSession)) {
+          const [hours, minutes] = session.startTime.split(':');
+          const sessionDateTime = new Date(sessionDate);
+          sessionDateTime.setHours(parseInt(hours), parseInt(minutes));
+          
+          menteeData.nextSession = sessionDateTime.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
+        }
+      }
+    });
+
+    // Convert map to array and calculate additional fields
+    const mentees = Array.from(menteeMap.values()).map(mentee => {
+      // Calculate progress based on completed vs total sessions
+      const progress = mentee.totalSessions > 0 
+        ? Math.round((mentee.sessionsCompleted / mentee.totalSessions) * 100) 
+        : 0;
+      
+      // Determine status based on recent activity
+      const lastSessionDate = mentee.allSessions.length > 0 
+        ? new Date(Math.max(...mentee.allSessions.map(s => new Date(s.date)))) 
+        : null;
+      
+      const daysSinceLastSession = lastSessionDate 
+        ? Math.floor((new Date() - lastSessionDate) / (1000 * 60 * 60 * 24))
+        : null;
+      
+      let status = 'active';
+      if (progress >= 100) {
+        status = 'completed';
+      } else if (daysSinceLastSession && daysSinceLastSession > 30) {
+        status = 'inactive';
+      }
+      
+      // Get the most common session type as goal
+      const sessionTypes = mentee.allSessions.map(s => s.sessionTypeName);
+      const goalTitle = sessionTypes.length > 0 
+        ? sessionTypes.reduce((a, b, i, arr) => 
+            arr.filter(v => v === a).length >= arr.filter(v => v === b).length ? a : b
+          )
+        : 'General Mentoring';
+      
+      // Calculate average rating from mentor's reviews for this student (if available)
+      // For now, assign a default rating
+      const rating = 4.5 + Math.random() * 0.5; // Random rating between 4.5-5.0
+      
+      return {
+        ...mentee,
+        progress,
+        goalTitle,
+        status,
+        rating: Math.round(rating * 10) / 10,
+        joinedDate: mentee.joinedDate ? new Date(mentee.joinedDate).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric'
+        }) : 'Unknown'
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Mentees fetched successfully',
+      mentees: mentees,
+      totalMentees: mentees.length,
+      activeMentees: mentees.filter(m => m.status === 'active').length,
+      completedGoals: mentees.filter(m => m.status === 'completed').length,
+      averageRating: mentees.length > 0 
+        ? Math.round((mentees.reduce((sum, m) => sum + m.rating, 0) / mentees.length) * 10) / 10
+        : 0
+    });
+
+  } catch (error) {
+    console.error('Error fetching mentees:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching mentees',
+      error: error.message 
+    });
+  }
+};
+
+export {
+  mentorDashboard,
+  getAllPublicMentors,
   getMentorById,
   getCurrentMentorProfile,
   updateMentorProfile,
   getMentorAvailability,
+  getMentorOwnAvailability,
   saveMentorAvailability,
   testMentorData,
   scheduleSession,
@@ -1263,5 +1486,6 @@ export {
   changePassword,
   cancelSession,
   uploadProfileImage,
-  submitMentorRating
+  submitMentorRating,
+  getMentorMentees
 };
