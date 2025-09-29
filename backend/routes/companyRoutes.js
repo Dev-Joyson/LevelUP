@@ -12,7 +12,8 @@ import {
   updateCompanyProfile,
   getDashboardAnalytics,
   changePassword,
-  uploadLogo
+  uploadLogo,
+  getCompanyReviews
 } from "../controllers/companyController.js"
 
 const companyRouter = express.Router()
@@ -37,5 +38,8 @@ companyRouter.put('/internships/:internshipId/criteria', authenticateUser, autho
 
 // Analytics
 companyRouter.get('/analytics', authenticateUser, authorizeRoles("company"), getApplicationAnalytics)
+
+// Reviews
+companyRouter.get('/reviews', authenticateUser, authorizeRoles("company"), getCompanyReviews)
 
 export default companyRouter;

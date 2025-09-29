@@ -1587,6 +1587,127 @@ const getStudentApplicationTrends = async (req, res) => {
   }
 };
 
+const rateCompany = async (req, res) => {
+  try {
+    const { applicationId, rating, review } = req.body;
+    const studentId = req.user.userId;
+
+    // Validate required fields
+    if (!applicationId || !rating) {
+      return res.status(400).json({ message: 'Application ID and rating are required' });
+    }
+
+    console.log('🎯 Rating Request:', { applicationId, rating, studentId });
+
+    // Find the student
+    const student = await studentModel.findOne({ userId: studentId });
+    if (!student) {
+      console.log('❌ Student not found for userId:', studentId);
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    console.log('✅ Student found:', student._id);
+
+    // Find the specific application and verify it belongs to this student and is accepted
+    const application = await applicationModel.findOne({
+      _id: applicationId,
+      studentId: student._id,
+      status: 'accepted' // Use lowercase to match database values
+    });
+
+    console.log('🔍 Application query result:', application ? 'Found' : 'Not found');
+    
+    if (!application) {
+      // Check if application exists but with different status or student
+      const anyApplication = await applicationModel.findOne({ _id: applicationId });
+      if (anyApplication) {
+        console.log('❌ Application found but invalid:', {
+          foundStudentId: anyApplication.studentId,
+          expectedStudentId: student._id,
+          status: anyApplication.status
+        });
+        return res.status(403).json({ 
+          message: `Application exists but status is '${anyApplication.status}' or not owned by you. You can only rate accepted applications.`
+        });
+      } else {
+        console.log('❌ No application found with ID:', applicationId);
+        return res.status(404).json({ 
+          message: 'Application not found. Please ensure you are using a valid application ID.'
+        });
+      }
+    }
+
+    // Check if rating already exists
+    if (application.rating) {
+      return res.status(400).json({ 
+        message: 'You have already rated this company' 
+      });
+    }
+
+    // Find the company
+    const company = await companyModel.findById(application.companyId);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Check if student has already rated this company
+    const existingReview = company.reviews.find(
+      review => review.studentId.toString() === student._id.toString()
+    );
+    
+    if (existingReview) {
+      return res.status(400).json({ 
+        message: 'You have already rated this company' 
+      });
+    }
+
+    // Create new review object
+    const newReview = {
+      studentId: student._id,
+      applicationId: application._id,
+      internshipId: application.internshipId,
+      rating: rating,
+      review: review || '',
+      createdAt: new Date()
+    };
+
+    // Add review to company
+    company.reviews.push(newReview);
+
+    // Update company averages
+    company.totalRatings = company.reviews.length;
+    const totalRating = company.reviews.reduce((sum, rev) => sum + rev.rating, 0);
+    company.averageRating = totalRating / company.totalRatings;
+
+    await company.save();
+
+    // Also save rating to application for backward compatibility
+    application.rating = {
+      score: rating,
+      review: review || '',
+      ratedAt: new Date()
+    };
+
+    await application.save();
+
+    console.log('✅ Rating saved successfully:', {
+      companyId: company._id,
+      studentId: student._id,
+      rating: rating,
+      newAverageRating: company.averageRating
+    });
+
+    res.status(201).json({ 
+      message: 'Company rated successfully',
+      rating: newReview,
+      companyAverageRating: company.averageRating
+    });
+  } catch (error) {
+    console.error('Error rating company:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
 export { 
   studentDashboard, 
   uploadResume, 
@@ -1614,5 +1735,6 @@ export {
   unbookmarkInternship,
   getSavedInternships,
   getStudentDashboardStats,
-  getStudentApplicationTrends
+  getStudentApplicationTrends,
+  rateCompany
 }

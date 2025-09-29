@@ -33,8 +33,8 @@ const navigationItems = [
       icon: User,
     },
   {
-    title: "Feedback",
-    url: "/company/feedback",
+    title: "Reviews",
+    url: "/company/reviews",
     icon: MessageSquare,
   },
 ]

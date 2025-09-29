@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Loader2, Eye, ExternalLink } from "lucide-react"
+import { Search, Loader2, Star, ExternalLink } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "react-toastify"
 import Image from "next/image"
 import Link from "next/link"
+import axios from "axios"
+import { CompanyRatingModal } from "@/components/StudentComponents/CompanyRatingModal"
 
 interface Application {
   id: string
@@ -18,6 +20,15 @@ interface Application {
   matchScore?: number
   internshipId?: string
   studentId?: string
+  companyId?: string
+}
+
+interface RatingModal {
+  isOpen: boolean
+  applicationId: string
+  companyId: string
+  companyName: string
+  role: string
 }
 
 export default function StudentApplicationsPage() {
@@ -25,9 +36,16 @@ export default function StudentApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("")
   const [applications, setApplications] = useState<Application[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [ratingModal, setRatingModal] = useState<RatingModal>({
+    isOpen: false,
+    applicationId: '',
+    companyId: '',
+    companyName: '',
+    role: ''
+  })
   
   // Use port 5000 since other functionality is working with this port
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
   console.log("API_BASE_URL:", API_BASE_URL)
   
   // Get student name from localStorage if available
@@ -51,36 +69,49 @@ export default function StudentApplicationsPage() {
   // Demo applications data - these are specifically for the logged-in student
   const demoApplications: Application[] = [
     {
-      id: "1",
+      id: "68cd5fc2fa491b4e21243d61",
       company: "Tech Innovators Inc.",
       role: "Software Engineering Intern",
       applicationDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 5 days ago
       status: "Pending",
-      matchScore: 85
+      matchScore: 85,
+      companyId: "68c81710365f8fc598c1fe45"
     },
     {
-      id: "2",
+      id: "68c81bf01bb3a872e22962d9",
       company: "Global Solutions Ltd.",
       role: "Data Science Intern",
       applicationDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 10 days ago
       status: "Reviewed",
-      matchScore: 72
+      matchScore: 72,
+      companyId: "68c81710365f8fc598c1fe46"
     },
     {
-      id: "3",
+      id: "68c81ae637dfd9f6c57463e0",
       company: "Creative Minds Co.",
       role: "Marketing Intern",
       applicationDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 15 days ago
       status: "Accepted",
-      matchScore: 91
+      matchScore: 91,
+      companyId: "68c81710365f8fc598c1fe47"
     },
     {
-      id: "4",
+      id: "68cc233cd1a978721c475dc8",
       company: "Future Leaders Group",
       role: "Finance Intern",
       applicationDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 20 days ago
       status: "Rejected",
-      matchScore: 65
+      matchScore: 65,
+      companyId: "68c81710365f8fc598c1fe48"
+    },
+    {
+      id: "68c80e5857daf1c768abb958",
+      company: "Digital Innovations Corp",
+      role: "Full Stack Developer Intern",
+      applicationDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 25 days ago
+      status: "Accepted",
+      matchScore: 88,
+      companyId: "68c81710365f8fc598c1fe49"
     }
   ]
 
@@ -92,6 +123,11 @@ export default function StudentApplicationsPage() {
         if (!API_BASE_URL) {
           console.warn("API_BASE_URL is not defined, using demo application data")
           setApplications(demoApplications)
+          console.log('⚠️ Using demo applications:', {
+            total: demoApplications.length,
+            accepted: demoApplications.filter(app => app.status === 'Accepted').length,
+            reason: 'API_BASE_URL not defined'
+          })
           setIsLoading(false)
           return
         }
@@ -130,7 +166,8 @@ export default function StudentApplicationsPage() {
         
         // Use the new application controller endpoint
         const apiUrl = `${API_BASE_URL}/api/applications/student`
-        console.log("API URL:", apiUrl)
+        console.log("🌐 Making API call to:", apiUrl)
+        console.log("🔑 Using token:", token?.substring(0, 20) + '...')
           
         console.log("🔑 Auth Debug:", {
           studentId: studentId || "from token",
@@ -143,34 +180,20 @@ export default function StudentApplicationsPage() {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), 8000) // 8 second timeout
         
-        const response = await fetch(apiUrl, {
-          method: "GET",
+        const response = await axios.get(apiUrl, {
           headers: {
             Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          signal: controller.signal
+            'Content-Type': 'application/json',
+          }
         })
+        
+        console.log("✅ API Response received:", response.status, response.data?.length || 'No length')
         
         clearTimeout(timeoutId)
         
         console.log("API response status:", response.status, response.statusText)
         
-        if (!response.ok) {
-          // Try to get more error details from the response body
-          let errorDetail = '';
-          try {
-            const errorData = await response.json();
-            errorDetail = errorData.message || JSON.stringify(errorData);
-            console.error("API error response:", errorData);
-          } catch (e) {
-            console.error("Could not parse error response:", e);
-          }
-          
-          throw new Error(`Failed to fetch applications data: ${response.status} ${response.statusText} ${errorDetail ? `- ${errorDetail}` : ''}`)
-        }
-        
-        const data = await response.json()
+        const data = response.data
         console.log("Applications data received:", data)
         // Debug response structure
         if (Array.isArray(data)) {
@@ -252,19 +275,35 @@ export default function StudentApplicationsPage() {
                 applicationDate: app.applicationDate ? new Date(app.applicationDate).toISOString().split('T')[0] : 'Unknown Date',
                 status: (app.status || 'Pending') as Application["status"],
                 matchScore: app.matchScore?.total || app.matchScore,
-                internshipId: app.internshipId || app.internship_id
+                internshipId: app.internshipId || app.internship_id,
+                companyId: app.companyId || app.companyDetails?._id || app.internshipDetails?.companyId
               }
             })
             
             setApplications(formattedApplications)
+            console.log('✅ Loaded real applications:', {
+              total: formattedApplications.length,
+              accepted: formattedApplications.filter(app => app.status === 'Accepted').length,
+              statuses: formattedApplications.reduce((acc: any, app) => {
+                acc[app.status] = (acc[app.status] || 0) + 1
+                return acc
+              }, {}),
+              sampleAccepted: formattedApplications.filter(app => app.status === 'Accepted').slice(0, 2)
+            })
           } catch (err) {
             console.error("Error formatting application data:", err)
             toast.error("Error processing application data")
             setApplications(demoApplications)
           }
         }
-      } catch (error) {
-        console.error("Error fetching applications:", error)
+      } catch (error: any) {
+        console.error("❌ Error fetching applications:", error)
+        console.log("🔍 Error details:", {
+          message: error?.message,
+          status: error?.response?.status,
+          statusText: error?.response?.statusText,
+          data: error?.response?.data
+        })
         
         // Handle different error types with specific messages
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -325,6 +364,28 @@ export default function StudentApplicationsPage() {
       default:
         return "bg-gray-100 text-gray-800"
     }
+  }
+
+  const handleRateCompany = (application: Application) => {
+    setRatingModal({
+      isOpen: true,
+      applicationId: application.id,
+      companyId: application.companyId || '',
+      companyName: application.company,
+      role: application.role
+    })
+  }
+
+  const handleRatingSubmitted = () => {
+    // Close modal and potentially refresh applications
+    setRatingModal({
+      isOpen: false,
+      applicationId: '',
+      companyId: '',
+      companyName: '',
+      role: ''
+    })
+    toast.success('Thank you for your feedback!')
   }
 
   return (
@@ -437,17 +498,17 @@ export default function StudentApplicationsPage() {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-700">
                           <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              title="View Details"
-                              asChild
-                            >
-                              <Link href={`/applications/${application.id}`} target="_blank">
-                                <Eye className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            {application.status === "Accepted" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                title="Rate Company"
+                                onClick={() => handleRateCompany(application)}
+                              >
+                                <Star className="h-4 w-4" />
+                              </Button>
+                            )}
                             {application.internshipId && (
                               <Button
                                 variant="outline"
@@ -543,6 +604,17 @@ export default function StudentApplicationsPage() {
           </>
         )}
       </div>
+
+      {/* Company Rating Modal */}
+      <CompanyRatingModal
+        isOpen={ratingModal.isOpen}
+        onClose={() => setRatingModal({ isOpen: false, applicationId: '', companyId: '', companyName: '', role: '' })}
+        applicationId={ratingModal.applicationId}
+        companyId={ratingModal.companyId}
+        companyName={ratingModal.companyName}
+        role={ratingModal.role}
+        onRatingSubmitted={handleRatingSubmitted}
+      />
     </div>
   )
 }
