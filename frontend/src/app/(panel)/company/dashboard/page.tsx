@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range"
@@ -31,10 +32,12 @@ interface InternshipData {
   _id: string
   title: string
   location: string
-  jobType: string
+  jobType?: string
+  workMode?: string
   isActive: boolean
   createdAt: string
   applicationCount: number
+  applicationDeadline?: string
 }
 
 interface DashboardData {
@@ -53,44 +56,12 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: '#EF4444'
 }
 
-const mockApplicants = [
-  {
-    name: "Ethan Carter",
-    university: "Stanford University",
-    major: "Computer Science",
-    skills: "Python, Java, C++",
-  },
-  {
-    name: "Olivia Bennett",
-    university: "MIT",
-    major: "Electrical Engineering",
-    skills: "MATLAB, Simulink",
-  },
-  {
-    name: "Noah Thompson",
-    university: "UC Berkeley",
-    major: "Data Science",
-    skills: "R, SQL, Machine Learning",
-  },
-  {
-    name: "Ava Rodriguez",
-    university: "Carnegie Mellon",
-    major: "Software Engineering",
-    skills: "JavaScript, React, Node.js",
-  },
-  {
-    name: "Liam Walker",
-    university: "University of Michigan",
-    major: "Computer Engineering",
-    skills: "Verilog, VHDL",
-  },
-]
-
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [timeRange, setTimeRange] = useState("30") // 30, 90, 180 days
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [selectedInternship, setSelectedInternship] = useState<InternshipData | null>(null)
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
 
@@ -152,6 +123,34 @@ export default function DashboardPage() {
       position: item._id,
       applications: item.count
     }))
+  }
+
+  const getInternshipStatus = (internship: InternshipData) => {
+    const now = new Date()
+    const applicationDeadline = internship.applicationDeadline ? new Date(internship.applicationDeadline) : null
+    
+    // If no deadline is set, show as active (green)
+    if (!applicationDeadline) {
+      return { status: 'Active', variant: 'default' as const }
+    }
+    
+    // Compare current date with application deadline
+    if (now > applicationDeadline) {
+      return { status: 'Inactive', variant: 'secondary' as const }  // Gray - deadline passed
+    } else {
+      return { status: 'Active', variant: 'default' as const }      // Green - deadline not passed
+    }
+  }
+
+  const formatWorkMode = (workMode: string | undefined | null) => {
+    if (!workMode || typeof workMode !== 'string') {
+      return 'Not Specified'
+    }
+    return workMode.charAt(0).toUpperCase() + workMode.slice(1).toLowerCase()
+  }
+
+  const handleViewInternship = (internship: InternshipData) => {
+    setSelectedInternship(internship)
   }
 
   if (loading) {
@@ -434,83 +433,128 @@ export default function DashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {dashboardData?.recentInternships.map((internship) => (
-                <TableRow key={internship._id}>
-                  <TableCell className="font-medium">{internship.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{internship.location}</TableCell>
-                  <TableCell className="text-muted-foreground">{internship.jobType}</TableCell>
-                  <TableCell>{internship.applicationCount}</TableCell>
-                  <TableCell>
-                    <Badge variant={internship.isActive ? "default" : "secondary"}>
-                      {internship.isActive ? "Active" : "Inactive"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(internship.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {dashboardData?.recentInternships.map((internship) => {
+                const statusInfo = getInternshipStatus(internship)
+                return (
+                  <TableRow key={internship._id}>
+                    <TableCell className="font-medium">{internship.title}</TableCell>
+                    <TableCell className="text-muted-foreground">{internship.location}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatWorkMode(internship.workMode || internship.jobType)}
+                    </TableCell>
+                    <TableCell>{internship.applicationCount}</TableCell>
+                    <TableCell>
+                      <Badge variant={statusInfo.variant}>
+                        {statusInfo.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {new Date(internship.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleViewInternship(internship)}
+                      >
+                        View
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
 
-      {/* Applicant Filtering and Viewing - Keep as is */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Applicant Filtering and Viewing</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="internship-filter">Internship</Label>
-              <Input id="internship-filter" placeholder="Select internship" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="status-filter">Status</Label>
-              <Input id="status-filter" placeholder="Select status" />
-            </div>
-          </div>
+      {/* Internship Details Modal */}
+      <Dialog open={!!selectedInternship} onOpenChange={() => setSelectedInternship(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Internship Details</DialogTitle>
+          </DialogHeader>
+          {selectedInternship && (
+            <div className="space-y-6">
+              {/* Header Info */}
+              <div className="border-b pb-4">
+                <h3 className="text-xl font-semibold mb-2">{selectedInternship.title}</h3>
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span className="flex items-center gap-1">
+                    📍 {selectedInternship.location}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    💼 {formatWorkMode(selectedInternship.workMode || selectedInternship.jobType)}
+                  </span>
+                  <Badge variant={getInternshipStatus(selectedInternship).variant}>
+                    {getInternshipStatus(selectedInternship).status}
+                  </Badge>
+                </div>
+              </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>University</TableHead>
-                <TableHead>Major</TableHead>
-                <TableHead>Skills</TableHead>
-                <TableHead>Resume</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockApplicants.map((applicant, index) => (
-                <TableRow key={index}>
-                  <TableCell className="font-medium">{applicant.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{applicant.university}</TableCell>
-                  <TableCell className="text-muted-foreground">{applicant.major}</TableCell>
-                  <TableCell className="text-muted-foreground">{applicant.skills}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      View
-                    </Button>
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">
-                      Review
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              {/* Statistics */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {selectedInternship.applicationCount}
+                  </div>
+                  <div className="text-sm text-gray-600">Applications</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">
+                    {new Date(selectedInternship.createdAt).toLocaleDateString()}
+                  </div>
+                  <div className="text-sm text-gray-600">Posted Date</div>
+                </div>
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">
+                    {selectedInternship.isActive ? 'Active' : 'Inactive'}
+                  </div>
+                  <div className="text-sm text-gray-600">Current Status</div>
+                </div>
+              </div>
+
+              {/* Application Deadline */}
+              {selectedInternship.applicationDeadline && (
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium mb-3">Application Timeline</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-sm text-gray-600">Posted Date</div>
+                      <div className="font-medium">
+                        {new Date(selectedInternship.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600">Application Deadline</div>
+                      <div className="font-medium">
+                        {new Date(selectedInternship.applicationDeadline).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-4">
+                <Button 
+                  onClick={() => window.open(`/internship/${selectedInternship._id}`, '_blank')}
+                  className="flex-1"
+                >
+                  View Full Details
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => window.open(`/company/applicants?internship=${selectedInternship._id}`, '_blank')}
+                  className="flex-1"
+                >
+                  View Applicants
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -190,7 +190,7 @@ const getCompanyApplications = async (req, res) => {
         sortCriteria = { appliedAt: -1 };
         break;
       case 'name':
-        sortCriteria = { 'student.name': 1 };
+        sortCriteria = { 'studentId.firstname': 1 };
         break;
       default:
         sortCriteria = { 'matchScore.total': -1 };
@@ -201,17 +201,70 @@ const getCompanyApplications = async (req, res) => {
     const applications = await applicationModel
       .find(query)
       .populate('internshipId', 'title domain location workMode salary')
-      .populate('studentId', 'firstname lastname university graduationYear')
+      .populate('studentId', 'firstname lastname email university graduationYear')
       .sort(sortCriteria)
       .skip(skip)
       .limit(parseInt(limit));
 
     const total = await applicationModel.countDocuments(query);
 
+    // Transform applications to match frontend expectations
+    const transformedApplications = applications.map(app => ({
+      _id: app._id,
+      student: {
+        name: app.student?.name || (app.studentId ? `${app.studentId.firstname || ''} ${app.studentId.lastname || ''}`.trim() : 'Unknown'),
+        email: app.student?.email || app.studentId?.email || 'No email',
+        university: app.student?.university || app.studentId?.university || '',
+        graduationYear: app.student?.graduationYear || app.studentId?.graduationYear || ''
+      },
+      resumeData: app.resumeData || {
+        name: app.student?.name || (app.studentId ? `${app.studentId.firstname || ''} ${app.studentId.lastname || ''}`.trim() : ''),
+        email: app.student?.email || app.studentId?.email || '',
+        phone: app.resumeData?.phone || '',
+        university: app.student?.university || app.studentId?.university || '',
+        degree: app.resumeData?.degree || '',
+        skills: app.resumeData?.skills || {},
+        experience: app.resumeData?.experience || [],
+        projects: app.resumeData?.projects || [],
+        gpa: app.resumeData?.gpa || null,
+        certifications: app.resumeData?.certifications || []
+      },
+      internshipId: {
+        _id: app.internshipId?._id || '',
+        title: app.internshipId?.title || 'Unknown Position',
+        domain: app.internshipId?.domain || '',
+        location: app.internshipId?.location || '',
+        workMode: app.internshipId?.workMode || '',
+        salary: app.internshipId?.salary || {}
+      },
+      matchScore: app.matchScore || {
+        total: 0,
+        breakdown: {
+          skills: 0,
+          projects: 0,
+          experience: 0,
+          gpa: 0,
+          certifications: 0
+        },
+        details: {
+          skillsMatched: [],
+          projectsCount: 0,
+          experienceCount: 0,
+          gpaValue: 0,
+          certificationsCount: 0
+        }
+      },
+      status: app.status || 'pending',
+      resumeUrl: app.resumeUrl || '',
+      appliedAt: app.appliedAt || new Date(),
+      coverLetter: app.coverLetter || '',
+      notes: app.notes || ''
+    }));
+
     res.json({
       success: true,
       data: {
-        applications,
+        applications: transformedApplications,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
