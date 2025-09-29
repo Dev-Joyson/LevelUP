@@ -10,7 +10,7 @@ export default function InternshipPage() {
           Select an internship from the sidebar to view detailed information.
         </p>
         <Link
-          href="/internship/spotify-backend"
+          href="/internship"
           className="inline-flex items-center gap-2 text-primary hover:underline"
         >
           View featured internship <ArrowRight className="h-4 w-4" />
