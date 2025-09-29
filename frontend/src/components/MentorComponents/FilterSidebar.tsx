@@ -16,6 +16,7 @@ interface FilterSidebarProps {
   selectedCategories: string[]
   selectedCompanies: string[]
   priceRange: number[]
+  maxPrice?: number
   showFilters: boolean
   onToggleFilters: () => void
   onCategoryChange: (category: string) => void
@@ -30,6 +31,7 @@ export function FilterSidebar({
   selectedCategories,
   selectedCompanies,
   priceRange,
+  maxPrice = 15000,
   showFilters,
   onToggleFilters,
   onCategoryChange,
@@ -80,7 +82,7 @@ export function FilterSidebar({
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <h3 className="font-semibold text-gray-900 mb-3">Price Range</h3>
           <div className="space-y-4">
-            <Slider value={priceRange} onValueChange={onPriceRangeChange} max={500} step={10} className="w-full" />
+            <Slider value={priceRange} onValueChange={onPriceRangeChange} max={maxPrice} step={100} className="w-full" />
             <div className="flex justify-between text-sm text-gray-600">
               <span>LKR {priceRange[0]}</span>
               <span>LKR {priceRange[1]}</span>

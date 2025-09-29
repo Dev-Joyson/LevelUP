@@ -43,7 +43,8 @@ const fallbackMentors: Mentor[] = [
   }
 ]
 
-const categories = [
+// Fallback filter options in case API fails
+const fallbackCategories = [
   { name: "Artificial Intelligence", count: 10 },
   { name: "Machine Learning", count: 8 },
   { name: "Data Science", count: 7 },
@@ -54,14 +55,39 @@ const categories = [
   { name: "Software Engineering", count: 2 },
 ]
 
-const companies = [
-  { name: "Google", count: 8 },
-  { name: "Amazon", count: 6 },
-  { name: "Microsoft", count: 5 },
-  { name: "Meta", count: 4 },
-  { name: "Netflix", count: 3 },
-  { name: "Apple", count: 2 },
+const fallbackCompanies = [
+  { name: "Netflix", count: 1 },
+  { name: "Google", count: 1 },
 ]
+
+// Helper function to generate filter options from mentor data (used for fallback)
+const generateFallbackFilters = (mentors: Mentor[]) => {
+  const categoryMap = new Map<string, number>()
+  const companyMap = new Map<string, number>()
+
+  mentors.forEach(mentor => {
+    // Count categories
+    mentor.category.forEach(cat => {
+      if (cat && cat.trim()) {
+        categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1)
+      }
+    })
+
+    // Count companies
+    if (mentor.company && mentor.company.trim()) {
+      companyMap.set(mentor.company, (companyMap.get(mentor.company) || 0) + 1)
+    }
+  })
+
+  return {
+    categories: Array.from(categoryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count),
+    companies: Array.from(companyMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+  }
+}
 
 export default function MentorshipPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -70,10 +96,13 @@ export default function MentorshipPage() {
   const [priceRange, setPriceRange] = useState([0, 10000])
   const [showFilters, setShowFilters] = useState(false)
   const [mentors, setMentors] = useState<Mentor[]>([])
+  const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
+  const [companies, setCompanies] = useState<{ name: string; count: number }[]>([])
+  const [maxPrice, setMaxPrice] = useState(10000)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   
-  // Fetch mentors from the API
+  // Fetch mentors and filter options from the API
   useEffect(() => {
     const fetchMentors = async () => {
       try {
@@ -83,14 +112,35 @@ export default function MentorshipPage() {
         
         if (response.data && response.data.mentors && response.data.mentors.length > 0) {
           setMentors(response.data.mentors)
+          
+          // Set dynamic filter options from API response
+          if (response.data.filterOptions) {
+            setCategories(response.data.filterOptions.categories || [])
+            setCompanies(response.data.filterOptions.companies || [])
+            
+            // Set max price for slider but keep user's current range
+            if (response.data.filterOptions.priceRange) {
+              setMaxPrice(response.data.filterOptions.priceRange.max)
+            }
+          } else {
+            // Fallback to static data if filterOptions not provided
+            setCategories(fallbackCategories)
+            setCompanies(fallbackCompanies)
+          }
         } else {
           // If no mentors returned, use fallback data
           setMentors(fallbackMentors)
+          const fallbackFilters = generateFallbackFilters(fallbackMentors)
+          setCategories(fallbackFilters.categories)
+          setCompanies(fallbackFilters.companies)
           toast.warning("Using demo mentor data as no mentors were found.")
         }
       } catch (error) {
         console.error("Error fetching mentors:", error)
         setMentors(fallbackMentors)
+        const fallbackFilters = generateFallbackFilters(fallbackMentors)
+        setCategories(fallbackFilters.categories)
+        setCompanies(fallbackFilters.companies)
         setError(true)
         toast.error("Failed to fetch mentors. Using demo data instead.")
       } finally {
@@ -133,24 +183,7 @@ export default function MentorshipPage() {
     // Navigation is now handled directly in the MentorCard component
   }
 
-  // Generate categories and companies dynamically from fetched mentors
-  useEffect(() => {
-    if (mentors.length > 0) {
-      // Extract unique categories and count occurrences
-      const categoryMap = new Map<string, number>()
-      mentors.forEach(mentor => {
-        mentor.category.forEach(cat => {
-          categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1)
-        })
-      })
-      
-      // Extract unique companies and count occurrences
-      const companyMap = new Map<string, number>()
-      mentors.forEach(mentor => {
-        companyMap.set(mentor.company, (companyMap.get(mentor.company) || 0) + 1)
-      })
-    }
-  }, [mentors])
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -170,6 +203,7 @@ export default function MentorshipPage() {
               selectedCategories={selectedCategories}
               selectedCompanies={selectedCompanies}
               priceRange={priceRange}
+              maxPrice={maxPrice}
               showFilters={showFilters}
               onToggleFilters={() => setShowFilters(!showFilters)}
               onCategoryChange={toggleCategory}
