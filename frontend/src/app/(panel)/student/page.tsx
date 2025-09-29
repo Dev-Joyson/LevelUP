@@ -4,163 +4,118 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { 
   Briefcase, 
   MapPin, 
   Calendar, 
   DollarSign,
-  Upload,
+  User,
   FileText,
   TrendingUp,
   Clock,
   CheckCircle,
   XCircle,
-  Eye
+  Eye,
+  Bookmark,
+  Users,
+  Award,
+  Target,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'react-toastify';
+import Link from 'next/link';
 
-interface Internship {
-  _id: string;
-  title: string;
-  company: {
+interface DashboardData {
+  profile: {
     name: string;
-    _id: string;
+    email: string;
+    university: string;
+    graduationYear: string;
+    profileImageUrl?: string;
+    completionPercentage: number;
   };
-  description: string;
-  location: string;
-  workMode: string;
-  domain: string;
-  salary: {
-    min: number;
-    max: number;
-    display: string;
-  };
-  matchingCriteria: {
-    skills: number;
-    projects: number;
-    experience: number;
-    gpa: number;
-    certifications: number;
-  };
-  preferredSkills: string[];
-  minimumGPA: number;
-  applicationDeadline: string;
-  positions: number;
-  requirements: string[];
-  benefits: string[];
-  isPublished: boolean;
-}
-
-interface Application {
-  _id: string;
-  internshipInfo: {
-    title: string;
-    company: string;
-  };
-  matchScore: {
-    totalScore: number;
-    breakdown: {
-      skills: number;
-      projects: number;
-      experience: number;
-      gpa: number;
-      certifications: number;
+  statistics: {
+    applications: {
+      total: number;
+      pending: number;
+      reviewed: number;
+      shortlisted: number;
+      accepted: number;
+      rejected: number;
+    };
+    averageMatchScore: number;
+    successRate: number;
+    savedInternships: number;
+    mentorSessions: {
+      total: number;
+      completed: number;
+      upcoming: number;
+      cancelled: number;
+    };
+    mockInterviews: {
+      total: number;
+      averageScore: number;
+      lastAttempted: string | null;
     };
   };
-  status: 'pending' | 'reviewed' | 'shortlisted' | 'rejected' | 'accepted';
-  appliedAt: string;
+  recentActivity: {
+    applications: Array<{
+      id: string;
+      internshipTitle: string;
+      companyName: string;
+      domain: string;
+      status: string;
+      appliedAt: string;
+      matchScore: number;
+    }>;
+  };
 }
 
 const StudentDashboard = () => {
-  const [internships, setInternships] = useState<Internship[]>([]);
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedInternship, setSelectedInternship] = useState<Internship | null>(null);
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000';
 
   useEffect(() => {
-    fetchInternships();
-    fetchApplications();
+    fetchDashboardData();
   }, []);
 
-  const fetchInternships = async () => {
+  const fetchDashboardData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/internships`, {
+      if (!token) {
+        toast.error('Please log in to view dashboard');
+        return;
+      }
+
+      console.log('Fetching dashboard data with token:', token ? 'Token present' : 'No token');
+
+      const response = await fetch(`${API_BASE_URL}/api/student/dashboard-stats`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
+      console.log('Dashboard API response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
-        setInternships(data.internships || []);
+        console.log('Dashboard data received:', data);
+        setDashboardData(data);
+      } else {
+        const errorText = await response.text();
+        console.error('Dashboard API error:', response.status, errorText);
+        throw new Error(`Failed to fetch dashboard data: ${response.status}`);
       }
     } catch (error) {
-      console.error('Error fetching internships:', error);
-      toast.error('Failed to fetch internships');
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchApplications = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE_URL}/api/applications/student`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setApplications(data.applications || []);
-      }
-    } catch (error) {
-      console.error('Error fetching applications:', error);
-    }
-  };
-
-  const handleApplyToInternship = async (internshipId: string) => {
-    if (!resumeFile) {
-      toast.error('Please upload a resume first');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('resume', resumeFile);
-
-      const response = await fetch(`${API_BASE_URL}/api/applications/apply/${internshipId}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        toast.success(`Application submitted! Match Score: ${data.matchScore.totalScore.toFixed(1)}%`);
-        fetchApplications();
-        setSelectedInternship(null);
-        setResumeFile(null);
-      } else {
-        const errorData = await response.json();
-        toast.error(errorData.message || 'Failed to submit application');
-      }
-    } catch (error) {
-      console.error('Error applying to internship:', error);
-      toast.error('Failed to submit application');
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -177,20 +132,13 @@ const StudentDashboard = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="h-4 w-4" />;
-      case 'reviewed': return <Eye className="h-4 w-4" />;
-      case 'shortlisted': return <TrendingUp className="h-4 w-4" />;
-      case 'rejected': return <XCircle className="h-4 w-4" />;
-      case 'accepted': return <CheckCircle className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
+      case 'pending': return <Clock className="h-3 w-3" />;
+      case 'reviewed': return <Eye className="h-3 w-3" />;
+      case 'shortlisted': return <TrendingUp className="h-3 w-3" />;
+      case 'rejected': return <XCircle className="h-3 w-3" />;
+      case 'accepted': return <CheckCircle className="h-3 w-3" />;
+      default: return <Clock className="h-3 w-3" />;
     }
-  };
-
-  const getMatchScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 font-semibold';
-    if (score >= 60) return 'text-blue-600 font-semibold';
-    if (score >= 40) return 'text-yellow-600 font-semibold';
-    return 'text-red-600 font-semibold';
   };
 
   if (loading) {
@@ -201,311 +149,271 @@ const StudentDashboard = () => {
     );
   }
 
+  if (!dashboardData) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg text-red-600">Failed to load dashboard data</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Student Dashboard</h1>
-          <p className="text-gray-600 mt-2">Discover internships and track your applications</p>
-        </div>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Header with Profile Info */}
+     <div className="flex justify-between items-start">
+  <div className="flex items-center space-x-4">
+    <Avatar className="h-16 w-16">
+      <AvatarImage src={dashboardData.profile.profileImageUrl} />
+      <AvatarFallback>
+        {dashboardData.profile.name.split(' ').map(n => n[0]).join('')}
+      </AvatarFallback>
+    </Avatar>
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900">
+        Welcome back, {dashboardData.profile.name.split(' ')[0]}!
+      </h1>
+      <p className="text-gray-600">
+        {dashboardData.profile.university} • Class of {dashboardData.profile.graduationYear}
+      </p>
+      <p className="text-sm text-gray-500">{dashboardData.profile.email}</p>
+    </div>
+  </div>
+  <Card className="w-64 bg-blue-200/20 backdrop-blur-lg border border-blue-100/30">
+    <CardContent className="p-4">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-800">Profile Completion</span>
+        <span className="text-sm text-gray-600">{dashboardData.profile.completionPercentage}%</span>
       </div>
+      <Progress value={dashboardData.profile.completionPercentage} className="h-2" />
+      <Link href="/student/profile">
+        <Button variant="outline" size="sm" className="w-full mt-3">
+          Complete Profile
+        </Button>
+      </Link>
+    </CardContent>
+  </Card>
+</div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+{/* Main Statistics Cards */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6">
+
+  {/* Applications */}
+  <Card className="bg-blue-200/20 backdrop-blur-lg border border-blue-100/30">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-gray-800">Total Applications</CardTitle>
+      <Briefcase className="h-6 w-6 text-blue-500" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-gray-900">{dashboardData.statistics.applications.total}</div>
+      <p className="text-xs text-gray-600">
+        {dashboardData.statistics.applications.accepted + dashboardData.statistics.applications.shortlisted} successful
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Average Match Score */}
+  <Card className="bg-blue-200/20 backdrop-blur-lg border border-blue-100/30">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-gray-800">Average Match Score</CardTitle>
+      <Target className="h-6 w-6 text-green-500" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-gray-900">{dashboardData.statistics.averageMatchScore}%</div>
+      <p className="text-xs text-gray-600">
+        {dashboardData.statistics.successRate}% success rate
+      </p>
+    </CardContent>
+  </Card>
+
+  {/* Saved Internships */}
+  <Card className="bg-blue-200/20 backdrop-blur-lg border border-blue-100/30">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-gray-800">Saved Internships</CardTitle>
+      <Bookmark className="h-6 w-6 text-purple-500" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-gray-900">{dashboardData.statistics.savedInternships}</div>
+      <Link href="/student/saved-internships">
+        <p className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer">
+          View saved →
+        </p>
+      </Link>
+    </CardContent>
+  </Card>
+
+  {/* Mentor Sessions */}
+  <Card className="bg-blue-200/20 backdrop-blur-lg border border-blue-100/30">
+    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+      <CardTitle className="text-sm font-medium text-gray-800">Mentor Sessions</CardTitle>
+      <Users className="h-6 w-6 text-orange-500" />
+    </CardHeader>
+    <CardContent>
+      <div className="text-2xl font-bold text-gray-900">{dashboardData.statistics.mentorSessions.total}</div>
+      <p className="text-xs text-gray-600">
+        {dashboardData.statistics.mentorSessions.upcoming} upcoming
+      </p>
+    </CardContent>
+  </Card>
+
+</div>
+
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Application Status Breakdown */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available Internships</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Application Status
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{internships.length}</div>
+          <CardContent className="space-y-3">
+            {[
+              { label: 'Pending', count: dashboardData.statistics.applications.pending, color: 'bg-yellow-500' },
+              { label: 'Reviewed', count: dashboardData.statistics.applications.reviewed, color: 'bg-blue-500' },
+              { label: 'Shortlisted', count: dashboardData.statistics.applications.shortlisted, color: 'bg-green-500' },
+              { label: 'Accepted', count: dashboardData.statistics.applications.accepted, color: 'bg-purple-500' },
+              { label: 'Rejected', count: dashboardData.statistics.applications.rejected, color: 'bg-red-500' },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-3 h-3 rounded-full ${item.color}`}></div>
+                  <span className="text-sm">{item.label}</span>
+                </div>
+                <span className="font-semibold">{item.count}</span>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
+        {/* Mock Interview Stats */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Applications</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="h-5 w-5" />
+              Mock Interviews
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{applications.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Match Score</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {applications.length > 0 
-                ? (applications.reduce((sum, app) => sum + app.matchScore.totalScore, 0) / applications.length).toFixed(1) + '%'
-                : 'N/A'
-              }
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-blue-600">
+                  {dashboardData.statistics.mockInterviews.total}
+                </div>
+                <p className="text-sm text-gray-600">Completed Interviews</p>
+              </div>
+              {dashboardData.statistics.mockInterviews.total > 0 && (
+                <div className="text-center">
+                  <div className="text-2xl font-semibold text-green-600">
+                    {dashboardData.statistics.mockInterviews.averageScore.toFixed(1)}/100
+                  </div>
+                  <p className="text-sm text-gray-600">Average Score</p>
+                </div>
+              )}
+              <Link href="/student/mock-interviews">
+                <Button variant="outline" className="w-full">
+                  {dashboardData.statistics.mockInterviews.total === 0 ? 'Start Practice' : 'View History'}
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
 
+        {/* Quick Actions */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Shortlisted</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {applications.filter(app => app.status === 'shortlisted' || app.status === 'accepted').length}
-            </div>
+          <CardContent className="space-y-3">
+            <Link href="/internship">
+              <Button className="w-full justify-start" variant="outline">
+                <Briefcase className="h-4 w-4 mr-2" />
+                Explore Internships
+              </Button>
+            </Link>
+            <Link href="/student/resume">
+              <Button className="w-full justify-start" variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                Update Resume
+              </Button>
+            </Link>
+            <Link href="/student/mentorship">
+              <Button className="w-full justify-start" variant="outline">
+                <Users className="h-4 w-4 mr-2" />
+                Find Mentor
+              </Button>
+            </Link>
+            <Link href="/student/mock-interviews">
+              <Button className="w-full justify-start" variant="outline">
+                <Award className="h-4 w-4 mr-2" />
+                Practice Interview
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
 
-      <Tabs defaultValue="internships" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="internships">Available Internships</TabsTrigger>
-          <TabsTrigger value="applications">My Applications</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="internships" className="space-y-4">
-          <div className="grid gap-6">
-            {internships.map((internship) => (
-              <Card key={internship._id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl">{internship.title}</CardTitle>
-                      <p className="text-gray-600 mt-1">{internship.company.name}</p>
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Recent Applications
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {dashboardData.recentActivity.applications.length === 0 ? (
+            <div className="text-center py-8">
+              <Briefcase className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No applications yet</h3>
+              <p className="text-gray-600 mb-4">Start applying to internships to see your activity here</p>
+              <Link href="/internship">
+                <Button>Browse Internships</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {dashboardData.recentActivity.applications.map((application) => (
+                <div key={application.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <Briefcase className="h-5 w-5 text-blue-600" />
                     </div>
-                    <div className="flex gap-2">
-                      <Badge variant="outline">{internship.domain}</Badge>
-                      <Badge variant={internship.workMode === 'remote' ? 'default' : 'secondary'}>
-                        {internship.workMode}
+                    <div>
+                      <h4 className="font-medium">{application.internshipTitle}</h4>
+                      <p className="text-sm text-gray-600">{application.companyName}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="outline" className="text-xs">
+                          {application.domain}
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          Applied {new Date(application.appliedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className={`${getStatusColor(application.status)} text-xs flex items-center gap-1`}>
+                        {getStatusIcon(application.status)}
+                        {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                       </Badge>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700 mb-4">{internship.description}</p>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <MapPin className="h-4 w-4" />
-                      {internship.location}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <DollarSign className="h-4 w-4" />
-                      {internship.salary.display}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Calendar className="h-4 w-4" />
-                      Apply by: {new Date(internship.applicationDeadline).toLocaleDateString()}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Briefcase className="h-4 w-4" />
-                      {internship.positions} positions
+                    <div className="text-sm font-medium text-blue-600">
+                      {application.matchScore.toFixed(1)}% match
                     </div>
                   </div>
-
-                  {/* Matching Criteria */}
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <h4 className="text-sm font-medium mb-2">Matching Criteria Weights:</h4>
-                    <div className="grid grid-cols-5 gap-2 text-xs">
-                      <div>Skills: {internship.matchingCriteria.skills}%</div>
-                      <div>Projects: {internship.matchingCriteria.projects}%</div>
-                      <div>Experience: {internship.matchingCriteria.experience}%</div>
-                      <div>GPA: {internship.matchingCriteria.gpa}%</div>
-                      <div>Certs: {internship.matchingCriteria.certifications}%</div>
-                    </div>
-                    {internship.minimumGPA > 0 && (
-                      <p className="text-xs text-gray-600 mt-1">Minimum GPA: {internship.minimumGPA}</p>
-                    )}
-                  </div>
-
-                  {/* Preferred Skills */}
-                  {internship.preferredSkills.length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-sm font-medium mb-2">Preferred Skills:</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {internship.preferredSkills.map((skill, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between items-center">
-                    <Button
-                      variant="outline"
-                      onClick={() => setSelectedInternship(internship)}
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      onClick={() => setSelectedInternship(internship)}
-                      disabled={applications.some(app => app.internshipInfo.title === internship.title)}
-                    >
-                      {applications.some(app => app.internshipInfo.title === internship.title) 
-                        ? 'Already Applied' 
-                        : 'Apply Now'
-                      }
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="applications" className="space-y-4">
-          <div className="grid gap-4">
-            {applications.length === 0 ? (
-              <Card>
-                <CardContent className="text-center py-8">
-                  <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No applications yet</h3>
-                  <p className="text-gray-600">Start applying to internships to see your applications here</p>
-                </CardContent>
-              </Card>
-            ) : (
-              applications.map((application) => (
-                <Card key={application._id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold">{application.internshipInfo.title}</h3>
-                        <p className="text-gray-600">{application.internshipInfo.company}</p>
-                        <p className="text-sm text-gray-500">
-                          Applied: {new Date(application.appliedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className={`text-lg font-semibold ${getMatchScoreColor(application.matchScore.totalScore)}`}>
-                            {application.matchScore.totalScore.toFixed(1)}%
-                          </div>
-                          <div className="text-xs text-gray-500">Match Score</div>
-                        </div>
-                        <Badge className={`${getStatusColor(application.status)} flex items-center gap-1`}>
-                          {getStatusIcon(application.status)}
-                          {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* Match Score Breakdown */}
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <h4 className="text-sm font-medium mb-2">Score Breakdown:</h4>
-                      <div className="grid grid-cols-5 gap-2 text-xs">
-                        <div>
-                          <div className="font-medium">Skills</div>
-                          <div className="text-gray-600">{application.matchScore.breakdown.skills.toFixed(1)}%</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">Projects</div>
-                          <div className="text-gray-600">{application.matchScore.breakdown.projects.toFixed(1)}%</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">Experience</div>
-                          <div className="text-gray-600">{application.matchScore.breakdown.experience.toFixed(1)}%</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">GPA</div>
-                          <div className="text-gray-600">{application.matchScore.breakdown.gpa.toFixed(1)}%</div>
-                        </div>
-                        <div>
-                          <div className="font-medium">Certs</div>
-                          <div className="text-gray-600">{application.matchScore.breakdown.certifications.toFixed(1)}%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      {/* Application Modal */}
-      {selectedInternship && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">{selectedInternship.title}</h3>
-                  <p className="text-gray-600">{selectedInternship.company.name}</p>
                 </div>
-                <button
-                  onClick={() => setSelectedInternship(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <h4 className="font-medium mb-2">Description</h4>
-                  <p className="text-gray-700">{selectedInternship.description}</p>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Requirements</h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    {selectedInternship.requirements.map((req, index) => (
-                      <li key={index}>{req}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Benefits</h4>
-                  <ul className="list-disc list-inside text-gray-700 space-y-1">
-                    {selectedInternship.benefits.map((benefit, index) => (
-                      <li key={index}>{benefit}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-medium mb-2">Upload Resume</h4>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                    <input
-                      type="file"
-                      accept=".pdf,.doc,.docx"
-                      onChange={(e) => setResumeFile(e.target.files?.[0] || null)}
-                      className="w-full"
-                    />
-                    {resumeFile && (
-                      <p className="text-sm text-green-600 mt-2">
-                        Selected: {resumeFile.name}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  onClick={() => setSelectedInternship(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => handleApplyToInternship(selectedInternship._id)}
-                  disabled={!resumeFile || uploading}
-                >
-                  {uploading ? 'Applying...' : 'Apply Now'}
-                </Button>
+              ))}
+              <div className="text-center">
+                <Link href="/student/applications">
+                  <Button variant="outline">View All Applications</Button>
+                </Link>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };
