@@ -20,7 +20,8 @@ import {
   changePassword,
   cancelSession,
   uploadProfileImage,
-  submitMentorRating
+  submitMentorRating,
+  getMentees
 } from "../controllers/mentorController.js"
 
 
@@ -39,6 +40,7 @@ mentorRouter.put('/session-types', authenticateUser, authorizeRoles("mentor"), u
 mentorRouter.post('/session-types', authenticateUser, authorizeRoles("mentor"), addSessionType)
 mentorRouter.put('/session-types/:id', authenticateUser, authorizeRoles("mentor"), updateSessionType)
 mentorRouter.put('/availability', authenticateUser, authorizeRoles("mentor"), saveMentorAvailability)
+mentorRouter.get('/mentees', authenticateUser, authorizeRoles("mentor"), getMentees)
 mentorRouter.get('/test-data', authenticateUser, authorizeRoles("mentor"), testMentorData)
 
 // Student routes - require student authentication

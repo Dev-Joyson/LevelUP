@@ -1245,6 +1245,114 @@ const submitMentorRating = async (req, res) => {
   }
 };
 
+// Get all mentees (students) who have booked sessions with this mentor
+const getMentees = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find mentor profile
+    const mentor = await mentorModel.findOne({ userId });
+    if (!mentor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Mentor profile not found' 
+      });
+    }
+
+    // Get all sessions for this mentor with student details
+    const sessions = await sessionModel.find({ mentorId: mentor._id })
+      .populate({
+        path: 'studentId',
+        select: 'firstname lastname email university graduationYear profileImageUrl education skills phoneNumber',
+        populate: {
+          path: 'userId',
+          select: 'email'
+        }
+      })
+      .sort({ date: -1 });
+
+    // Group sessions by student to get unique mentees with their session details
+    const menteesMap = new Map();
+    
+    sessions.forEach(session => {
+      if (session.studentId) {
+        const studentId = session.studentId._id.toString();
+        
+        if (!menteesMap.has(studentId)) {
+          menteesMap.set(studentId, {
+            studentId: session.studentId._id,
+            firstname: session.studentId.firstname,
+            lastname: session.studentId.lastname,
+            email: session.studentId.userId?.email || 'N/A',
+            university: session.studentId.university,
+            graduationYear: session.studentId.graduationYear,
+            profileImageUrl: session.studentId.profileImageUrl,
+            education: session.studentId.education,
+            skills: session.studentId.skills || [],
+            phoneNumber: session.studentId.phoneNumber,
+            sessions: [],
+            totalSessions: 0,
+            completedSessions: 0,
+            upcomingSessions: 0,
+            firstSessionDate: session.date,
+            lastSessionDate: session.date
+          });
+        }
+        
+        const mentee = menteesMap.get(studentId);
+        mentee.sessions.push({
+          sessionId: session.sessionId,
+          date: session.date,
+          startTime: session.startTime,
+          endTime: session.endTime,
+          sessionTypeName: session.sessionTypeName,
+          duration: session.duration,
+          price: session.price,
+          status: session.status,
+          createdAt: session.createdAt
+        });
+        
+        mentee.totalSessions++;
+        if (session.status === 'completed') {
+          mentee.completedSessions++;
+        } else if (session.status === 'confirmed') {
+          mentee.upcomingSessions++;
+        }
+        
+        // Update first and last session dates
+        if (session.date < mentee.firstSessionDate) {
+          mentee.firstSessionDate = session.date;
+        }
+        if (session.date > mentee.lastSessionDate) {
+          mentee.lastSessionDate = session.date;
+        }
+      }
+    });
+
+    // Convert map to array and sort by last session date
+    const mentees = Array.from(menteesMap.values())
+      .sort((a, b) => new Date(b.lastSessionDate) - new Date(a.lastSessionDate));
+
+    res.status(200).json({
+      success: true,
+      message: 'Mentees retrieved successfully',
+      data: {
+        mentees,
+        totalMentees: mentees.length,
+        totalSessions: sessions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching mentees:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching mentees',
+      error: error.message
+    });
+  }
+};
+
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
@@ -1263,5 +1371,6 @@ export {
   changePassword,
   cancelSession,
   uploadProfileImage,
-  submitMentorRating
+  submitMentorRating,
+  getMentees
 };
