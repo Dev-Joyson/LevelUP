@@ -48,7 +48,7 @@ class OpenAIService {
             const messages = [
                 {
                     role: "system",
-                    content: "You are an expert technical interviewer. Generate realistic, well-structured interview questions in JSON format. Always return valid JSON without markdown code blocks."
+                    content: "You are a well-experienced senior technical interviewer with 10+ years of experience in your field. You have conducted hundreds of technical interviews and know exactly what questions reveal a candidate's true capabilities. Generate realistic, industry-standard interview questions in JSON format. Always return valid JSON without markdown code blocks."
                 },
                 {
                     role: "user",
@@ -93,7 +93,7 @@ class OpenAIService {
             const messages = [
                 {
                     role: "system",
-                    content: "You are an expert technical interviewer. Evaluate answers objectively and provide constructive feedback in JSON format. Always return valid JSON without markdown code blocks."
+                    content: "You are a well-experienced senior technical interviewer with 10+ years of experience conducting interviews in your field. You have interviewed hundreds of candidates and have a deep understanding of what makes a good answer. You are known for your fair but strict evaluation standards. Evaluate answers objectively and provide constructive feedback in JSON format. Always return valid JSON without markdown code blocks."
                 },
                 {
                     role: "user",
@@ -111,16 +111,21 @@ class OpenAIService {
             
             const parsedResponse = JSON.parse(content);
             
+            // Server-side validation to catch overly lenient AI scoring
+            const validatedScore = this.validateAndAdjustScore(parsedResponse.score, studentAnswer, question);
+            
             return {
                 success: true,
                 evaluation: {
-                    score: parsedResponse.score,
-                    feedback: parsedResponse.feedback,
+                    score: validatedScore.score,
+                    feedback: validatedScore.adjustedFeedback || parsedResponse.feedback,
                     strengths: parsedResponse.strengths || [],
                     improvements: parsedResponse.improvements || [],
                     keyPointsCovered: parsedResponse.keyPointsCovered || [],
+                    isRelevant: parsedResponse.isRelevant !== undefined ? parsedResponse.isRelevant : true,
                     evaluatedAt: new Date(),
-                    model: this.deploymentName
+                    model: this.deploymentName,
+                    scoreAdjusted: validatedScore.adjusted
                 },
                 metadata: {
                     tokens: completion.usage?.total_tokens || 0
@@ -143,7 +148,7 @@ class OpenAIService {
             const messages = [
                 {
                     role: "system",
-                    content: "You are an expert career counselor and technical interviewer. Generate comprehensive interview reports in JSON format. Always return valid JSON without markdown code blocks."
+                    content: "You are a well-experienced senior technical interviewer and career counselor with 10+ years of experience. You have evaluated thousands of candidates and have a deep understanding of what companies look for in technical hires. You provide honest, constructive feedback that helps candidates improve. Generate comprehensive interview reports in JSON format. Always return valid JSON without markdown code blocks."
                 },
                 {
                     role: "user",
@@ -161,20 +166,55 @@ class OpenAIService {
             
             const parsedResponse = JSON.parse(content);
             
+            // Server-side score validation and calculation as backup
+            const actualScores = sessionData.answers
+                .filter(a => a.aiEvaluation?.score !== undefined)
+                .map(a => a.aiEvaluation.score);
+            
+            const calculatedOverallScore = actualScores.length > 0 
+                ? Math.round(actualScores.reduce((sum, score) => sum + score, 0) / actualScores.length)
+                : 0;
+            
+            // Use calculated score if AI returned suspicious static values
+            let finalOverallScore = parsedResponse.overallScore;
+            let scoreAdjusted = false;
+            
+            if (parsedResponse.overallScore === 78 || parsedResponse.overallScore === 80 || parsedResponse.overallScore === 75) {
+                finalOverallScore = calculatedOverallScore;
+                scoreAdjusted = true;
+                console.log(`⚠️ SCORE CORRECTED: AI returned suspicious static score ${parsedResponse.overallScore}, corrected to calculated ${calculatedOverallScore}`);
+            }
+            
+            // Verify recommendation matches the score
+            const getRecommendationForScore = (score) => {
+                if (score >= 90) return "Excellent";
+                if (score >= 75) return "Good";
+                if (score >= 60) return "Average";
+                if (score >= 40) return "Needs Improvement";
+                return "Poor";
+            };
+            
+            const correctRecommendation = getRecommendationForScore(finalOverallScore);
+            const recommendationAdjusted = parsedResponse.recommendation !== correctRecommendation;
+            
             return {
                 success: true,
                 summary: {
-                    overallScore: parsedResponse.overallScore,
+                    overallScore: finalOverallScore,
                     categoryScores: parsedResponse.categoryScores || {},
                     strengths: parsedResponse.strengths || [],
                     weaknesses: parsedResponse.weaknesses || [],
                     improvementSuggestions: parsedResponse.improvementSuggestions || [],
                     summary: parsedResponse.summary,
-                    recommendation: parsedResponse.recommendation,
-                    generatedAt: new Date()
+                    recommendation: correctRecommendation,
+                    generatedAt: new Date(),
+                    scoreAdjusted,
+                    recommendationAdjusted,
+                    calculatedScore: calculatedOverallScore
                 },
                 metadata: {
-                    tokens: completion.usage?.total_tokens || 0
+                    tokens: completion.usage?.total_tokens || 0,
+                    actualScores: actualScores
                 }
             };
         } catch (error) {
@@ -186,63 +226,209 @@ class OpenAIService {
         }
     }
 
+    // Server-side validation to catch overly lenient AI scoring
+    validateAndAdjustScore(aiScore, studentAnswer, question) {
+        const answerLength = studentAnswer.trim().split(' ').length;
+        const answerLower = studentAnswer.toLowerCase().trim();
+        let adjustedScore = aiScore;
+        let adjustedFeedback = null;
+        let adjusted = false;
+
+        // Enhanced validation for guidance-based evaluation
+        const isGuidanceQuestion = question.toLowerCase().includes('explain') || 
+                                  question.toLowerCase().includes('discuss') || 
+                                  question.toLowerCase().includes('compare') ||
+                                  question.toLowerCase().includes('describe');
+
+        // Red flags that should result in very low scores
+        const redFlags = [
+            answerLength <= 5, // Extremely short answers
+            answerLength <= 10 && !answerLower.includes('because') && !answerLower.includes('difference') && !answerLower.includes('example'), // Short without explanation
+            answerLower === 'yes' || answerLower === 'no' || answerLower === 'good' || answerLower === 'bad',
+            answerLower.includes('efficient') && answerLength < 8, // Generic efficiency claims without explanation
+            answerLower.includes('works well') && answerLength < 10,
+            answerLower.includes('it is good') || answerLower.includes('it\'s good'),
+        ];
+
+        // Check for answers that are just stating obvious facts without explanation
+        const obviousStatements = [
+            'are efficient', 'is efficient', 'works well', 'is good', 'are good', 
+            'is better', 'are better', 'is faster', 'are faster', 'is useful'
+        ];
+        const hasOnlyObviousStatement = obviousStatements.some(statement => 
+            answerLower.includes(statement) && answerLength <= 10
+        );
+
+        // Apply strict validation
+        if (redFlags.some(flag => flag) || hasOnlyObviousStatement) {
+            if (aiScore > 25) {
+                adjustedScore = Math.min(aiScore, 15); // Cap at 15 for terrible answers
+                adjustedFeedback = "Your answer is too brief and lacks technical depth. A good technical interview answer should explain concepts thoroughly with specific details.";
+                adjusted = true;
+                console.log(`⚠️ SCORE ADJUSTED: AI gave ${aiScore}, adjusted to ${adjustedScore} for inadequate answer: "${studentAnswer.substring(0, 50)}..."`);
+            }
+        }
+
+        // Additional check: Enhanced validation for guidance-based questions
+        if (isGuidanceQuestion && answerLength < 20 && aiScore > 35) {
+            adjustedScore = Math.min(aiScore, 25);
+            adjustedFeedback = adjustedFeedback || "This question has specific guidance requirements that expect detailed explanations. Your answer is too brief to address what the guidance expects.";
+            adjusted = true;
+            console.log(`⚠️ GUIDANCE MISMATCH: AI gave ${aiScore}, adjusted to ${adjustedScore} for insufficient guidance compliance`);
+        }
+
+        // Extra strict validation for complex multi-part questions
+        const isMultiPartQuestion = (question.match(/and|discuss|explain.*scenarios|compare.*and/g) || []).length >= 2;
+        if (isMultiPartQuestion && answerLength < 25 && aiScore > 40) {
+            adjustedScore = Math.min(aiScore, 30);
+            adjustedFeedback = adjustedFeedback || "This multi-part question requires comprehensive answers addressing all aspects. Your response is too brief for the complexity expected.";
+            adjusted = true;
+            console.log(`⚠️ MULTI-PART QUESTION: AI gave ${aiScore}, adjusted to ${adjustedScore} for inadequate coverage`);
+        }
+
+        return {
+            score: adjustedScore,
+            adjustedFeedback,
+            adjusted
+        };
+    }
+
     // Helper method to build question generation prompt
     buildQuestionGenerationPrompt(domain, difficulty, numberOfQuestions, jobRole) {
-        return `Generate ${numberOfQuestions} interview questions for the domain "${domain}" at "${difficulty}" difficulty level${jobRole ? ` for a ${jobRole} position` : ''}.
+        return `As a senior technical interviewer with 10+ years of experience, create ${numberOfQuestions} interview questions for the domain "${domain}" at "${difficulty}" difficulty level${jobRole ? ` for a ${jobRole} position` : ''}.
 
-Requirements:
-- Questions should be realistic and commonly asked in actual interviews
-- Mix of theoretical concepts, practical scenarios, and problem-solving
-- Each question should have expected key points for evaluation
-- Appropriate difficulty progression
-- Include estimated time to answer (in minutes)
-- Categorize each question as ONE of: Technical, Behavioral, Problem Solving, System Design, or Coding
+Based on my years of conducting interviews, I need questions that:
+- Are ACTUALLY asked in real company interviews (not textbook questions)
+- Reveal genuine understanding vs memorized answers
+- Test both theoretical knowledge and practical application
+- Distinguish between junior, mid-level, and senior candidates
+- Include some tricky aspects that only experienced developers know
+
+Professional Interview Design Standards:
+- Questions should match real industry scenarios
+- Include follow-up potential to probe deeper
+- Test critical thinking, not just recall
+- Have clear evaluation criteria
+- Reflect current industry practices and technologies
+
+For each question, provide the key points I would look for as an experienced interviewer, and create GUIDANCE (not static answers) for evaluation:
 
 Return response in this JSON format:
 {
     "questions": [
         {
-            "questionText": "Question here",
+            "questionText": "Realistic industry-relevant question here",
             "difficulty": "${difficulty}",
             "category": "Technical", // Choose ONE from: Technical, Behavioral, Problem Solving, System Design, Coding
-            "keyPoints": ["key point 1", "key point 2"],
-            "expectedAnswer": "Brief expected answer guidance",
+            "keyPoints": ["specific technical point I'd look for", "practical understanding I'd expect", "red flag if missing"],
+            "expectedAnswer": "A good answer should explain [main concept]. Should mention [key technical aspects]. Should demonstrate understanding of [practical applications]. Should provide examples of [use cases/scenarios].",
             "estimatedTime": 5
         }
     ]
-}`;
+}
+
+CRITICAL: The expectedAnswer field must be GUIDANCE format, not a direct answer. Always use patterns like:
+- "A good answer should explain..."  
+- "Should mention..."
+- "Should demonstrate understanding of..."
+- "Should provide examples of..."
+- "Should discuss..."
+- "Should compare/contrast..."
+
+EXAMPLES of proper expectedAnswer guidance format:
+✅ "A good answer should explain how React hooks work internally. Should mention useState and useEffect specifically. Should demonstrate understanding of the component lifecycle. Should provide examples of when to use different hooks."
+
+❌ "React hooks are functions that let you use state in functional components."
+
+Note: These questions should be the kind that separate strong candidates from weak ones in real interviews.`;
     }
 
     // Helper method to build answer evaluation prompt
     buildAnswerEvaluationPrompt(question, studentAnswer, expectedAnswer, keyPoints) {
-        return `Evaluate this interview answer:
+        return `As a senior technical interviewer with 10+ years of experience, evaluate this interview answer with the same standards you would use in a real company interview:
 
 Question: "${question}"
 Student Answer: "${studentAnswer}"
 ${expectedAnswer ? `Expected Answer Guidance: "${expectedAnswer}"` : ''}
 ${keyPoints.length > 0 ? `Key Points to Look For: ${keyPoints.join(', ')}` : ''}
 
-Provide objective evaluation focusing on:
-- Technical accuracy
-- Completeness of answer
-- Communication clarity
-- Practical understanding
+GUIDANCE-BASED INTELLIGENT EVALUATION:
+The Expected Answer Guidance tells you what elements a good answer SHOULD contain. Use it as your evaluation framework:
+- Check if student's answer addresses what the guidance says "should explain"
+- Verify if they mention what the guidance says "should mention" 
+- See if they demonstrate what the guidance says "should demonstrate"
+- Look for examples if guidance says "should provide examples"
+- Score based on how well they fulfill the guidance requirements
 
-Return response in this JSON format:
+CRITICAL INTERVIEWER EVALUATION STANDARDS - BE EXTREMELY STRICT:
+- IMMEDIATE REJECTION: Completely unrelated answers (score: 0-5)
+- VERY POOR: One-liner answers with no explanation like "b trees are efficient" (score: 5-15)
+- POOR: Vague, buzzword-filled answers without substance (score: 15-35) 
+- CONCERNING: Partially correct but missing major concepts (score: 35-60)
+- ACCEPTABLE: Good understanding with minor gaps (score: 60-75)
+- STRONG: Comprehensive answer demonstrating deep knowledge (score: 75-90)
+- OUTSTANDING: Exceptional answer with practical insights (score: 90-100)
+
+EXAMPLES OF UNACCEPTABLE ANSWERS (should score 5-15):
+- "b trees are efficient" (for a complex B-tree question)
+- "it works well" (for any technical question)
+- "yes, it's good" (for explanation questions)
+- Single sentences without any technical details
+- Answers that completely ignore the question complexity
+
+Evaluate like you're deciding whether to recommend this candidate to your hiring team:
+
+Technical Evaluation Criteria:
+1. Technical accuracy (most critical - wrong information is a red flag)
+2. Relevance to the question (off-topic answers indicate poor listening skills)
+3. Depth of understanding (surface-level vs deep knowledge)
+4. Practical application knowledge (theory + real-world experience)
+5. Communication clarity (can they explain complex concepts simply?)
+
+Return your professional assessment in this JSON format:
 {
-    "score": 85,
-    "feedback": "Detailed feedback on the answer",
-    "strengths": ["strength 1", "strength 2"],
-    "improvements": ["area for improvement 1", "area 2"],
-    "keyPointsCovered": ["covered point 1", "covered point 2"]
+    "score": [CALCULATE ACTUAL SCORE 0-100 based on guidance compliance and key points],
+    "feedback": "Professional feedback referencing what the guidance expected vs what student provided",
+    "strengths": ["specific aspect from guidance that student addressed well", "key point student covered effectively"],
+    "improvements": ["guidance requirement student missed", "key point student should have included based on guidance"],
+    "keyPointsCovered": ["key point they covered well", "another key point"],
+    "isRelevant": true
 }
 
-Score should be 0-100 where:
-- 90-100: Excellent, comprehensive answer
-- 80-89: Good answer with minor gaps
-- 70-79: Adequate answer, some important points covered
-- 60-69: Basic understanding, significant gaps
-- Below 60: Poor understanding or major inaccuracies`;
+IMPORTANT: Calculate the actual score based on how well the student's answer meets the guidance requirements. Do NOT use static numbers like 85.
+
+FEEDBACK INSTRUCTIONS:
+- Reference the guidance requirements in your feedback
+- Mention what the guidance expected that the student did/didn't provide  
+- Be specific about which guidance elements were missed
+- Example: "The guidance expected you to explain the structural differences and provide use case examples, but your answer only mentioned efficiency without explanation."
+
+STRICT Professional Scoring Standards (be HARSH like a real interviewer):
+
+AUTOMATIC LOW SCORES for these patterns:
+- Answer has less than 10 words: MAX score 15
+- Answer doesn't address the question: MAX score 10
+- Answer is just a statement without explanation: MAX score 20
+- Answer shows zero technical understanding: MAX score 15
+
+GUIDANCE-BASED SCORING BREAKDOWN:
+- 90-100: EXCEPTIONAL - Addresses ALL guidance requirements comprehensively, covers all key points with deep expertise
+- 75-89: STRONG - Meets most guidance requirements, covers majority of key points with good technical knowledge  
+- 60-74: ACCEPTABLE - Addresses main guidance points, covers some key points, meets minimum requirements
+- 40-59: WEAK - Partially addresses guidance, misses several key points, significant gaps for technical role
+- 20-39: VERY POOR - Barely addresses guidance requirements, fundamental misunderstanding
+- 5-19: UNACCEPTABLE - Ignores guidance requirements completely, inadequate response
+- 0-4: NONSENSICAL - Completely unrelated or no meaningful content
+
+GUIDANCE COMPLIANCE SCORING:
+- If guidance says "should explain X" and student doesn't explain X → Major point deduction
+- If guidance says "should mention Y" and student doesn't mention Y → Point deduction  
+- If guidance says "should provide examples" and student provides no examples → Point deduction
+- If guidance says "should demonstrate understanding" and answer shows no understanding → Low score
+
+CRITICAL: If an answer is shorter than 20 words for a complex technical question, it should score below 25 points regardless of content. One-sentence answers to multi-part guidance requirements are automatic red flags.
+
+Remember: The guidance is your evaluation roadmap. Score based on how well the student fulfills what the guidance expects, not just technical accuracy alone.`;
     }
 
     // Helper method to build summary prompt
@@ -253,35 +439,66 @@ Score should be 0-100 where:
             `Question ${index + 1}: ${answer.studentAnswer} (Score: ${answer.aiEvaluation?.score || 0})`
         ).join('\n');
 
-        return `Generate a comprehensive interview summary report:
+        return `As a senior technical interviewer with 10+ years of experience, provide a comprehensive assessment of this candidate's interview performance. Write this as if you're briefing the hiring manager on whether to move this candidate forward.
 
-Interview Details:
+Interview Session Details:
 - Domain: ${mockInterview.domain}
 - Difficulty: ${mockInterview.difficulty}
 - Total Questions: ${mockInterview.numberOfQuestions}
 - Questions Attempted: ${questionsAttempted}
 - Total Time: ${Math.round(totalTimeSpent / 60)} minutes
 
-Student Responses:
+Candidate Responses with My Evaluation Scores:
 ${answersText}
 
-Performance Analysis:
+Detailed Performance Analysis:
 ${answers.map(a => `Q: Score ${a.aiEvaluation?.score || 0} - ${a.aiEvaluation?.feedback || 'No feedback'}`).join('\n')}
 
-Return comprehensive analysis in this JSON format:
+Based on my experience interviewing hundreds of candidates in this field, provide your professional assessment:
+
+CALCULATE THE ACTUAL SCORES based on the candidate's performance data above. DO NOT use static numbers.
+
+SCORE CALCULATION INSTRUCTIONS:
+1. Calculate overallScore as the mathematical average of all individual question scores shown above
+   Example: If questions scored [85, 40, 85, 85, 85], then overallScore = (85+40+85+85+85)/5 = 76
+
+2. Calculate categoryScores based on actual performance patterns observed:
+   - technical: Average score of technical accuracy across all answers (0-100)
+   - communication: Score based on explanation clarity and completeness (0-100)
+   - problemSolving: Score based on logical reasoning and problem-solving approach (0-100)
+
+3. Recommendation must match the calculated overallScore:
+   - 90-100: "Excellent"
+   - 75-89: "Good" 
+   - 60-74: "Average"
+   - 40-59: "Needs Improvement"
+   - 0-39: "Poor"
+
+Return your hiring recommendation in this JSON format:
 {
-    "overallScore": 78,
+    "overallScore": [CALCULATE ACTUAL AVERAGE SCORE],
     "categoryScores": {
-        "technical": 80,
-        "communication": 75,
-        "problemSolving": 82
+        "technical": [CALCULATE BASED ON TECHNICAL ACCURACY],
+        "communication": [CALCULATE BASED ON EXPLANATION QUALITY],
+        "problemSolving": [CALCULATE BASED ON REASONING SHOWN]
     },
-    "strengths": ["strength 1", "strength 2", "strength 3"],
-    "weaknesses": ["area to improve 1", "area 2"],
-    "improvementSuggestions": ["specific suggestion 1", "suggestion 2", "suggestion 3"],
-    "summary": "Detailed 2-3 sentence summary of overall performance",
-    "recommendation": "Excellent/Good/Average/Needs Improvement/Poor"
-}`;
+    "strengths": ["specific technical strength observed", "communication strength", "problem-solving ability"],
+    "weaknesses": ["specific technical gap", "area needing development"],
+    "improvementSuggestions": ["actionable suggestion for technical growth", "specific resource or practice to improve", "career development advice"],
+    "summary": "Professional summary as you would give to a hiring manager - honest assessment of candidate's readiness",
+    "recommendation": "Excellent"
+}
+
+CRITICAL: You MUST calculate real scores based on the actual performance data provided above. DO NOT use example numbers like 78, 80, 75, 82.
+
+CRITICAL: The recommendation field must be EXACTLY one of these values:
+- "Excellent" (90-100): Outstanding performance, would strongly recommend for hire
+- "Good" (75-89): Solid performance, would recommend with confidence  
+- "Average" (60-74): Adequate performance, meets basic requirements
+- "Needs Improvement" (40-59): Below expectations, significant development needed
+- "Poor" (0-39): Unacceptable performance, would not recommend for hire
+
+Remember: Your reputation as an interviewer depends on accurate assessment. Be honest about both strengths and areas for improvement.`;
     }
 }
 

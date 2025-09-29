@@ -920,35 +920,71 @@ export const setupSocketHandlers = (io) => {
             evaluation.evaluation
           );
 
-          // Send contextually appropriate acknowledgment message
+          // Generate feedback based on AI evaluation score
           let contextualResponse;
+          const score = evaluation.evaluation.score;
+          const isRelevant = evaluation.evaluation.isRelevant;
           const answerLength = answer.trim().split(' ').length;
           const answerLower = answer.toLowerCase();
+          const scoreWasAdjusted = evaluation.evaluation.scoreAdjusted;
           
-          // Handle very short/generic responses
+          // Handle very short/generic responses first
           if (answerLength <= 3 || answerLower === 'hi' || answerLower === 'hello' || answerLower === 'yes' || answerLower === 'no') {
             contextualResponse = "I'd appreciate a more detailed answer. Could you elaborate on that? But for now, let's move to the next question.";
           }
-          // Handle good detailed responses  
-          else if (answerLength > 20) {
+          // Use adjusted feedback if available for poor answers
+          else if (scoreWasAdjusted && evaluation.evaluation.feedback && score < 30) {
+            contextualResponse = evaluation.evaluation.feedback + " Let's move to the next question.";
+          }
+          // Handle based on AI evaluation score and relevance
+          else if (!isRelevant || score < 30) {
+            const poorResponses = [
+              "I notice your answer doesn't seem to address the question directly. Let's move to the next question and try to stay focused on what's being asked.",
+              "That answer appears to be off-topic. Please make sure to address the specific question being asked. Moving on to the next question.",
+              "I'm not seeing the connection between your answer and the question. Let's continue with the next question.",
+              "Your response doesn't seem relevant to what was asked. Try to focus on the specific technical aspects of the question. Next question:"
+            ];
+            contextualResponse = poorResponses[Math.floor(Math.random() * poorResponses.length)];
+          }
+          else if (score >= 85) {
+            const excellentResponses = [
+              "Excellent answer! You demonstrated strong understanding of the concepts. Let's continue.",
+              "Outstanding! That's exactly what I was looking for. Moving to the next question.",
+              "Perfect! Your answer shows deep technical knowledge. Next question:",
+              "Impressive! You covered all the key points very well. Let's move forward."
+            ];
+            contextualResponse = excellentResponses[Math.floor(Math.random() * excellentResponses.length)];
+          }
+          else if (score >= 70) {
             const goodResponses = [
-              "Great detailed explanation! Let's continue with the next question.",
-              "That's a comprehensive answer. Moving on to the next question.",
-              "Excellent! Your detailed response shows good understanding. Next question:",
-              "Perfect! I can see you've thought this through well. Let's continue."
+              "Good answer! You covered the main points well. Let's continue with the next question.",
+              "That's a solid response. You understand the core concepts. Next question:",
+              "Well done! Your answer demonstrates good knowledge. Moving on.",
+              "Nice work! You got most of the important aspects right. Let's continue."
             ];
             contextualResponse = goodResponses[Math.floor(Math.random() * goodResponses.length)];
           }
-          // Handle moderate responses
-          else {
+          else if (score >= 50) {
             const moderateResponses = [
-              "Thank you for that. Let's move to the next question.",
-              "I see. Let's continue with the next question.",
-              "Alright, moving on to the next question.",
-              "Got it. Here's the next question:"
+              "You're on the right track, but there are some gaps in your answer. Let's move to the next question.",
+              "Partially correct, but you missed some key points. We'll continue with the next question.",
+              "You have some understanding, but your answer could be more complete. Next question:",
+              "You touched on some important points, but there's room for improvement. Moving on."
             ];
             contextualResponse = moderateResponses[Math.floor(Math.random() * moderateResponses.length)];
           }
+          else {
+            const weakResponses = [
+              "Your answer shows some misunderstanding of the concepts. Let's try the next question.",
+              "I can see you're trying, but your answer has some inaccuracies. Moving to the next question.",
+              "There are some significant gaps in your response. Let's continue and see how you do with the next question.",
+              "Your understanding seems unclear on this topic. Let's move forward to the next question."
+            ];
+            contextualResponse = weakResponses[Math.floor(Math.random() * weakResponses.length)];
+          }
+          
+          // Log evaluation for debugging
+          console.log(`AI Evaluation for Q${questionNumber}: Score=${score}, Relevant=${isRelevant}, Adjusted=${scoreWasAdjusted}, Answer="${answer.substring(0, 100)}..."`);
           
           const feedbackMessage = await interviewChatModel.create({
             sessionId: sessionId,
@@ -958,6 +994,8 @@ export const setupSocketHandlers = (io) => {
             metadata: {
               model: evaluation.evaluation.model,
               responseTime: Date.now() - answerMessage.timestamp,
+              aiScore: score,
+              isRelevant: isRelevant,
               // Store detailed evaluation for final report but don't send to frontend
               storedEvaluation: evaluation.evaluation
             }
@@ -1005,10 +1043,80 @@ export const setupSocketHandlers = (io) => {
             await handleInterviewCompletion(socket, interviewSession);
           }
         } else {
-          // AI evaluation failed - send error feedback
-          socket.emit('interview-error', { 
-            message: 'Failed to evaluate answer. Please try again.' 
+          // AI evaluation failed - still provide contextual feedback but log the error
+          console.error('AI evaluation failed for session:', sessionId, 'Error:', evaluation.error);
+          
+          let contextualResponse;
+          const answerLength = answer.trim().split(' ').length;
+          const answerLower = answer.toLowerCase();
+          
+          // Handle very short/generic responses
+          if (answerLength <= 3 || answerLower === 'hi' || answerLower === 'hello' || answerLower === 'yes' || answerLower === 'no') {
+            contextualResponse = "I'd appreciate a more detailed answer. Could you elaborate on that? But for now, let's move to the next question.";
+          } else {
+            // When AI evaluation fails, give neutral feedback
+            const neutralResponses = [
+              "Thank you for your response. Let's move to the next question.",
+              "I see. Let's continue with the next question.",
+              "Alright, moving on to the next question.",
+              "Got it. Here's the next question:"
+            ];
+            contextualResponse = neutralResponses[Math.floor(Math.random() * neutralResponses.length)];
+          }
+          
+          const feedbackMessage = await interviewChatModel.create({
+            sessionId: sessionId,
+            messageType: 'ai_feedback',
+            content: contextualResponse,
+            questionNumber: questionNumber,
+            metadata: {
+              evaluationFailed: true,
+              error: evaluation.error,
+              responseTime: Date.now() - answerMessage.timestamp
+            }
           });
+
+          socket.emit('ai-feedback', {
+            questionNumber: questionNumber,
+            feedback: contextualResponse,
+            message: feedbackMessage
+          });
+
+          // Continue with next question even if evaluation failed
+          if (questionNumber < interviewSession.totalQuestions) {
+            await interviewSession.nextQuestion();
+            
+            // Get next question
+            const nextQuestion = await questionModel.findOne({
+              mockInterviewId: interviewSession.mockInterviewId,
+              questionNumber: questionNumber + 1,
+              isApproved: true
+            });
+
+            if (nextQuestion) {
+              const nextQuestionMessage = await interviewChatModel.create({
+                sessionId: sessionId,
+                messageType: 'ai_question',
+                content: nextQuestion.questionText,
+                questionNumber: questionNumber + 1,
+                metadata: {
+                  questionId: nextQuestion._id,
+                  estimatedTime: nextQuestion.estimatedTime,
+                  difficulty: nextQuestion.difficulty
+                }
+              });
+
+              socket.emit('next-question', {
+                questionNumber: questionNumber + 1,
+                question: nextQuestion.questionText,
+                totalQuestions: interviewSession.totalQuestions
+              });
+            }
+          } else {
+            // Interview completed
+            socket.emit('generating-summary', { message: 'Generating your interview report...' });
+            await handleInterviewCompletion(socket, interviewSession);
+          }
         }
 
       } catch (error) {
