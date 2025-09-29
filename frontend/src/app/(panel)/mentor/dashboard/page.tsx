@@ -8,10 +8,11 @@ import { MentorStatsCards } from "@/components/MentorComponents/mentor-stats-car
 import { RecentSessions } from "@/components/MentorComponents/recent-sessions"
 import { MenteeProgress } from "@/components/MentorComponents/mentee-progress"
 import { QuickActions } from "@/components/MentorComponents/quick-actions"
-import { TrendingUp } from "lucide-react"
+import { Download, Plus, TrendingUp } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import axios from "axios"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 // Chart data for mentor performance
 const chartData = [
@@ -22,6 +23,42 @@ const chartData = [
   { name: "May", sessions: 25, rating: 4.8 },
   { name: "Jun", sessions: 28, rating: 4.9 },
   { name: "Jul", sessions: 32, rating: 4.8 },
+]
+
+// Fallback mentee progress data (until API provides this)
+const menteeProgress = [
+  {
+    id: "1",
+    name: "Ethan Harper",
+    email: "ethan.harper@email.com",
+    progress: 75,
+    goalTitle: "Full-Stack Developer Role",
+    sessionsCompleted: 8,
+    totalSessions: 12,
+    lastSession: "Aug 10",
+    nextSession: "Aug 15, 10:00 AM",
+  },
+  {
+    id: "2",
+    name: "Olivia Bennett", 
+    email: "olivia.bennett@email.com",
+    progress: 60,
+    goalTitle: "Product Manager Transition",
+    sessionsCompleted: 6,
+    totalSessions: 10,
+    lastSession: "Aug 14",
+    nextSession: "Aug 18, 2:00 PM",
+  },
+  {
+    id: "3",
+    name: "Noah Carter",
+    email: "noah.carter@email.com", 
+    progress: 90,
+    goalTitle: "Senior Developer Position",
+    sessionsCompleted: 9,
+    totalSessions: 10,
+    lastSession: "Aug 13",
+  },
 ]
 
 // Interface for dashboard data
@@ -53,19 +90,27 @@ interface DashboardData {
 }
 
 export default function MentorDashboard() {
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const { token } = useAuth()
+  const { token, loading: authLoading } = useAuth()
 
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (!authLoading && token) {
+      fetchDashboardData()
+    }
+  }, [token, authLoading])
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
       setError(null)
+      
+      if (!token) {
+        setError('Authentication required. Please log in.')
+        return
+      }
+      
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
       
       const response = await axios.get(`${API_BASE_URL}/api/mentor/dashboard`, {
@@ -88,9 +133,10 @@ export default function MentorDashboard() {
     }
   }
 
-  if (loading) return <Loader />
+  // Show loading when auth is loading, we're fetching data, or we have token but no data yet
+  if (authLoading || loading || (token && !dashboardData && !error)) return <Loader />
   
-  if (error || !dashboardData) {
+  if (error || (!loading && !dashboardData)) {
     return (
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-center h-64">
@@ -110,6 +156,9 @@ export default function MentorDashboard() {
     )
   }
 
+  // Ensure dashboardData is not null beyond this point
+  if (!dashboardData) return <Loader />
+
   return (
     <div className="p-6 space-y-6">
       {/* Welcome Section */}
@@ -119,6 +168,16 @@ export default function MentorDashboard() {
             Welcome Back, {dashboardData.mentor.name}!
           </h1>
           <p className="text-gray-600 text-sm mt-1">Here's your mentoring activity overview</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" className="gap-2 bg-transparent">
+            <Download className="h-4 w-4" />
+            Download Report
+          </Button>
+          <Button className="bg-[#535c91] hover:bg-[#464f7a] gap-2">
+            <Plus className="h-4 w-4" />
+            Schedule Session
+          </Button>
         </div>
       </div>
 
@@ -190,15 +249,15 @@ export default function MentorDashboard() {
         <RecentSessions sessions={dashboardData.recentSessions.map(session => ({
           id: session.id,
           studentName: session.studentName,
-          studentEmail: '', // Not provided in API response
+          studentEmail: `${session.studentName.toLowerCase().replace(' ', '.')}@email.com`, // Generate email
           sessionDate: new Date(session.sessionDate).toISOString().split('T')[0],
           sessionTime: session.startTime,
           duration: session.duration,
           status: session.status as "upcoming" | "completed" | "cancelled",
-          topic: session.sessionType,
+          topic: session.sessionType || 'Mentoring Session',
           type: "one-on-one" as const
         }))} />
-        <MenteeProgress mentees={[]} /> {/* Empty for now as we don't have mentee progress data */}
+        <MenteeProgress mentees={menteeProgress} />
       </div>
     </div>
   )

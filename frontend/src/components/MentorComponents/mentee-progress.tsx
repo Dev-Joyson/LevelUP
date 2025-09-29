@@ -37,49 +37,55 @@ export function MenteeProgress({ mentees }: MenteeProgressProps) {
       <CardContent className="p-6 space-y-6">
         {mentees.map((mentee, index) => (
           <div key={mentee.id} className={`${index !== mentees.length - 1 ? 'border-b border-gray-100 pb-6' : ''}`}>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4 flex-1">
-                <Avatar className="h-12 w-12">
-                  <AvatarImage src={mentee.avatar} alt={mentee.name} />
-                  <AvatarFallback>
-                    <User className="h-6 w-6 text-gray-600" />
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 space-y-3">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">{mentee.name}</h3>
-                    <p className="text-xs text-gray-500">{mentee.email}</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-700">{mentee.goalTitle}</span>
-                      <span className="text-xs text-gray-500">{mentee.progress}% Complete</span>
-                    </div>
-                    <Progress value={mentee.progress} className="h-2" />
-                  </div>
-                  
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Sessions: {mentee.sessionsCompleted}/{mentee.totalSessions}</span>
-                    <span>Last: {mentee.lastSession}</span>
-                  </div>
-                  
-                  {mentee.nextSession && (
-                    <div className="text-xs text-blue-600 font-medium">
-                      Next session: {mentee.nextSession}
-                    </div>
-                  )}
+            <div className="flex items-start gap-4">
+              {/* Avatar */}
+              <Avatar className="h-12 w-12 flex-shrink-0">
+                <AvatarImage src={mentee.avatar} alt={mentee.name} />
+                <AvatarFallback>
+                  <User className="h-6 w-6 text-gray-600" />
+                </AvatarFallback>
+              </Avatar>
+              
+              {/* Main Content */}
+              <div className="flex-1 min-w-0 space-y-3">
+                {/* Name and Email */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 truncate">{mentee.name}</h3>
+                  <p className="text-xs text-gray-500 truncate">{mentee.email}</p>
                 </div>
+                
+                {/* Goal and Progress */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-700 truncate pr-2">{mentee.goalTitle}</span>
+                    <span className="text-xs text-gray-500 flex-shrink-0">{mentee.progress}%</span>
+                  </div>
+                  <Progress value={mentee.progress} className="h-2" />
+                </div>
+                
+                {/* Session Info */}
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Sessions: {mentee.sessionsCompleted}/{mentee.totalSessions}</span>
+                  <span>Last: {mentee.lastSession}</span>
+                </div>
+                
+                {/* Next Session */}
+                {mentee.nextSession && (
+                  <div className="text-xs text-blue-600 font-medium">
+                    Next: {mentee.nextSession}
+                  </div>
+                )}
               </div>
               
-              <div className="flex flex-col gap-2">
-                <Button variant="outline" size="sm" className="gap-2">
+              {/* Action Buttons */}
+              <div className="flex flex-col gap-2 flex-shrink-0">
+                <Button variant="outline" size="sm" className="gap-1 h-8 px-3 text-xs whitespace-nowrap">
                   <MessageSquare className="h-3 w-3" />
                   Message
                 </Button>
-                <Button variant="outline" size="sm">
-                  View Progress
+                <Button variant="outline" size="sm" className="gap-1 h-8 px-3 text-xs whitespace-nowrap">
+                  <TrendingUp className="h-3 w-3" />
+                  Progress
                 </Button>
               </div>
             </div>
