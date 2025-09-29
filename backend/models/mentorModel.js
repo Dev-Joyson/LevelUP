@@ -16,6 +16,7 @@ const mentorSchema = new mongoose.Schema({
   company: { type: String, default: '' }, // Company name
   verified: { type: Boolean, default: false }, // Verification status
   profileImage: { type: String, default: '' }, // Profile image URL
+  profileImagePublicId: { type: String, default: '' }, // Cloudinary public ID for profile image
   bio: { type: String, default: '' }, // Short description
   about: { type: String, default: '' }, // Detailed about section
   expertise: [String], // Areas of expertise

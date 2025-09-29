@@ -4,6 +4,8 @@ import sessionModel from '../models/sessionModel.js';
 import studentModel from '../models/studentModel.js';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
+import cloudinary from '../config/cloudinary.js';
 
 const mentorDashboard = (req, res) => {
     res.json({ message: "Welcome to the Mentor Dashboard", user: req.user });
@@ -977,6 +979,46 @@ const updateMentorProfile = async (req, res) => {
   }
 };
 
+// Upload mentor profile image
+const uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No image file uploaded' });
+    }
+
+    const mentor = await mentorModel.findOne({ userId: req.user.userId });
+    if (!mentor) return res.status(404).json({ message: 'Mentor not found' });
+
+    // Remove old profile image from Cloudinary
+    if (mentor.profileImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(mentor.profileImagePublicId, { resource_type: 'image' });
+      } catch (err) {
+        console.error('Failed to delete old profile image:', err.message);
+      }
+    }
+
+    const fileName = `${mentor.firstname}_${mentor.lastname}_mentor_profile`;
+    const { url, publicId } = await uploadToCloudinary(req.file, req.user.userId, fileName, {
+      folder: 'mentor_profile_images',
+      resourceType: 'image',
+    });
+
+    mentor.profileImage = url;
+    mentor.profileImagePublicId = publicId;
+    await mentor.save();
+
+    res.status(200).json({
+      message: 'Profile image uploaded successfully',
+      profileImageUrl: url,
+    });
+
+  } catch (error) {
+    console.error('Error uploading mentor profile image:', error);
+    res.status(500).json({ message: 'Error uploading profile image', error: error.message });
+  }
+};
+
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
@@ -993,5 +1035,6 @@ export {
   updateSessionType,
   getMentorSessions,
   changePassword,
-  cancelSession
+  cancelSession,
+  uploadProfileImage
 };

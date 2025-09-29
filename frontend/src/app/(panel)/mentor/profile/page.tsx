@@ -25,7 +25,9 @@ import {
   Calendar,
   Award,
   Briefcase,
-  Shield
+  Shield,
+  Camera,
+  Loader2
 } from "lucide-react"
 import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -71,6 +73,7 @@ export default function ProfilePage() {
   const [editForm, setEditForm] = useState<Partial<MentorProfile>>({})
   const [saving, setSaving] = useState(false)
   const [newLanguage, setNewLanguage] = useState('')
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const { token, user, loading: authLoading } = useAuth()
   const [availabilitySchedule, setAvailabilitySchedule] = useState<any[]>([])
 
@@ -264,6 +267,17 @@ export default function ProfilePage() {
       { key: 'pricePerMonth', label: 'Monthly Price' }
     ]
     
+    // Special handling for profile image
+    const originalImage = profile.profileImage || ''
+    const newImage = editForm.profileImage || ''
+    if (originalImage !== newImage && newImage !== '') {
+      changes.push({
+        field: 'Profile Image',
+        from: originalImage === '/placeholder.svg' ? 'Default avatar' : 'Previous image',
+        to: 'New image uploaded'
+      })
+    }
+    
     fieldsToCheck.forEach(field => {
       const originalValue = String(profile[field.key as keyof MentorProfile] || '')
       const newValue = String(editForm[field.key as keyof MentorProfile] || '')
@@ -332,7 +346,8 @@ export default function ProfilePage() {
         location: editForm.location || '',
         languages: editForm.languages || [],
         pricePerMonth: editForm.pricePerMonth || 0,
-        certifications: editForm.certifications || []
+        certifications: editForm.certifications || [],
+        profileImage: editForm.profileImage || ''
       }
 
       console.log('📤 Sending profile data:', profileData)
@@ -456,7 +471,7 @@ export default function ProfilePage() {
   const handleEditProfile = () => {
     // Initialize edit form with current profile data
     if (profile) {
-      setEditForm(profile)
+      setEditForm({ ...profile })
     }
     setShowEditModal(true)
   }
@@ -465,6 +480,67 @@ export default function ProfilePage() {
     setEditForm(profile || {})
     setShowEditModal(false)
   }
+
+  const handleAvatarChange = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+  
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+  
+      if (!token) {
+        console.error("Not authenticated. Please log in again.");
+        return;
+      }
+
+      setIsUploadingImage(true); // Start loading
+  
+      const formData = new FormData();
+      formData.append("profileImage", file); // Backend expects 'profileImage' field
+  
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000'
+        
+        const response = await fetch(`${API_BASE_URL}/api/mentor/upload-profile-image`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        });
+  
+        if (!response.ok) {
+          throw new Error(`Upload failed: ${response.statusText}`);
+        }
+  
+        const data = await response.json();
+        
+        // Update both current profile and edit form
+        if (profile) {
+          setProfile({ ...profile, profileImage: data.profileImageUrl });
+        }
+        setEditForm(prev => ({ ...prev, profileImage: data.profileImageUrl }));
+        
+        // Dispatch custom event to notify navbar to refresh
+        const profileUpdateEvent = new CustomEvent('mentorProfileUpdated', {
+          detail: { profileImageUrl: data.profileImageUrl }
+        });
+        window.dispatchEvent(profileUpdateEvent);
+        console.log("🚀 Dispatched mentorProfileUpdated event with data:", data.profileImageUrl);
+        
+        console.log("Profile image updated successfully!");
+      } catch (error) {
+        console.error("Image upload error:", error);
+        console.log("Failed to upload image. Please try again.");
+      } finally {
+        setIsUploadingImage(false); // Stop loading
+      }
+    };
+  
+    input.click(); // Trigger file dialog
+  };
 
   // Helper function to format date for display
   const formatDateForDisplay = (dateString: string) => {
@@ -978,6 +1054,57 @@ export default function ProfilePage() {
           <div className="flex-1 overflow-y-auto px-8 custom-scrollbar" style={{ maxHeight: 'calc(90vh - 180px)' }}>
             <div className="space-y-8 py-8">
               
+              {/* Profile Image Section */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-indigo-100 rounded-xl">
+                    <Camera className="h-5 w-5 text-indigo-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900">Profile Image</h3>
+                </div>
+                
+                <div className="flex flex-col items-center">
+                  <div className="relative mb-4 group">
+                    <div className="w-32 h-32 rounded-full overflow-hidden bg-gray-200 relative">
+                      {editForm.profileImage && editForm.profileImage !== '/placeholder.svg' ? (
+                        <img
+                          src={editForm.profileImage}
+                          alt="Profile picture"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-indigo-100 text-indigo-600 text-4xl font-bold">
+                          {editForm.firstname ? editForm.firstname.charAt(0).toUpperCase() : profile?.firstname?.charAt(0)?.toUpperCase() || "?"}
+                        </div>
+                      )}
+                      
+                      {/* Loading overlay */}
+                      {isUploadingImage && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-full">
+                          <Loader2 className="h-8 w-8 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="absolute bottom-2 right-2 rounded-full w-8 h-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={handleAvatarChange}
+                      disabled={isUploadingImage}
+                    >
+                      {isUploadingImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Camera className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-sm text-gray-600 text-center max-w-xs">
+                    Click the camera icon to upload a new profile image. Recommended size: 300x300px
+                  </p>
+                </div>
+              </div>
+
               {/* Personal Information Section */}
               <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-center gap-3 mb-6">
