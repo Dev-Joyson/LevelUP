@@ -10,7 +10,7 @@ import { CompanySidebar } from "@/components/CompanyComponents/company-sidebar"
 import { SidebarInset } from "@/components/ui/sidebar"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
-import { Building2, Globe, Mail, MapPin, Calendar, Users, CheckCircle, XCircle, Loader2, Shield } from "lucide-react"
+import { Building2, Globe, Mail, MapPin, Calendar, Users, CheckCircle, XCircle, Loader2, Shield, Camera, Upload } from "lucide-react"
 import { ChangePasswordModal } from "@/components/StudentComponents/ChangePasswordModal"
 
 interface CompanyProfile {
@@ -24,6 +24,8 @@ interface CompanyProfile {
   employees?: string
   verified: boolean
   pdfUrl?: string
+  logoUrl?: string
+  logoPublicId?: string
   userId: {
     email: string
   }
@@ -36,6 +38,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [formData, setFormData] = useState({
     companyName: "",
     description: "",
@@ -46,7 +49,7 @@ export default function ProfilePage() {
     employees: ""
   })
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000"
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000"
 
   useEffect(() => {
     fetchProfile()
@@ -97,6 +100,93 @@ export default function ProfilePage() {
     setShowPasswordModal(true)
   }
 
+  const handleLogoUpload = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/png,image/jpeg,image/jpg,image/svg+xml,image/webp";
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      // Validate file type
+      const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error("Invalid file format. Please upload PNG, JPG, JPEG, SVG, or WebP files only.");
+        return;
+      }
+
+      // Validate file size (5MB max)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        toast.error("File size too large. Please upload a file smaller than 5MB.");
+        return;
+      }
+
+      // Validate image dimensions (basic check via Image object)
+      const img = new Image();
+      img.onload = async () => {
+        const minSize = 150;
+        if (img.width < minSize || img.height < minSize) {
+          toast.error(`Image dimensions too small. Minimum size is ${minSize}x${minSize} pixels.`);
+          return;
+        }
+
+        // Proceed with upload
+        await uploadLogo(file);
+      };
+      
+      img.onerror = () => {
+        toast.error("Invalid image file. Please select a valid image.");
+      };
+      
+      img.src = URL.createObjectURL(file);
+    };
+
+    input.click();
+  };
+
+  const uploadLogo = async (file: File) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      toast.error("Authentication required. Please log in again.");
+      return;
+    }
+
+    setIsUploadingLogo(true);
+
+    const formData = new FormData();
+    formData.append("logo", file);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/company/upload-logo`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      // Update profile with new logo (but don't update navbar yet)
+      if (profile) {
+        setProfile({ ...profile, logoUrl: data.logoUrl });
+      }
+      
+      toast.success("Company logo uploaded! Click 'Save Changes' to apply.");
+    } catch (error) {
+      console.error("Logo upload error:", error);
+      toast.error("Failed to upload logo. Please try again.");
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
   const handleSave = async () => {
     try {
       // Basic validation
@@ -126,6 +216,16 @@ export default function ProfilePage() {
         const data = await response.json()
         if (data.success) {
           setProfile(data.data)
+          
+          // Dispatch custom event to notify navbar to refresh company data
+          const companyUpdateEvent = new CustomEvent('companyLogoUpdated', {
+            detail: { 
+              logoUrl: data.data.logoUrl,
+              companyName: data.data.companyName
+            }
+          });
+          window.dispatchEvent(companyUpdateEvent);
+          
           toast.success("Profile updated successfully!", {
             description: "Your company information has been saved.",
             duration: 4000,
@@ -192,6 +292,73 @@ export default function ProfilePage() {
                   </div>
                 )}
               </div>
+
+              {/* Company Logo Section */}
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="flex flex-col items-center">
+                      <h3 className="text-lg font-semibold mb-4">Company Logo</h3>
+                      <div className="relative group">
+                        <div className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50">
+                          {profile?.logoUrl ? (
+                            <img
+                              src={profile.logoUrl}
+                              alt="Company Logo"
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <Building2 className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                              <p className="text-sm text-gray-500">No logo uploaded</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Upload overlay */}
+                        <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <div className="text-white text-center">
+                            <Camera className="h-6 w-6 mx-auto mb-1" />
+                            <p className="text-xs">Change Logo</p>
+                          </div>
+                        </div>
+                        
+                        {/* Click overlay */}
+                        <button
+                          onClick={handleLogoUpload}
+                          disabled={isUploadingLogo}
+                          className="absolute inset-0 w-full h-full rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          aria-label="Upload company logo"
+                        />
+                      </div>
+                      
+                      {isUploadingLogo && (
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Uploading logo...
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Upload button alternative */}
+                    <Button
+                      variant="outline"
+                      onClick={handleLogoUpload}
+                      disabled={isUploadingLogo}
+                      className="flex items-center gap-2"
+                    >
+                      <Upload className="h-4 w-4" />
+                      {profile?.logoUrl ? "Change Logo" : "Upload Logo"}
+                    </Button>
+
+                    <div className="text-center text-sm text-gray-500 max-w-md">
+                      <p className="mb-1">Recommended: 500×500px (square) or 1000px width (rectangular)</p>
+                      <p className="mb-1">Supported formats: PNG, JPG, JPEG, SVG, WebP</p>
+                      <p>Maximum file size: 5MB</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Profile Information */}
               {profile && (

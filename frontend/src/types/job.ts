@@ -2,8 +2,8 @@ export type Job = {
   _id: string
   companyId?: {
     _id: string
-    name: string
-    logo?: string
+    companyName: string
+    logoUrl?: string
   }
   company?: {
     name: string

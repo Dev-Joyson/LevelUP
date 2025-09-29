@@ -64,8 +64,9 @@ export default async function InternshipDetailPage({
     ? generateQualifications(job.criteria.skills) 
     : [];
 
-  // Get company name from either company or companyId
-  const companyName = job.company?.name || job.companyId?.name || 'Unknown Company';
+  // Get company name and logo from either company or companyId
+  const companyName = job.company?.name || job.companyId?.companyName || 'Unknown Company';
+  const companyLogo = job.company?.logo || job.companyId?.logoUrl;
   
   // Calculate posted days
   const postedDays = calculatePostedDays(job.createdAt);
@@ -73,9 +74,19 @@ export default async function InternshipDetailPage({
   return (
     <div className="p-6">
       <div className="flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="text-gray-600">
-            <Briefcase className="h-5 w-5" />
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center">
+            {companyLogo ? (
+              <img 
+                src={companyLogo} 
+                alt={`${companyName} logo`}
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                <Briefcase className="h-6 w-6 text-gray-600" />
+              </div>
+            )}
           </div>
           <div>
             <h1 className="text-xl font-semibold">{companyName}</h1>

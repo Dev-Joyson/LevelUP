@@ -4,6 +4,8 @@ import applicationModel from '../models/applicationModel.js';
 import userModel from '../models/userModel.js';
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
+import cloudinary from '../config/cloudinary.js';
 
 const companyDashboard = (req, res) => {
     res.json({ message: "Welcome to the Company Dashboard", user: req.user });
@@ -706,6 +708,51 @@ const changePassword = async (req, res) => {
   }
 };
 
+// Upload company logo
+const uploadLogo = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No logo file uploaded' });
+    }
+
+    const company = await companyModel.findOne({ userId: req.user.userId });
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+
+    // Remove old logo from Cloudinary if exists
+    if (company.logoPublicId) {
+      try {
+        await cloudinary.uploader.destroy(company.logoPublicId, { resource_type: 'image' });
+      } catch (err) {
+        console.error('Failed to delete old company logo:', err.message);
+      }
+    }
+
+    const fileName = `${company.companyName.replace(/\s+/g, '_')}_company_logo`;
+    const { url, publicId } = await uploadToCloudinary(req.file, req.user.userId, fileName, {
+      folder: 'company_logos',
+      resourceType: 'image',
+    });
+
+    company.logoUrl = url;
+    company.logoPublicId = publicId;
+    await company.save();
+
+    res.status(200).json({
+      message: 'Company logo uploaded successfully',
+      logoUrl: url,
+    });
+
+  } catch (error) {
+    console.error('Error uploading company logo:', error);
+    res.status(500).json({ 
+      message: 'Error uploading company logo', 
+      error: error.message 
+    });
+  }
+};
+
 export { 
   companyDashboard, 
   createInternship, 
@@ -715,7 +762,8 @@ export {
   getCompanyProfile,
   updateCompanyProfile,
   getDashboardAnalytics,
-  changePassword
+  changePassword,
+  uploadLogo
   // Note: Application-related functions moved to applicationController.js
 };
   

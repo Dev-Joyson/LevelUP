@@ -1,6 +1,7 @@
 import express from "express"
 import { authenticateUser } from "../middlewares/authMiddleware.js"
 import { authorizeRoles } from "../middlewares/roleMiddleware.js"
+import imageUpload from "../middlewares/multerImage.js"
 import { 
   companyDashboard, 
   createInternship, 
@@ -10,7 +11,8 @@ import {
   getCompanyProfile,
   updateCompanyProfile,
   getDashboardAnalytics,
-  changePassword
+  changePassword,
+  uploadLogo
 } from "../controllers/companyController.js"
 
 const companyRouter = express.Router()
@@ -23,6 +25,7 @@ companyRouter.get('/dashboard-analytics', authenticateUser, authorizeRoles("comp
 companyRouter.get('/profile', authenticateUser, authorizeRoles("company"), getCompanyProfile)
 companyRouter.put('/profile', authenticateUser, authorizeRoles("company"), updateCompanyProfile)
 companyRouter.put('/change-password', authenticateUser, authorizeRoles("company"), changePassword)
+companyRouter.post('/upload-logo', authenticateUser, authorizeRoles("company"), imageUpload.single('logo'), uploadLogo)
 
 // Internship management
 companyRouter.post('/create-internship', authenticateUser, authorizeRoles("company"), createInternship)
