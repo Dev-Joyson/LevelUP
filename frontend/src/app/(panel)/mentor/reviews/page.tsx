@@ -1,335 +1,421 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Loader } from "@/components/common/Loader"
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
-  Search, 
-  Filter, 
-  User, 
   Star, 
+  User,
   Calendar,
-  MessageSquare,
-  ThumbsUp,
-  TrendingUp
-} from "lucide-react"
+  RefreshCw,
+  Filter,
+  TrendingUp,
+  MessageSquare
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { useAuth } from '@/context/AuthContext'
+import axios from 'axios'
+import { formatDistanceToNow } from 'date-fns/formatDistanceToNow'
 
 interface Review {
-  id: string
-  studentName: string
-  studentEmail: string
-  studentAvatar?: string
+  _id: string
+  studentId: {
+    _id: string
+    firstname: string
+    lastname: string
+    profileImage?: string
+  }
+  sessionId: {
+    _id: string
+    sessionTypeName: string
+    date: string
+  }
   rating: number
-  comment: string
-  sessionTopic: string
-  sessionDate: string
-  helpful: number
+  review: string
   createdAt: string
 }
 
-// Mock data - Replace with actual API calls
-const mockReviews: Review[] = [
-  {
-    id: "1",
-    studentName: "Ethan Harper",
-    studentEmail: "ethan.harper@email.com",
-    rating: 5,
-    comment: "Dr. Wilson provided excellent guidance on React architecture. Her explanations were clear and she provided practical examples that helped me understand complex concepts. Highly recommend!",
-    sessionTopic: "React Component Architecture",
-    sessionDate: "2024-08-10",
-    helpful: 12,
-    createdAt: "2024-08-10",
-  },
-  {
-    id: "2",
-    studentName: "Olivia Bennett",
-    studentEmail: "olivia.bennett@email.com",
-    rating: 5,
-    comment: "Amazing mentor! Dr. Wilson helped me create a comprehensive career development plan. She shared valuable insights about transitioning to product management and provided actionable steps.",
-    sessionTopic: "Career Development Planning",
-    sessionDate: "2024-08-08",
-    helpful: 8,
-    createdAt: "2024-08-08",
-  },
-  {
-    id: "3",
-    studentName: "Noah Carter",
-    studentEmail: "noah.carter@email.com",
-    rating: 4,
-    comment: "Great technical interview preparation session. Dr. Wilson covered data structures and algorithms thoroughly. Would have liked more time for coding practice.",
-    sessionTopic: "Technical Interview Preparation",
-    sessionDate: "2024-08-05",
-    helpful: 15,
-    createdAt: "2024-08-05",
-  },
-  {
-    id: "4",
-    studentName: "Emma Wilson",
-    studentEmail: "emma.wilson@email.com",
-    rating: 5,
-    comment: "Perfect introduction to JavaScript fundamentals. Dr. Wilson made complex concepts easy to understand and provided great resources for further learning.",
-    sessionTopic: "JavaScript Fundamentals",
-    sessionDate: "2024-08-03",
-    helpful: 6,
-    createdAt: "2024-08-03",
-  },
-  {
-    id: "5",
-    studentName: "James Rodriguez",
-    studentEmail: "james.rodriguez@email.com",
-    rating: 4,
-    comment: "Helpful resume review session. Got good feedback on technical skills presentation and project descriptions. Some suggestions were very actionable.",
-    sessionTopic: "Resume Review",
-    sessionDate: "2024-07-30",
-    helpful: 4,
-    createdAt: "2024-07-30",
-  },
-  {
-    id: "6",
-    studentName: "Sarah Johnson",
-    studentEmail: "sarah.johnson@email.com",
-    rating: 5,
-    comment: "Outstanding mentor! Dr. Wilson helped me understand system design principles and provided real-world examples from her experience at Google. Invaluable session!",
-    sessionTopic: "System Design Fundamentals",
-    sessionDate: "2024-07-28",
-    helpful: 20,
-    createdAt: "2024-07-28",
-  },
-]
-
-const renderStars = (rating: number) => {
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`h-4 w-4 ${
-            star <= rating ? "text-yellow-500 fill-current" : "text-gray-300"
-          }`}
-        />
-      ))}
-    </div>
-  )
+interface ReviewsData {
+  reviews: Review[]
+  analytics: {
+    totalReviews: number
+    averageRating: number
+    ratingDistribution: {
+      5: number
+      4: number
+      3: number
+      2: number
+      1: number
+    }
+  }
 }
 
-export default function ReviewsPage() {
+export default function MentorReviewsPage() {
+  const [reviewsData, setReviewsData] = useState<ReviewsData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [ratingFilter, setRatingFilter] = useState("all")
+  const [error, setError] = useState<string | null>(null)
+  const [filterRating, setFilterRating] = useState<number | 'all'>('all')
+  const { token, user } = useAuth()
 
   useEffect(() => {
-    // Simulate loading and data fetching
-    const timer = setTimeout(() => {
-      setReviews(mockReviews)
+    if (token && user?.role === 'mentor') {
+      fetchReviews()
+    } else if (user && user.role !== 'mentor') {
+      setError('Access denied. Mentor role required.')
       setLoading(false)
-    }, 1000)
-    return () => clearTimeout(timer)
-  }, [])
+    }
+  }, [token, user])
 
-  const filteredReviews = reviews.filter(review => {
-    const matchesSearch = review.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         review.sessionTopic.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         review.comment.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRating = ratingFilter === "all" || review.rating.toString() === ratingFilter
-    return matchesSearch && matchesRating
-  })
+  const fetchReviews = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      // Check if token exists
+      if (!token) {
+        throw new Error('No authentication token found')
+      }
+      
+      console.log('Token exists:', !!token)
+      console.log('Making request to:', `${API_BASE_URL}/api/mentor/me`)
+      
+      // First get mentor profile to get reviews
+      const mentorResponse = await axios.get(`${API_BASE_URL}/api/mentor/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+      })
 
-  // Calculate stats
-  const averageRating = reviews.length > 0 
-    ? (reviews.reduce((acc, review) => acc + review.rating, 0) / reviews.length).toFixed(1)
-    : "0.0"
-  
-  const totalHelpfulVotes = reviews.reduce((acc, review) => acc + review.helpful, 0)
-  const fiveStarReviews = reviews.filter(r => r.rating === 5).length
-  const fiveStarPercentage = reviews.length > 0 
-    ? Math.round((fiveStarReviews / reviews.length) * 100)
-    : 0
+      if (mentorResponse.data) {
+        const mentor = mentorResponse.data
+        const reviews = mentor.reviews || []
+        
+        // Calculate rating distribution
+        const ratingDistribution = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 }
+        reviews.forEach((review: any) => {
+          if (review.rating >= 1 && review.rating <= 5) {
+            ratingDistribution[review.rating as keyof typeof ratingDistribution]++
+          }
+        })
 
-  if (loading) return <Loader />
+        // Reviews now come with populated student and session data from backend
+        const reviewsWithStudentData = reviews.map((review: any, index: number) => ({
+          ...review,
+          _id: review._id || `review_${index}`,
+          studentId: review.studentId || {
+            _id: 'unknown',
+            firstname: 'Unknown',
+            lastname: 'Student',
+            profileImage: ''
+          },
+          sessionId: review.sessionId || {
+            _id: 'unknown',
+            sessionTypeName: 'Mentorship Session',
+            date: review.createdAt
+          }
+        }))
+
+        setReviewsData({
+          reviews: reviewsWithStudentData,
+          analytics: {
+            totalReviews: reviews.length,
+            averageRating: mentor.rating || 0,
+            ratingDistribution
+          }
+        })
+      }
+    } catch (error: any) {
+      console.error('Error fetching reviews:', error)
+      console.error('Error response:', error.response?.data)
+      console.error('Error status:', error.response?.status)
+      console.error('User role:', user?.role)
+      
+      if (error.response?.status === 403) {
+        setError('Access forbidden. Please ensure you are logged in as a mentor.')
+      } else {
+        setError(error.response?.data?.message || error.message || 'Failed to load reviews')
+      }
+      toast.error('Failed to load reviews')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderStars = (rating: number, size: 'sm' | 'md' = 'sm') => {
+    const starSize = size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'
+    return (
+      <div className="flex items-center space-x-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <Star
+            key={star}
+            className={`${starSize} ${
+              star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'
+            }`}
+          />
+        ))}
+      </div>
+    )
+  }
+
+  const getRatingColor = (rating: number) => {
+    if (rating >= 4) return 'text-green-600 bg-green-50'
+    if (rating >= 3) return 'text-yellow-600 bg-yellow-50'
+    return 'text-red-600 bg-red-50'
+  }
+
+  const filteredReviews = reviewsData?.reviews.filter(review => 
+    filterRating === 'all' || review.rating === filterRating
+  ) || []
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center space-x-2">
+            <RefreshCw className="h-6 w-6 animate-spin" />
+            <span>Loading reviews...</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !reviewsData) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              {error || 'Unable to load reviews'}
+            </p>
+            <Button 
+              onClick={fetchReviews}
+              className="bg-[#535c91] hover:bg-[#464f7a]"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reviews & Feedback</h1>
-          <p className="text-gray-600 text-sm mt-1">See what your mentees are saying about your sessions</p>
+          <h1 className="text-2xl font-bold text-gray-900">My Reviews</h1>
+          <p className="text-gray-600 text-sm mt-1">
+            Feedback from your mentoring sessions
+          </p>
+        </div>
+        <Button 
+          onClick={fetchReviews}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
+
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Reviews</p>
+                <p className="text-2xl font-bold text-gray-900">{reviewsData.analytics.totalReviews}</p>
+              </div>
+              <MessageSquare className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Average Rating</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {reviewsData.analytics.averageRating.toFixed(1)}
+                  </p>
+                  <Star className="h-5 w-5 fill-yellow-400 text-yellow-400" />
+                </div>
+              </div>
+              <TrendingUp className="h-8 w-8 text-green-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-2">5-Star Reviews</p>
+              <div className="flex items-center gap-2">
+                <p className="text-2xl font-bold text-gray-900">{reviewsData.analytics.ratingDistribution[5]}</p>
+                <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                  {reviewsData.analytics.totalReviews > 0 
+                    ? Math.round((reviewsData.analytics.ratingDistribution[5] / reviewsData.analytics.totalReviews) * 100)
+                    : 0}%
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div>
+              <p className="text-sm font-medium text-gray-600 mb-2">4+ Star Reviews</p>
+              <div className="flex items-center gap-2">
+                <p className="text-2xl font-bold text-gray-900">
+                  {reviewsData.analytics.ratingDistribution[5] + reviewsData.analytics.ratingDistribution[4]}
+                </p>
+                <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">
+                  {reviewsData.analytics.totalReviews > 0 
+                    ? Math.round(((reviewsData.analytics.ratingDistribution[5] + reviewsData.analytics.ratingDistribution[4]) / reviewsData.analytics.totalReviews) * 100)
+                    : 0}%
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Rating Distribution Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">Rating Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {[5, 4, 3, 2, 1].map((rating) => {
+              const count = reviewsData.analytics.ratingDistribution[rating as keyof typeof reviewsData.analytics.ratingDistribution]
+              const percentage = reviewsData.analytics.totalReviews > 0 
+                ? (count / reviewsData.analytics.totalReviews) * 100 
+                : 0
+              
+              return (
+                <div key={rating} className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 w-16">
+                    <span className="text-sm font-medium">{rating}</span>
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                  </div>
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-yellow-400 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                  <div className="w-16 text-sm text-gray-600 text-right">
+                    {count} ({percentage.toFixed(0)}%)
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Filter */}
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-600">Filter by rating:</span>
+        </div>
+        <div className="flex gap-2">
+          {(['all', 5, 4, 3, 2, 1] as const).map((rating) => (
+            <Button
+              key={rating}
+              variant={filterRating === rating ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterRating(rating)}
+              className={`${
+                filterRating === rating 
+                  ? "bg-[#535c91] hover:bg-[#464f7a]" 
+                  : ""
+              }`}
+            >
+              {rating === 'all' ? 'All' : `${rating}★`}
+            </Button>
+          ))}
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-yellow-50">
-                    <Star className="h-4 w-4 text-yellow-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">Average Rating</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-2xl font-bold text-gray-900">{averageRating}</div>
-                  <div className="flex items-center gap-1">
-                    {renderStars(Math.round(parseFloat(averageRating)))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-blue-50">
-                    <MessageSquare className="h-4 w-4 text-blue-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">Total Reviews</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{reviews.length}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-green-50">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">5-Star Reviews</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{fiveStarPercentage}%</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white border border-gray-200 shadow-sm">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-purple-50">
-                    <ThumbsUp className="h-4 w-4 text-purple-600" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-600">Helpful Votes</span>
-                </div>
-                <div className="text-2xl font-bold text-gray-900">{totalHelpfulVotes}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters and Search */}
-      <Card className="bg-white border border-gray-200 shadow-sm">
-        <CardContent className="p-6">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search reviews..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-400" />
-              <select
-                value={ratingFilter}
-                onChange={(e) => setRatingFilter(e.target.value)}
-                className="border border-gray-200 rounded-md px-3 py-2 text-sm"
-              >
-                <option value="all">All Ratings</option>
-                <option value="5">5 Stars</option>
-                <option value="4">4 Stars</option>
-                <option value="3">3 Stars</option>
-                <option value="2">2 Stars</option>
-                <option value="1">1 Star</option>
-              </select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Reviews List */}
-      <Card className="bg-white border border-gray-200 shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-semibold text-gray-900">
-            Reviews ({filteredReviews.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-6">
-            {filteredReviews.map((review, index) => (
-              <div 
-                key={review.id} 
-                className={`${index !== filteredReviews.length - 1 ? 'border-b border-gray-100 pb-6' : ''}`}
-              >
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={review.studentAvatar} alt={review.studentName} />
-                    <AvatarFallback>
-                      <User className="h-6 w-6 text-gray-600" />
-                    </AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-start justify-between">
+      <div className="space-y-4">
+        {filteredReviews.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <User className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                {filterRating === 'all' ? 'No reviews yet' : `No ${filterRating}-star reviews`}
+              </h3>
+              <p className="text-gray-500">
+                {filterRating === 'all' 
+                  ? 'Complete some sessions to start receiving reviews from students'
+                  : `Try selecting a different rating filter to see more reviews`
+                }
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          filteredReviews.map((review) => (
+            <Card key={review._id} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={review.studentId.profileImage} alt={`${review.studentId.firstname} ${review.studentId.lastname}`} />
+                      <AvatarFallback>
+                        {review.studentId.firstname[0]}{review.studentId.lastname[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="space-y-2">
                       <div>
-                        <h3 className="text-sm font-medium text-gray-900">{review.studentName}</h3>
-                        <p className="text-xs text-gray-500">{review.studentEmail}</p>
+                        <h3 className="font-semibold text-gray-900">
+                          {review.studentId.firstname} {review.studentId.lastname}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {review.sessionId.sessionTypeName}
+                        </p>
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center gap-2 mb-1">
-                          {renderStars(review.rating)}
-                          <span className="text-sm text-gray-600">{review.rating}/5</span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-gray-500">
-                          <Calendar className="h-3 w-3" />
-                          {review.sessionDate}
-                        </div>
+                      
+                      <div className="flex items-center gap-3">
+                        {renderStars(review.rating)}
+                        <Badge className={`${getRatingColor(review.rating)} border-0`}>
+                          {review.rating}/5
+                        </Badge>
                       </div>
-                    </div>
-                    
-                    <div>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 mb-2">
-                        {review.sessionTopic}
-                      </Badge>
-                      <p className="text-gray-700 text-sm leading-relaxed">{review.comment}</p>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <ThumbsUp className="h-3 w-3" />
-                        <span>{review.helpful} people found this helpful</span>
-                      </div>
-                      <Button variant="outline" size="sm" className="gap-1">
-                        <MessageSquare className="h-3 w-3" />
-                        Reply
-                      </Button>
+                      
+                      {review.review && (
+                        <p className="text-gray-700 mt-3 leading-relaxed">
+                          "{review.review}"
+                        </p>
+                      )}
                     </div>
                   </div>
+
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    <span>{formatDistanceToNow(new Date(review.createdAt), { addSuffix: true })}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
     </div>
   )
 }

@@ -695,6 +695,7 @@ const getStudentSessions = async (req, res) => {
 
       return {
         _id: session._id.toString(),
+        mentorId: session.mentorId._id.toString(),
         sessionType: session.sessionTypeName,
         mentorName: mentor ? `${mentor.firstname} ${mentor.lastname}`.trim() : 'Unknown Mentor',
         mentorTitle: mentor ? mentor.title : '',

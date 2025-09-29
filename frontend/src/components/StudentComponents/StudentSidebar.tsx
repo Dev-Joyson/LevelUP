@@ -39,8 +39,8 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     icon: Users,
-    label: "Mentor Sessions",
-    href: "/student/mentorship",
+    label: "My Sessions",
+    href: "/student/sessions",
   },
   {
     icon: Bell,

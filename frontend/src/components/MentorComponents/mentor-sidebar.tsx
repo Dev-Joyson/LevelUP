@@ -50,11 +50,7 @@ const navigationItems = [
     title: "Reviews",
     url: "/mentor/reviews",
     icon: Star,
-  },
-  {
-    title: "Feedback",
-    url: "/mentor/feedback",
-    icon: MessageSquare,
+    showReviewCount: true,
   },
   {
     title: "Notification",
@@ -67,9 +63,12 @@ export function MentorSidebar() {
   const pathname = usePathname()
   const { token, user } = useAuth()
   const [profileCompletion, setProfileCompletion] = useState(0)
+  const [reviewCount, setReviewCount] = useState(0)
+  const [averageRating, setAverageRating] = useState(0)
 
   useEffect(() => {
     fetchProfileCompletion()
+    fetchReviewData()
   }, [])
 
   const fetchProfileCompletion = async () => {
@@ -120,6 +119,38 @@ export function MentorSidebar() {
     }
   }
 
+  const fetchReviewData = async () => {
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:5000'
+      
+      console.log('🎯 Sidebar: Fetching review data...')
+      
+      // Only fetch if user is actually a mentor
+      if (!user || user.role !== 'mentor') {
+        console.log('❌ User is not a mentor, skipping review fetch')
+        return
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/api/mentor/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (response.data) {
+        const mentor = response.data
+        setReviewCount(mentor.reviewCount || 0)
+        setAverageRating(mentor.rating || 0)
+        console.log('✅ Review data fetched:', { 
+          reviewCount: mentor.reviewCount, 
+          rating: mentor.rating 
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching review data:', error)
+      setReviewCount(0)
+      setAverageRating(0)
+    }
+  }
+
   const getStatusColor = () => {
     if (profileCompletion >= 80) return 'bg-green-500'
     if (profileCompletion >= 60) return 'bg-yellow-500'
@@ -162,6 +193,17 @@ export function MentorSidebar() {
                   <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full ml-auto">
                     {profileCompletion}%
                   </span>
+                )}
+                {item.showReviewCount && reviewCount > 0 && (
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                      {reviewCount}
+                    </span>
+                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                      {averageRating.toFixed(1)}
+                    </span>
+                  </div>
                 )}
               </Link>
             )

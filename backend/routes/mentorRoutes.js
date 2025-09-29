@@ -19,7 +19,8 @@ import {
   getMentorSessions,
   changePassword,
   cancelSession,
-  uploadProfileImage
+  uploadProfileImage,
+  submitMentorRating
 } from "../controllers/mentorController.js"
 
 
@@ -42,6 +43,7 @@ mentorRouter.get('/test-data', authenticateUser, authorizeRoles("mentor"), testM
 
 // Student routes - require student authentication
 mentorRouter.post('/schedule-session', authenticateUser, authorizeRoles("student"), scheduleSession)
+mentorRouter.post('/rate', authenticateUser, authorizeRoles("student"), submitMentorRating)
 
 // Public routes - no authentication required
 mentorRouter.get('/public', getAllPublicMentors)

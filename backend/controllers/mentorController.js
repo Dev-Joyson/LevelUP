@@ -7,9 +7,98 @@ import bcrypt from 'bcryptjs';
 import { uploadToCloudinary } from '../utils/cloudinaryUpload.js';
 import cloudinary from '../config/cloudinary.js';
 
-const mentorDashboard = (req, res) => {
-    res.json({ message: "Welcome to the Mentor Dashboard", user: req.user });
-  };
+const mentorDashboard = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Find mentor profile
+    const mentor = await mentorModel.findOne({ userId })
+      .populate({
+        path: 'userId',
+        select: 'email isVerified',
+      })
+      .select('-__v');
+    
+    if (!mentor) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Mentor profile not found' 
+      });
+    }
+
+    // Get all sessions for this mentor
+    const allSessions = await sessionModel.find({ mentorId: mentor._id })
+      .populate('studentId', 'firstname lastname')
+      .sort({ date: -1 });
+
+    // Calculate analytics
+    const totalSessions = allSessions.length;
+    const completedSessions = allSessions.filter(session => session.status === 'completed').length;
+    const upcomingSessions = allSessions.filter(session => session.status === 'confirmed').length;
+    
+    // Calculate unique mentees from sessions
+    const uniqueStudentIds = [...new Set(allSessions.map(session => session.studentId?._id?.toString()))];
+    const totalMentees = uniqueStudentIds.filter(id => id).length;
+    
+    // Calculate average rating from reviews
+    const reviews = mentor.reviews || [];
+    const averageRating = reviews.length > 0 
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
+      : 0;
+    
+    // Get recent sessions (last 5)
+    const recentSessions = allSessions.slice(0, 5).map(session => ({
+      id: session._id,
+      studentName: session.studentId ? 
+        `${session.studentId.firstname || ''} ${session.studentId.lastname || ''}`.trim() : 'Unknown Student',
+      sessionDate: session.date,
+      startTime: session.startTime,
+      duration: session.duration,
+      status: session.status,
+      sessionType: session.sessionTypeName
+    }));
+
+    // Update mentor's analytics in database
+    await mentorModel.findByIdAndUpdate(mentor._id, {
+      totalSessions: completedSessions,
+      totalMentees: totalMentees,
+      rating: averageRating,
+      reviewCount: reviews.length
+    });
+
+    const dashboardData = {
+      mentor: {
+        id: mentor._id,
+        name: mentor.firstname || 'Mentor',
+        fullName: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
+        title: mentor.title,
+        profileImage: mentor.profileImage
+      },
+      analytics: {
+        totalMentees,
+        totalSessions,
+        averageRating: Math.round(averageRating * 10) / 10, // Round to 1 decimal
+        completedSessions,
+        upcomingSessions,
+        hoursSpent: 340 // Placeholder as requested
+      },
+      recentSessions
+    };
+
+    res.json({ 
+      success: true,
+      message: "Dashboard data retrieved successfully", 
+      data: dashboardData
+    });
+  } catch (error) {
+    console.error('Error fetching mentor dashboard:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Error fetching dashboard data',
+      error: error.message
+    });
+  }
+};
   
 // Get session types for the logged-in mentor
 const getSessionTypes = async (req, res) => {
@@ -199,11 +288,23 @@ const getCurrentMentorProfile = async (req, res) => {
   try {
     const userId = req.user.userId;
     
-    // Find mentor by userId and populate user data
+    // Find mentor by userId and populate user data and reviews
     const mentor = await mentorModel.findOne({ userId })
       .populate({
         path: 'userId',
         select: 'email isVerified',
+      })
+      .populate({
+        path: 'reviews.studentId',
+        select: 'firstname lastname profileImage',
+        populate: {
+          path: 'userId',
+          select: 'email'
+        }
+      })
+      .populate({
+        path: 'reviews.sessionId',
+        select: 'sessionTypeName date'
       })
       .select('-__v');
     
@@ -224,6 +325,18 @@ const getCurrentMentorProfile = async (req, res) => {
         .populate({
           path: 'userId',
           select: 'email isVerified',
+        })
+        .populate({
+          path: 'reviews.studentId',
+          select: 'firstname lastname profileImage',
+          populate: {
+            path: 'userId',
+            select: 'email'
+          }
+        })
+        .populate({
+          path: 'reviews.sessionId',
+          select: 'sessionTypeName date'
         })
         .select('-__v');
         
@@ -273,7 +386,10 @@ const formatMentorProfile = (mentor) => {
     
     // For navbar display
     firstname: mentor.firstname || 'Mentor',
-    lastname: mentor.lastname || 'User'
+    lastname: mentor.lastname || 'User',
+    
+    // Reviews data for reviews page
+    reviews: mentor.reviews || []
   };
 };
 
@@ -1019,6 +1135,116 @@ const uploadProfileImage = async (req, res) => {
   }
 };
 
+// Submit rating and review for a mentor
+const submitMentorRating = async (req, res) => {
+  try {
+    const { mentorId, sessionId, rating, review } = req.body;
+    const studentUserId = req.user.userId;
+
+    // Validate input
+    if (!mentorId || !sessionId || !rating) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mentor ID, session ID, and rating are required'
+      });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be between 1 and 5'
+      });
+    }
+
+    // Find the student
+    const student = await studentModel.findOne({ userId: studentUserId });
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student profile not found'
+      });
+    }
+
+    // Verify the session exists and belongs to this student and mentor
+    const session = await sessionModel.findById(sessionId);
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: 'Session not found'
+      });
+    }
+
+    if (session.studentId.toString() !== student._id.toString() || 
+        session.mentorId.toString() !== mentorId) {
+      return res.status(403).json({
+        success: false,
+        message: 'Unauthorized to rate this session'
+      });
+    }
+
+    // Check if session is completed
+    if (session.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only rate completed sessions'
+      });
+    }
+
+    // Find the mentor
+    const mentor = await mentorModel.findById(mentorId);
+    if (!mentor) {
+      return res.status(404).json({
+        success: false,
+        message: 'Mentor not found'
+      });
+    }
+
+    // Check if student has already rated this session
+    const existingReview = mentor.reviews.find(
+      r => r.sessionId.toString() === sessionId && r.studentId.toString() === student._id.toString()
+    );
+
+    if (existingReview) {
+      // Update existing review
+      existingReview.rating = rating;
+      existingReview.review = review || '';
+      existingReview.createdAt = new Date();
+    } else {
+      // Add new review
+      mentor.reviews.push({
+        studentId: student._id,
+        sessionId: sessionId,
+        rating: parseInt(rating),
+        review: review || '',
+        createdAt: new Date()
+      });
+    }
+
+    // Recalculate average rating
+    const totalRating = mentor.reviews.reduce((sum, r) => sum + r.rating, 0);
+    mentor.rating = totalRating / mentor.reviews.length;
+    mentor.reviewCount = mentor.reviews.length;
+
+    await mentor.save();
+
+    res.json({
+      success: true,
+      message: existingReview ? 'Rating updated successfully' : 'Rating submitted successfully',
+      data: {
+        averageRating: Math.round(mentor.rating * 10) / 10,
+        reviewCount: mentor.reviewCount
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting mentor rating:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error submitting rating',
+      error: error.message
+    });
+  }
+};
+
 export { 
   mentorDashboard, 
   getAllPublicMentors, 
@@ -1036,5 +1262,6 @@ export {
   getMentorSessions,
   changePassword,
   cancelSession,
-  uploadProfileImage
+  uploadProfileImage,
+  submitMentorRating
 };

@@ -57,6 +57,13 @@ const mentorSchema = new mongoose.Schema({
     notes: String,
     sessionTypeId: { type: mongoose.Schema.Types.ObjectId },
     status: { type: String, enum: ['pending', 'confirmed', 'completed', 'cancelled'], default: 'pending' }
+  }],
+  reviews: [{
+    studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'student', required: true },
+    sessionId: { type: mongoose.Schema.Types.ObjectId, ref: 'session', required: true },
+    rating: { type: Number, required: true, min: 1, max: 5 },
+    review: { type: String, default: '' },
+    createdAt: { type: Date, default: Date.now }
   }]
 }, { timestamps:true })
 
