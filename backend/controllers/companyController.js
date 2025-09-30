@@ -817,12 +817,67 @@ const getCompanyReviews = async (req, res) => {
   }
 };
 
+// Delete internship
+const deleteInternship = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { internshipId } = req.params;
+
+    // Find the company first
+    const company = await companyModel.findOne({ userId });
+    if (!company) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Company not found' 
+      });
+    }
+
+    // Find the internship and verify ownership
+    const internship = await internshipModel.findOne({ 
+      _id: internshipId, 
+      companyId: company._id 
+    });
+
+    if (!internship) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Internship not found or you do not have permission to delete it' 
+      });
+    }
+
+    // Delete all applications associated with this internship
+    await applicationModel.deleteMany({ internshipId: internship._id });
+
+    // Remove internship from company's internships array
+    await companyModel.findByIdAndUpdate(company._id, {
+      $pull: { internships: internship._id }
+    });
+
+    // Delete the internship
+    await internshipModel.findByIdAndDelete(internship._id);
+
+    res.json({
+      success: true,
+      message: 'Internship deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete internship error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Failed to delete internship',
+      error: error.message 
+    });
+  }
+};
+
 export { 
   companyDashboard, 
   createInternship, 
   getCompanyInternships,
   getApplicationAnalytics,
   updateInternshipCriteria,
+  deleteInternship,
   getCompanyProfile,
   updateCompanyProfile,
   getDashboardAnalytics,

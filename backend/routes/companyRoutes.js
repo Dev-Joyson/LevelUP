@@ -8,6 +8,7 @@ import {
   getCompanyInternships,
   getApplicationAnalytics,
   updateInternshipCriteria,
+  deleteInternship,
   getCompanyProfile,
   updateCompanyProfile,
   getDashboardAnalytics,
@@ -32,6 +33,7 @@ companyRouter.post('/upload-logo', authenticateUser, authorizeRoles("company"), 
 companyRouter.post('/create-internship', authenticateUser, authorizeRoles("company"), createInternship)
 companyRouter.get('/internships', authenticateUser, authorizeRoles("company"), getCompanyInternships)
 companyRouter.put('/internships/:internshipId/criteria', authenticateUser, authorizeRoles("company"), updateInternshipCriteria)
+companyRouter.delete('/internships/:internshipId', authenticateUser, authorizeRoles("company"), deleteInternship)
 
 // Application management
 // Note: Application routes moved to applicationRoutes.js
