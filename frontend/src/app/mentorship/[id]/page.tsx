@@ -509,6 +509,9 @@ export default function MentorDetailPage({ params }: { params: Promise<{ id: str
               <BookingCalendar
                 mentorId={mentor.id}
                 mentorName={mentor.name}
+                mentorImage={mentor.image}
+                mentorTitle={mentor.title}
+                mentorCompany={mentor.company}
                 sessionTypes={sessionTypes}
                 selectedSessionType={selectedSessionType}
                 availability={mentorAvailability || mockAvailability}

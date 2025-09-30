@@ -93,7 +93,7 @@ export default function MentorshipPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([])
-  const [priceRange, setPriceRange] = useState([0, 10000])
+  const [priceRange, setPriceRange] = useState([0, 5000]) // Updated for session pricing
   const [showFilters, setShowFilters] = useState(false)
   const [mentors, setMentors] = useState<Mentor[]>([])
   const [categories, setCategories] = useState<{ name: string; count: number }[]>([])
@@ -163,7 +163,15 @@ export default function MentorshipPage() {
 
     const matchesCompany = selectedCompanies.length === 0 || selectedCompanies.includes(mentor.company)
 
-    const matchesPrice = mentor.pricePerMonth >= priceRange[0] && mentor.pricePerMonth <= priceRange[1]
+    const matchesPrice = (() => {
+      if (mentor.priceRange) {
+        // For session-based pricing, check if the price range overlaps with the filter range
+        return mentor.priceRange.max >= priceRange[0] && mentor.priceRange.min <= priceRange[1];
+      } else {
+        // Fallback to monthly pricing for backward compatibility
+        return mentor.pricePerMonth >= priceRange[0] && mentor.pricePerMonth <= priceRange[1];
+      }
+    })();
 
     return matchesSearch && matchesCategory && matchesCompany && matchesPrice
   })

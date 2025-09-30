@@ -502,7 +502,7 @@ const bookMentorSession = async (req, res) => {
     }
     console.log('Student found:', student._id);
 
-    const { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price } = req.body;
+    const { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price, paymentMethod, paymentConfirmed } = req.body;
     
     // Validate required fields
     if (!mentorId || !date || !startTime || !endTime || !sessionTypeId || !sessionTypeName || !duration || price === undefined) {
@@ -510,8 +510,15 @@ const bookMentorSession = async (req, res) => {
         message: 'All fields are required: mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price' 
       });
     }
+
+    // Validate payment confirmation for paid sessions
+    if (price > 0 && !paymentConfirmed) {
+      return res.status(400).json({ 
+        message: 'Payment confirmation is required for paid sessions' 
+      });
+    }
     
-    console.log('Booking request data:', { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price });
+    console.log('Booking request data:', { mentorId, date, startTime, endTime, sessionTypeId, sessionTypeName, duration, price, paymentMethod, paymentConfirmed });
 
     // Find the mentor to verify they exist
     const mentor = await mentorModel.findById(mentorId);
@@ -572,6 +579,9 @@ const bookMentorSession = async (req, res) => {
       sessionTypeName: sessionTypeName,
       duration: duration,
       price: price,
+      paymentMethod: paymentMethod || (price === 0 ? 'free' : 'credit_card'),
+      paymentConfirmed: paymentConfirmed || (price === 0 ? true : false),
+      paymentDate: paymentConfirmed ? new Date() : undefined,
       status: 'confirmed'
     });
     console.log('Session created:', newSession._id);

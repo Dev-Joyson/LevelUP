@@ -45,6 +45,18 @@ const sessionSchema = new mongoose.Schema({
         type: Number, 
         required: true 
     },
+    paymentMethod: { 
+        type: String, 
+        enum: ['credit_card', 'digital_wallet', 'bank_transfer', 'free'], 
+        default: 'free' 
+    },
+    paymentConfirmed: { 
+        type: Boolean, 
+        default: false 
+    },
+    paymentDate: { 
+        type: Date 
+    },
     status: { 
         type: String, 
         enum: ['confirmed', 'completed', 'cancelled'], 

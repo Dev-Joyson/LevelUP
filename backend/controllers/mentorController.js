@@ -645,24 +645,43 @@ const getAllPublicMentors = async (req, res) => {
     const verifiedMentors = mentors.filter(m => m.userId);
     
     // Map mentors to the format expected by the frontend
-    const mappedMentors = verifiedMentors.map(mentor => ({
-      id: mentor._id,
-      name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
-      title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
-      company: mentor.company || 'LevelUP',
-      image: mentor.profileImage || '/placeholder.svg?height=120&width=120',
-      description: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
-      skills: mentor.skills?.length > 0 ? mentor.skills : mentor.expertise || [],
-      experience: mentor.experience || '3+ years',
-      rating: mentor.rating || 4.8,
-      reviewCount: mentor.reviewCount || 0,
-      pricePerMonth: mentor.pricePerMonth || 3000,
-      category: mentor.expertise || [],
-      isQuickResponder: mentor.isQuickResponder || false,
-      location: mentor.location || 'Remote',
-      languages: mentor.languages || ['English'],
-      about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`
-    }));
+    const mappedMentors = verifiedMentors.map(mentor => {
+      // Calculate price range from active session types
+      const activeSessionTypes = mentor.sessionTypes?.filter(type => type.isActive) || [];
+      let minPrice = 0;
+      let maxPrice = 0;
+      
+      if (activeSessionTypes.length > 0) {
+        const prices = activeSessionTypes.map(type => type.price);
+        minPrice = Math.min(...prices);
+        maxPrice = Math.max(...prices);
+      } else {
+        // Fallback to default session prices if no session types exist
+        minPrice = 0;
+        maxPrice = 2000;
+      }
+
+      return {
+        id: mentor._id,
+        name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
+        title: mentor.title || (mentor.expertise && mentor.expertise.length > 0 ? mentor.expertise[0] + ' Specialist' : 'Mentor'),
+        company: mentor.company || 'LevelUP',
+        image: mentor.profileImage || '/placeholder.svg?height=120&width=120',
+        description: mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+        skills: mentor.skills?.length > 0 ? mentor.skills : mentor.expertise || [],
+        experience: mentor.experience || '3+ years',
+        rating: mentor.rating || 4.8,
+        reviewCount: mentor.reviewCount || 0,
+        pricePerMonth: mentor.pricePerMonth || 3000, // Keep for backward compatibility
+        priceRange: { min: minPrice, max: maxPrice }, // New price range for session pricing
+        category: mentor.expertise || [],
+        isQuickResponder: mentor.isQuickResponder || false,
+        location: mentor.location || 'Remote',
+        languages: mentor.languages || ['English'],
+        about: mentor.about || mentor.bio || `Experienced mentor specializing in ${mentor.expertise?.join(', ') || 'various fields'}.`,
+        sessionTypes: activeSessionTypes // Include session types for more detailed information
+      };
+    });
 
     // Generate dynamic filter options based on the mapped mentor data (after fallbacks applied)
     const filterOptions = generateFilterOptions(mappedMentors);
@@ -705,10 +724,16 @@ const generateFilterOptions = (mentors) => {
       }
     }
 
-    // Track price range
-    const price = mentor.pricePerMonth || 3000;
-    minPrice = Math.min(minPrice, price);
-    maxPrice = Math.max(maxPrice, price);
+    // Track price range based on session pricing
+    if (mentor.priceRange) {
+      minPrice = Math.min(minPrice, mentor.priceRange.min);
+      maxPrice = Math.max(maxPrice, mentor.priceRange.max);
+    } else {
+      // Fallback to monthly pricing for backward compatibility
+      const price = mentor.pricePerMonth || 3000;
+      minPrice = Math.min(minPrice, price);
+      maxPrice = Math.max(maxPrice, price);
+    }
   });
 
   // Convert maps to arrays and sort by count (descending)
@@ -725,16 +750,16 @@ const generateFilterOptions = (mentors) => {
   console.log('Categories:', categories.length, categories.map(c => c.name));
   console.log('Companies:', companies.length, companies.map(c => c.name));
 
-  // Ensure we have reasonable price bounds
+  // Ensure we have reasonable price bounds for session pricing
   if (minPrice === Infinity) minPrice = 0;
-  if (maxPrice === 0) maxPrice = 15000;
+  if (maxPrice === 0) maxPrice = 5000; // Adjusted for session pricing
 
   return {
     categories,
     companies,
     priceRange: {
       min: 0, // Always start from 0
-      max: 10000 // Fixed max range for consistent UI
+      max: 5000 // Adjusted max range for session pricing
     }
   };
 };
@@ -757,6 +782,20 @@ const getMentorById = async (req, res) => {
     }
     
       // Map mentor to the format expected by the frontend
+  const activeSessionTypes = mentor.sessionTypes?.filter(type => type.isActive) || [];
+  let minPrice = 0;
+  let maxPrice = 0;
+  
+  if (activeSessionTypes.length > 0) {
+    const prices = activeSessionTypes.map(type => type.price);
+    minPrice = Math.min(...prices);
+    maxPrice = Math.max(...prices);
+  } else {
+    // Fallback to default session prices if no session types exist
+    minPrice = 0;
+    maxPrice = 2000;
+  }
+
   const mappedMentor = {
     id: mentor._id,
     name: `${mentor.firstname || ''} ${mentor.lastname || ''}`.trim() || 'Mentor',
@@ -768,7 +807,8 @@ const getMentorById = async (req, res) => {
     experience: mentor.experience || '3+ years',
     rating: mentor.rating || 4.8,
     reviewCount: mentor.reviewCount || 0,
-    pricePerMonth: mentor.pricePerMonth || 3000,
+    pricePerMonth: mentor.pricePerMonth || 3000, // Keep for backward compatibility
+    priceRange: { min: minPrice, max: maxPrice }, // New price range for session pricing
     category: mentor.expertise || [],
     isQuickResponder: mentor.isQuickResponder || false,
     location: mentor.location || 'Remote',
@@ -789,7 +829,7 @@ const getMentorById = async (req, res) => {
     certifications: mentor.certifications || [],
     
     // Include active session types
-    sessionTypes: mentor.sessionTypes?.filter(type => type.isActive) || []
+    sessionTypes: activeSessionTypes
   };
 
     res.status(200).json({
