@@ -242,7 +242,10 @@ export function InternshipSidebar() {
                         <p className="text-sm text-gray-500 mt-1">{job.location}</p>
                         
                         <p className="text-xs text-gray-500 mt-1">
-                          {job.salary.display || `LKR ${job.salary.min.toLocaleString()} - LKR ${job.salary.max.toLocaleString()}`}
+                          {job.salary.display 
+                            ? (job.salary.display.startsWith('LKR') ? job.salary.display : `LKR ${job.salary.display}`)
+                            : `LKR ${job.salary.min.toLocaleString()} - LKR ${job.salary.max.toLocaleString()}`
+                          }
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
                           Posted {new Date(job.createdAt).toLocaleDateString()}

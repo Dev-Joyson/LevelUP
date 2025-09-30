@@ -111,9 +111,12 @@ export default async function InternshipDetailPage({
         </div>
         
         <div className="flex items-center gap-1">
-          <DollarSign className="h-4 w-4" />
+          
           <span className="text-sm">
-            {job.salary.display || `LKR ${job.salary.min} - ${job.salary.max}`}
+            {job.salary.display 
+              ? (job.salary.display.startsWith('LKR') ? job.salary.display : `LKR ${job.salary.display}`)
+              : `LKR ${job.salary.min.toLocaleString()} - LKR ${job.salary.max.toLocaleString()}`
+            }
           </span>
         </div>
         
