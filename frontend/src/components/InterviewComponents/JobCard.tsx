@@ -25,14 +25,14 @@ export default function JobCard({ job, isSaved, isActive, onToggleSave }: JobCar
         <div className="flex gap-3">
           <div className="flex-shrink-0 w-6 h-6">
             <img
-              src={job.company?.logo || job.companyId?.logo || "/placeholder.svg"}
-              alt={job.company?.name || job.companyId?.name || "Company"}
+              src={job.company?.logo || job.companyId?.logoUrl || "/placeholder.svg"}
+              alt={job.company?.name || job.companyId?.companyName || "Company"}
               className="w-full h-full object-contain"
             />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-medium">{job.company?.name || job.companyId?.name || "Unknown Company"}</span>
+              <span className="font-medium">{job.company?.name || job.companyId?.companyName || "Unknown Company"}</span>
               <span className="text-sm text-muted-foreground">★</span>
             </div>
             <h3 className="font-semibold mt-1">{job.title}</h3>
